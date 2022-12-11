@@ -10,7 +10,9 @@
 
 #include <nginx.h>
 #include <ngx_core.h>
+#if 0
 #include <ngx_http.h>
+#endif
 
 #include <lua.h>
 #include <stdint.h>
@@ -33,7 +35,7 @@ typedef struct {
 
 } ngx_http_lua_value_t;
 
-
+#if 0
 typedef struct {
     int          len;
     /* this padding hole on 64-bit systems is expected */
@@ -55,6 +57,7 @@ ngx_shm_zone_t *ngx_http_lua_find_zone(u_char *name_data, size_t name_len);
 
 ngx_shm_zone_t *ngx_http_lua_shared_memory_add(ngx_conf_t *cf, ngx_str_t *name,
     size_t size, void *tag);
+#endif
 
 
 #endif /* _NGX_HTTP_LUA_API_H_INCLUDED_ */

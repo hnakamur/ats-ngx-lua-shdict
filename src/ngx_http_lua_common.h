@@ -169,9 +169,11 @@ typedef struct ngx_http_lua_co_ctx_s  ngx_http_lua_co_ctx_t;
 typedef struct ngx_http_lua_sema_mm_s  ngx_http_lua_sema_mm_t;
 
 typedef union ngx_http_lua_srv_conf_u  ngx_http_lua_srv_conf_t;
+#endif
 
 typedef struct ngx_http_lua_main_conf_s  ngx_http_lua_main_conf_t;
 
+#if 0
 typedef struct ngx_http_lua_header_val_s  ngx_http_lua_header_val_t;
 
 typedef struct ngx_http_lua_posted_thread_s  ngx_http_lua_posted_thread_t;
@@ -200,9 +202,11 @@ typedef struct {
     lua_State      *co;
     ngx_queue_t     queue;
 } ngx_http_lua_thread_ref_t;
+#endif
 
 
 struct ngx_http_lua_main_conf_s {
+#if 0
     lua_State           *lua;
     ngx_pool_cleanup_t  *vm_cleanup;
 
@@ -232,11 +236,13 @@ struct ngx_http_lua_main_conf_s {
     pcre_jit_stack      *jit_stack;
 #   endif
 #endif
+#endif
 
     ngx_array_t         *shm_zones;  /* of ngx_shm_zone_t* */
 
     ngx_array_t         *shdict_zones; /* shm zones of "shdict" */
 
+#if 0
     ngx_array_t         *preload_hooks; /* of ngx_http_lua_preload_hook_t */
 
     ngx_flag_t           postponed_to_rewrite_phase_end;
@@ -316,9 +322,11 @@ struct ngx_http_lua_main_conf_s {
     unsigned             requires_shm:1;
     unsigned             requires_capture_log:1;
     unsigned             requires_server_rewrite:1;
+#endif
 };
 
 
+#if 0
 union ngx_http_lua_srv_conf_u {
     struct {
 #if (NGX_HTTP_SSL)
