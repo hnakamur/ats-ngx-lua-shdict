@@ -910,6 +910,7 @@ if dict then
     if mt then
         mt = mt.__index
         if mt then
+            print("override shared dict methods in metatable")
             mt.get = shdict_get
             mt.get_stale = shdict_get_stale
             mt.incr = shdict_incr

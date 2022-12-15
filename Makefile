@@ -45,6 +45,7 @@ ALL_INCS = $(CORE_INCS) \
 
 OBJS = objs/src/ngx_http_lua_shdict.o \
        objs/src/core/ngx_array.o \
+       objs/src/core/ngx_crc32.o \
        objs/src/core/ngx_list.o \
        objs/src/core/ngx_palloc.o \
        objs/src/core/ngx_queue.o \
@@ -55,7 +56,17 @@ OBJS = objs/src/ngx_http_lua_shdict.o \
        objs/src/core/ngx_string.o \
        objs/src/os/unix/ngx_time.o \
        objs/src/os/unix/ngx_errno.o \
-       objs/src/os/unix/ngx_alloc.o
+       objs/src/os/unix/ngx_alloc.o \
+       objs/src/os/unix/ngx_stubs.o \
+       objs/src/os/unix/ngx_global_vars.o
+
+all: objs/libats_ngx_http_lua_shdict.so objs/ats_ngx_http_lua_shdict.so
+
+objs/libats_ngx_http_lua_shdict.so: $(OBJS)
+	$(LINK) -o objs/libats_ngx_http_lua_shdict.so \
+	$(OBJS) \
+	-L/usr/lib/x86_64-linux-gnu \
+	-shared
 
 
 objs/ats_ngx_http_lua_shdict.so: $(OBJS)
@@ -77,6 +88,13 @@ objs/src/core/ngx_array.o:	$(CORE_DEPS) \
 	$(CC) -c $(CFLAGS) $(CORE_INCS) \
 		-o objs/src/core/ngx_array.o \
 		src/core/ngx_array.c
+
+
+objs/src/core/ngx_crc32.o:	$(CORE_DEPS) \
+	src/core/ngx_crc32.c
+	$(CC) -c $(CFLAGS) $(CORE_INCS) \
+		-o objs/src/core/ngx_crc32.o \
+		src/core/ngx_crc32.c
 
 
 objs/src/core/ngx_list.o:	$(CORE_DEPS) \
@@ -161,6 +179,21 @@ objs/src/os/unix/ngx_shmem.o:	$(CORE_DEPS) \
 	$(CC) -c $(CFLAGS) $(CORE_INCS) \
 		-o objs/src/os/unix/ngx_shmem.o \
 		src/os/unix/ngx_shmem.c
+
+
+objs/src/os/unix/ngx_stubs.o:	$(CORE_DEPS) \
+	src/os/unix/ngx_stubs.c
+	$(CC) -c $(CFLAGS) $(CORE_INCS) \
+		-o objs/src/os/unix/ngx_stubs.o \
+		src/os/unix/ngx_stubs.c
+
+
+objs/src/os/unix/ngx_global_vars.o:	$(CORE_DEPS) \
+	src/os/unix/ngx_global_vars.c
+	$(CC) -c $(CFLAGS) $(CORE_INCS) \
+		-o objs/src/os/unix/ngx_global_vars.o \
+		src/os/unix/ngx_global_vars.c
+
 
 clean:
 	@rm -f $(OBJS)
