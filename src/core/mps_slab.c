@@ -112,7 +112,7 @@ mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
     ngx_uint_t        i, n, pages;
     mps_slab_page_t  *slots, *page;
 
-    pool->end = addr + pool_size;
+    pool->end = pool_size;
     pool->min_shift = 3;
     pool->addr = addr;
 
@@ -121,7 +121,7 @@ mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
     slots = mps_slab_slots(pool);
 
     p = (u_char *) slots;
-    size = pool->end - p;
+    size = mps_pool_end_ptr(pool) - p;
 
     mps_slab_junk(p, size);
 
@@ -162,7 +162,7 @@ mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
     pool->start = ngx_align_ptr(p + pages * sizeof(mps_slab_page_t),
                                 mps_pagesize);
 
-    m = pages - (pool->end - pool->start) / mps_pagesize;
+    m = pages - (mps_pool_end_ptr(pool) - pool->start) / mps_pagesize;
     if (m > 0) {
         pages -= m;
         page->slab = pages;
@@ -485,7 +485,7 @@ mps_slab_free_locked(mps_slab_pool_t *pool, void *p)
 
     ngx_log_debug1(NGX_LOG_DEBUG_ALLOC, ngx_cycle->log, 0, "slab free: %p", p);
 
-    if ((u_char *) p < pool->start || (u_char *) p > pool->end) {
+    if ((u_char *) p < pool->start || (u_char *) p > mps_pool_end_ptr(pool)) {
         mps_slab_error(pool, NGX_LOG_ALERT, "mps_slab_free(): outside of pool");
         goto fail;
     }
