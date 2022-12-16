@@ -168,7 +168,7 @@ mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
         page->slab = pages;
     }
 
-    pool->last = pool->pages + pages;
+    pool->last = (u_char *)pool->pages + pages - addr;
     pool->pfree = pages;
 
     pool->log_nomem = 1;
@@ -770,7 +770,7 @@ mps_slab_free_pages(mps_slab_pool_t *pool, mps_slab_page_t *page,
 
     join = page + page->slab;
 
-    if (join < pool->last) {
+    if (join < mps_pool_last_ptr(pool)) {
 
         if (mps_slab_page_type(join) == MPS_SLAB_PAGE) {
 

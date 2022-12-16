@@ -40,7 +40,7 @@ typedef struct {
     size_t            min_shift;
 
     mps_slab_page_t  *pages;
-    mps_slab_page_t  *last;
+    mps_ptroff_t      last;
     mps_slab_page_t   free;
 
     mps_ptroff_t      stats;
@@ -60,6 +60,7 @@ typedef struct {
     void             *addr;
 } mps_slab_pool_t;
 
+#define mps_pool_last_ptr(pool) ((mps_slab_page_t *)((u_char *)(pool) + (pool)->last))
 #define mps_pool_stats_ptr(pool) ((mps_slab_stat_t *)((u_char *)(pool) + (pool)->stats))
 #define mps_pool_start_ptr(pool) ((u_char *)(pool) + (pool)->start)
 #define mps_pool_end_ptr(pool) ((u_char *)(pool) + (pool)->end)
