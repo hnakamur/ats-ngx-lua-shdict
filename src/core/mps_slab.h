@@ -19,10 +19,15 @@ typedef struct mps_slab_page_s  mps_slab_page_t;
 
 struct mps_slab_page_s {
     uintptr_t         slab;
-    mps_slab_page_t  *next;
+    mps_ptroff_t      next;
     uintptr_t         prev;
 };
 
+#define mps_page_next_ptr(pool, page)                                         \
+     (mps_slab_page_t *) ((page)->next ? ((u_char *)(pool) + (page)->next)    \
+                                       : NULL)
+#define mps_page_set_next_ptr(pool, page, p)                                  \
+     ((page)->next = (p) ? (u_char *)(p) - (u_char *)(pool) : 0)
 
 typedef struct {
     ngx_uint_t        total;

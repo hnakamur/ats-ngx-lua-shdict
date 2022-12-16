@@ -130,7 +130,7 @@ mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
     for (i = 0; i < n; i++) {
         /* only "next" is used in list head */
         slots[i].slab = 0;
-        slots[i].next = &slots[i];
+        mps_page_set_next_ptr(pool, &slots[i], &slots[i]);
         slots[i].prev = 0;
     }
 
@@ -152,11 +152,11 @@ mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
 
     /* only "next" is used in list head */
     pool->free.slab = 0;
-    pool->free.next = page;
+    mps_page_set_next_ptr(pool, &pool->free, page);
     pool->free.prev = 0;
 
     page->slab = pages;
-    page->next = &pool->free;
+    mps_page_set_next_ptr(pool, page, &pool->free);
     page->prev = (uintptr_t) &pool->free;
 
     pool->start = ngx_align_ptr(p + pages * sizeof(mps_slab_page_t),
@@ -198,7 +198,7 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
     size_t            s;
     uintptr_t         p, m, mask, *bitmap;
     ngx_uint_t        i, n, slot, shift, map;
-    mps_slab_page_t  *page, *prev, *slots;
+    mps_slab_page_t  *page, *prev, *next, *slots;
 
     printf("mps_slab_alloc_locked start, pool=%p, size=%lu, mps_slab_max_size=%lu\n", pool, size, mps_slab_max_size);
     if (size > mps_slab_max_size) {
@@ -237,9 +237,9 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
                    "slab alloc: %uz slot: %ui", size, slot);
 
     slots = mps_slab_slots(pool);
-    page = slots[slot].next;
+    page = mps_page_next_ptr(pool, &slots[slot]);
 
-    if (page->next != page) {
+    if (mps_page_next_ptr(pool, page) != page) {
 
         if (shift < mps_slab_exact_shift) {
 
@@ -272,10 +272,11 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
                             }
 
                             prev = mps_slab_page_prev(page);
-                            prev->next = page->next;
-                            page->next->prev = page->prev;
+                            next = mps_page_next_ptr(pool, page);
+                            mps_page_set_next_ptr(pool, prev, next);
+                            next->prev = page->prev;
 
-                            page->next = NULL;
+                            mps_page_set_next_ptr(pool, page, NULL);
                             page->prev = MPS_SLAB_SMALL;
                         }
 
@@ -295,10 +296,11 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
 
                 if (page->slab == MPS_SLAB_BUSY) {
                     prev = mps_slab_page_prev(page);
-                    prev->next = page->next;
-                    page->next->prev = page->prev;
+                    next = mps_page_next_ptr(pool, page);
+                    mps_page_set_next_ptr(pool, prev, next);
+                    next->prev = page->prev;
 
-                    page->next = NULL;
+                    mps_page_set_next_ptr(pool, page, NULL);
                     page->prev = MPS_SLAB_EXACT;
                 }
 
@@ -326,10 +328,11 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
 
                 if ((page->slab & MPS_SLAB_MAP_MASK) == mask) {
                     prev = mps_slab_page_prev(page);
-                    prev->next = page->next;
-                    page->next->prev = page->prev;
+                    next = mps_page_next_ptr(pool, page);
+                    mps_page_set_next_ptr(pool, prev, next);
+                    next->prev = page->prev;
 
-                    page->next = NULL;
+                    mps_page_set_next_ptr(pool, page, NULL);
                     page->prev = MPS_SLAB_BIG;
                 }
 
@@ -374,10 +377,10 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
             }
 
             page->slab = shift;
-            page->next = &slots[slot];
+            mps_page_set_next_ptr(pool, page, &slots[slot]);
             page->prev = (uintptr_t) &slots[slot] | MPS_SLAB_SMALL;
 
-            slots[slot].next = page;
+            mps_page_set_next_ptr(pool, &slots[slot], page);
 
             mps_pool_stats_ptr(pool)[slot].total += (mps_pagesize >> shift) - n;
 
@@ -390,10 +393,10 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
         } else if (shift == mps_slab_exact_shift) {
 
             page->slab = 1;
-            page->next = &slots[slot];
+            mps_page_set_next_ptr(pool, page, &slots[slot]);
             page->prev = (uintptr_t) &slots[slot] | MPS_SLAB_EXACT;
 
-            slots[slot].next = page;
+            mps_page_set_next_ptr(pool, &slots[slot], page);
 
             mps_pool_stats_ptr(pool)[slot].total += 8 * sizeof(uintptr_t);
 
@@ -406,10 +409,10 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
         } else { /* shift > mps_slab_exact_shift */
 
             page->slab = ((uintptr_t) 1 << MPS_SLAB_MAP_SHIFT) | shift;
-            page->next = &slots[slot];
+            mps_page_set_next_ptr(pool, page, &slots[slot]);
             page->prev = (uintptr_t) &slots[slot] | MPS_SLAB_BIG;
 
-            slots[slot].next = page;
+            mps_page_set_next_ptr(pool, &slots[slot], page);
 
             mps_pool_stats_ptr(pool)[slot].total += mps_pagesize >> shift;
 
@@ -481,7 +484,7 @@ mps_slab_free_locked(mps_slab_pool_t *pool, void *p)
     size_t            size;
     uintptr_t         slab, m, *bitmap;
     ngx_uint_t        i, n, type, slot, shift, map;
-    mps_slab_page_t  *slots, *page;
+    mps_slab_page_t  *slots, *page, *next;
 
     ngx_log_debug1(NGX_LOG_DEBUG_ALLOC, ngx_cycle->log, 0, "slab free: %p", p);
 
@@ -515,14 +518,15 @@ mps_slab_free_locked(mps_slab_pool_t *pool, void *p)
         if (bitmap[n] & m) {
             slot = shift - pool->min_shift;
 
-            if (page->next == NULL) {
+            if (mps_page_next_ptr(pool, page) == NULL) {
                 slots = mps_slab_slots(pool);
 
-                page->next = slots[slot].next;
-                slots[slot].next = page;
+                next = mps_page_next_ptr(pool, &slots[slot]);
+                mps_page_set_next_ptr(pool, page, next);
+                mps_page_set_next_ptr(pool, &slots[slot], page);
 
                 page->prev = (uintptr_t) &slots[slot] | MPS_SLAB_SMALL;
-                page->next->prev = (uintptr_t) page | MPS_SLAB_SMALL;
+                next->prev = (uintptr_t) page | MPS_SLAB_SMALL;
             }
 
             bitmap[n] &= ~m;
@@ -573,11 +577,12 @@ mps_slab_free_locked(mps_slab_pool_t *pool, void *p)
             if (slab == MPS_SLAB_BUSY) {
                 slots = mps_slab_slots(pool);
 
-                page->next = slots[slot].next;
-                slots[slot].next = page;
+                next = mps_page_next_ptr(pool, &slots[slot]);
+                mps_page_set_next_ptr(pool, page, next);
+                mps_page_set_next_ptr(pool, &slots[slot], page);
 
                 page->prev = (uintptr_t) &slots[slot] | MPS_SLAB_EXACT;
-                page->next->prev = (uintptr_t) page | MPS_SLAB_EXACT;
+                next->prev = (uintptr_t) page | MPS_SLAB_EXACT;
             }
 
             page->slab &= ~m;
@@ -610,14 +615,15 @@ mps_slab_free_locked(mps_slab_pool_t *pool, void *p)
         if (slab & m) {
             slot = shift - pool->min_shift;
 
-            if (page->next == NULL) {
+            if (mps_page_next_ptr(pool, page) == NULL) {
                 slots = mps_slab_slots(pool);
 
-                page->next = slots[slot].next;
-                slots[slot].next = page;
+                next = mps_page_next_ptr(pool, &slots[slot]);
+                mps_page_set_next_ptr(pool, page, next);
+                mps_page_set_next_ptr(pool, &slots[slot], page);
 
                 page->prev = (uintptr_t) &slots[slot] | MPS_SLAB_BIG;
-                page->next->prev = (uintptr_t) page | MPS_SLAB_BIG;
+                next->prev = (uintptr_t) page | MPS_SLAB_BIG;
             }
 
             page->slab &= ~m;
@@ -695,31 +701,34 @@ fail:
 static mps_slab_page_t *
 mps_slab_alloc_pages(mps_slab_pool_t *pool, ngx_uint_t pages)
 {
-    mps_slab_page_t  *page, *p;
+    mps_slab_page_t  *page, *p, *next;
 
-    for (page = pool->free.next; page != &pool->free; page = page->next) {
-
+    for (page = mps_page_next_ptr(pool, &pool->free); page != &pool->free;
+         page = mps_page_next_ptr(pool, page))
+    {
         if (page->slab >= pages) {
 
             if (page->slab > pages) {
                 page[page->slab - 1].prev = (uintptr_t) &page[pages];
 
                 page[pages].slab = page->slab - pages;
-                page[pages].next = page->next;
+                next = mps_page_next_ptr(pool, page);
+                mps_page_set_next_ptr(pool, &page[pages], next);
                 page[pages].prev = page->prev;
 
                 p = (mps_slab_page_t *) page->prev;
-                p->next = &page[pages];
-                page->next->prev = (uintptr_t) &page[pages];
+                mps_page_set_next_ptr(pool, p, &page[pages]);
+                next->prev = (uintptr_t) &page[pages];
 
             } else {
                 p = (mps_slab_page_t *) page->prev;
-                p->next = page->next;
-                page->next->prev = page->prev;
+                next = mps_page_next_ptr(pool, page);
+                mps_page_set_next_ptr(pool, p, next);
+                next->prev = page->prev;
             }
 
             page->slab = pages | MPS_SLAB_PAGE_START;
-            page->next = NULL;
+            mps_page_set_next_ptr(pool, page, NULL);
             page->prev = MPS_SLAB_PAGE;
 
             pool->pfree -= pages;
@@ -730,7 +739,7 @@ mps_slab_alloc_pages(mps_slab_pool_t *pool, ngx_uint_t pages)
 
             for (p = page + 1; pages; pages--) {
                 p->slab = MPS_SLAB_PAGE_BUSY;
-                p->next = NULL;
+                mps_page_set_next_ptr(pool, p, NULL);
                 p->prev = MPS_SLAB_PAGE;
                 p++;
             }
@@ -752,7 +761,7 @@ static void
 mps_slab_free_pages(mps_slab_pool_t *pool, mps_slab_page_t *page,
     ngx_uint_t pages)
 {
-    mps_slab_page_t  *prev, *join;
+    mps_slab_page_t  *prev, *join, *next;
 
     pool->pfree += pages;
 
@@ -762,10 +771,11 @@ mps_slab_free_pages(mps_slab_pool_t *pool, mps_slab_page_t *page,
         ngx_memzero(&page[1], pages * sizeof(mps_slab_page_t));
     }
 
-    if (page->next) {
+    if (mps_page_next_ptr(pool, page)) {
         prev = mps_slab_page_prev(page);
-        prev->next = page->next;
-        page->next->prev = page->prev;
+        next = mps_page_next_ptr(pool, page);
+        mps_page_set_next_ptr(pool, prev, next);
+        next->prev = page->prev;
     }
 
     join = page + page->slab;
@@ -774,16 +784,17 @@ mps_slab_free_pages(mps_slab_pool_t *pool, mps_slab_page_t *page,
 
         if (mps_slab_page_type(join) == MPS_SLAB_PAGE) {
 
-            if (join->next != NULL) {
+            if (mps_page_next_ptr(pool, join) != NULL) {
                 pages += join->slab;
                 page->slab += join->slab;
 
                 prev = mps_slab_page_prev(join);
-                prev->next = join->next;
-                join->next->prev = join->prev;
+                next = mps_page_next_ptr(pool, join);
+                mps_page_set_next_ptr(pool, prev, next);
+                next->prev = join->prev;
 
                 join->slab = MPS_SLAB_PAGE_FREE;
-                join->next = NULL;
+                mps_page_set_next_ptr(pool, join, NULL);
                 join->prev = MPS_SLAB_PAGE;
             }
         }
@@ -798,16 +809,17 @@ mps_slab_free_pages(mps_slab_pool_t *pool, mps_slab_page_t *page,
                 join = mps_slab_page_prev(join);
             }
 
-            if (join->next != NULL) {
+            if (mps_page_next_ptr(pool, join) != NULL) {
                 pages += join->slab;
                 join->slab += page->slab;
 
                 prev = mps_slab_page_prev(join);
-                prev->next = join->next;
-                join->next->prev = join->prev;
+                next = mps_page_next_ptr(pool, join);
+                mps_page_set_next_ptr(pool, prev, next);
+                next->prev = join->prev;
 
                 page->slab = MPS_SLAB_PAGE_FREE;
-                page->next = NULL;
+                mps_page_set_next_ptr(pool, page, NULL);
                 page->prev = MPS_SLAB_PAGE;
 
                 page = join;
@@ -820,11 +832,12 @@ mps_slab_free_pages(mps_slab_pool_t *pool, mps_slab_page_t *page,
     }
 
     page->prev = (uintptr_t) &pool->free;
-    page->next = pool->free.next;
+    next = mps_page_next_ptr(pool, &pool->free);
+    mps_page_set_next_ptr(pool, page, next);
 
-    page->next->prev = (uintptr_t) page;
+    next->prev = (uintptr_t) page;
 
-    pool->free.next = page;
+    mps_page_set_next_ptr(pool, &pool->free, page);
 }
 
 
