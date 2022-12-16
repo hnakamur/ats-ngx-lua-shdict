@@ -43,7 +43,7 @@ typedef struct {
     mps_slab_page_t  *last;
     mps_slab_page_t   free;
 
-    mps_slab_stat_t  *stats;
+    mps_ptroff_t      stats;
     ngx_uint_t        pfree;
 
     mps_ptroff_t      start;
@@ -60,6 +60,7 @@ typedef struct {
     void             *addr;
 } mps_slab_pool_t;
 
+#define mps_pool_stats_ptr(pool) ((mps_slab_stat_t *)((u_char *)(pool) + (pool)->stats))
 #define mps_pool_start_ptr(pool) ((u_char *)(pool) + (pool)->start)
 #define mps_pool_end_ptr(pool) ((u_char *)(pool) + (pool)->end)
 
