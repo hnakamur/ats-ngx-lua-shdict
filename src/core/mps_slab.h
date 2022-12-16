@@ -13,7 +13,7 @@
 #include <ngx_core.h>
 
 
-typedef uintptr_t ptroff_t;
+typedef uintptr_t mps_ptroff_t;
 
 typedef struct mps_slab_page_s  mps_slab_page_t;
 
@@ -46,8 +46,8 @@ typedef struct {
     mps_slab_stat_t  *stats;
     ngx_uint_t        pfree;
 
-    u_char           *start;
-    ptroff_t          end;
+    mps_ptroff_t      start;
+    mps_ptroff_t      end;
 
     ngx_shmtx_t       mutex;
 
@@ -60,6 +60,7 @@ typedef struct {
     void             *addr;
 } mps_slab_pool_t;
 
+#define mps_pool_start_ptr(pool) ((u_char *)(pool) + (pool)->start)
 #define mps_pool_end_ptr(pool) ((u_char *)(pool) + (pool)->end)
 
 void mps_slab_sizes_init(ngx_uint_t pagesize);

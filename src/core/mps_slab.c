@@ -52,7 +52,7 @@
 
 #define mps_slab_page_addr(pool, page)                                        \
     ((((page) - (pool)->pages) << mps_pagesize_shift)                         \
-     + (uintptr_t) (pool)->start)
+     + (uintptr_t) mps_pool_start_ptr(pool))
 
 
 #if (NGX_DEBUG_MALLOC)
@@ -160,9 +160,9 @@ mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
     page->prev = (uintptr_t) &pool->free;
 
     pool->start = ngx_align_ptr(p + pages * sizeof(mps_slab_page_t),
-                                mps_pagesize);
+                                mps_pagesize) - addr;
 
-    m = pages - (mps_pool_end_ptr(pool) - pool->start) / mps_pagesize;
+    m = pages - (mps_pool_end_ptr(pool) - mps_pool_start_ptr(pool)) / mps_pagesize;
     if (m > 0) {
         pages -= m;
         page->slab = pages;
@@ -485,12 +485,12 @@ mps_slab_free_locked(mps_slab_pool_t *pool, void *p)
 
     ngx_log_debug1(NGX_LOG_DEBUG_ALLOC, ngx_cycle->log, 0, "slab free: %p", p);
 
-    if ((u_char *) p < pool->start || (u_char *) p > mps_pool_end_ptr(pool)) {
+    if ((u_char *) p < mps_pool_start_ptr(pool) || (u_char *) p > mps_pool_end_ptr(pool)) {
         mps_slab_error(pool, NGX_LOG_ALERT, "mps_slab_free(): outside of pool");
         goto fail;
     }
 
-    n = ((u_char *) p - pool->start) >> mps_pagesize_shift;
+    n = ((u_char *) p - mps_pool_start_ptr(pool)) >> mps_pagesize_shift;
     page = &pool->pages[n];
     slab = page->slab;
     type = mps_slab_page_type(page);
