@@ -94,7 +94,6 @@ ngx_slab_sizes_init(void)
     }
 }
 
-
 void
 ngx_slab_init(ngx_slab_pool_t *pool)
 {
@@ -188,6 +187,7 @@ ngx_slab_alloc_locked(ngx_slab_pool_t *pool, size_t size)
     ngx_uint_t        i, n, slot, shift, map;
     ngx_slab_page_t  *page, *prev, *slots;
 
+    printf("ngx_slab_alloc_locked start, pool=%p, size=%lu, ngx_slab_max_size=%lu\n", pool, size, ngx_slab_max_size);
     if (size > ngx_slab_max_size) {
 
         ngx_log_debug1(NGX_LOG_DEBUG_ALLOC, ngx_cycle->log, 0,
@@ -205,6 +205,7 @@ ngx_slab_alloc_locked(ngx_slab_pool_t *pool, size_t size)
         goto done;
     }
 
+    printf("ngx_slab_alloc_locked pool->min_size=%lu, min_shift=%lu\n", pool->min_size, pool->min_shift);
     if (size > pool->min_size) {
         shift = 1;
         for (s = size - 1; s >>= 1; shift++) { /* void */ }
@@ -215,7 +216,9 @@ ngx_slab_alloc_locked(ngx_slab_pool_t *pool, size_t size)
         slot = 0;
     }
 
+    printf("ngx_slab_alloc_locked slot=%lu, shift=%lu, stats=%p\n", slot, shift, pool->stats);
     pool->stats[slot].reqs++;
+    printf("ngx_slab_alloc_locked slot=%lu, reqs=%lu\n", slot, pool->stats[slot].reqs);
 
     ngx_log_debug2(NGX_LOG_DEBUG_ALLOC, ngx_cycle->log, 0,
                    "slab alloc: %uz slot: %ui", size, slot);
@@ -330,6 +333,7 @@ ngx_slab_alloc_locked(ngx_slab_pool_t *pool, size_t size)
     }
 
     page = ngx_slab_alloc_pages(pool, 1);
+    printf("ngx_slab_alloc_locked after ngx_slab_alloc_pages, page=%p\n", (void *) page);
 
     if (page) {
         if (shift < ngx_slab_exact_shift) {
@@ -409,6 +413,7 @@ ngx_slab_alloc_locked(ngx_slab_pool_t *pool, size_t size)
     pool->stats[slot].fails++;
 
 done:
+    printf("ngx_slab_alloc_locked done, alloc=%p\n", (void *) p);
 
     ngx_log_debug1(NGX_LOG_DEBUG_ALLOC, ngx_cycle->log, 0,
                    "slab alloc: %p", (void *) p);

@@ -25,6 +25,7 @@ ffi.cdef[[
 ]]
 
 local ngx_lua_ffi_shdict_get = shdict.ngx_http_lua_ffi_shdict_get
+print(string.format("ngx_lua_ffi_shdict_get=%s", ngx_lua_ffi_shdict_get))
 
 -- function(zone, key, key_len, value_type,
 --     str_value_buf, value_len,

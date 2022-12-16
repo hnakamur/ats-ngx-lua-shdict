@@ -78,6 +78,14 @@ struct ngx_log_s {
 
 /*********************************/
 
+#if 1
+
+#define ngx_log_error(level, log, ...)
+
+#define ngx_log_debug(level, log, ...)
+
+#else
+
 #if (NGX_HAVE_C99_VARIADIC_MACROS)
 
 #define NGX_HAVE_VARIADIC_MACROS  1
@@ -124,6 +132,7 @@ void ngx_cdecl ngx_log_debug_core(ngx_log_t *log, ngx_err_t err,
 
 #endif /* variadic macros */
 
+#endif
 
 /*********************************/
 

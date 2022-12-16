@@ -57,8 +57,24 @@ OBJS = objs/src/ngx_http_lua_shdict.o \
        objs/src/os/unix/ngx_time.o \
        objs/src/os/unix/ngx_errno.o \
        objs/src/os/unix/ngx_alloc.o \
+       objs/src/os/unix/ngx_shmem.o \
        objs/src/os/unix/ngx_stubs.o \
        objs/src/os/unix/ngx_global_vars.o
+
+MPS_OBJS = objs/src/core/mps_slab.o
+
+objs/libmps_slab.so: $(MPS_OBJS)
+	$(LINK) -o objs/libmps_slab.so \
+	$(MPS_OBJS) \
+	-L/usr/lib/x86_64-linux-gnu \
+	-shared
+
+objs/src/core/mps_slab.o:	$(CORE_DEPS) \
+	src/core/mps_slab.c
+	$(CC) -c $(CFLAGS) $(CORE_INCS) \
+		-o objs/src/core/mps_slab.o \
+		src/core/mps_slab.c
+
 
 all: objs/libats_ngx_http_lua_shdict.so objs/ats_ngx_http_lua_shdict.so
 

@@ -17,26 +17,31 @@ ngx_shm_alloc(ngx_shm_t *shm)
 {
     u_char name[NAME_MAX];
 
+    printf("ngx_shm_alloc start, shm->name.data=%.*s, shm->name.len=%lu\n", (int) shm->name.len, shm->name.data, shm->name.len);
     name[0] = '/';
     ngx_cpystrn(name + 1, shm->name.data, shm->name.len + 1);
 
     /* no O_CREAT here since shm is created with nginx. */
     shm->fd = shm_open((const char *) name, O_RDWR, S_IRUSR|S_IWUSR);
+    printf("ngx_shm_alloc shm_open, fd=%d\n", shm->fd);
     if (shm->fd == -1) {
         ngx_log_error(NGX_LOG_ALERT, shm->log, ngx_errno,
                       "shm_open(%s, O_RDWR, S_IRUSR|S_IWUSR) failed", name);
         return NGX_ERROR;
     }
 
+    printf("ngx_shm_alloc before ftruncate, shm->size=%lu\n", shm->size);
     if (ftruncate(shm->fd, shm->size) == -1) {
         ngx_log_error(NGX_LOG_ALERT, shm->log, ngx_errno,
                       "ftruncate(%d, %uz) failed", shm->fd, shm->size);
         return NGX_ERROR;
     }
+    printf("ngx_shm_alloc after ftruncate, shm->size=%lu\n", shm->size);
 
     shm->addr = (u_char *) mmap(NULL, shm->size,
                                 PROT_READ|PROT_WRITE,
                                 MAP_SHARED, shm->fd, 0);
+    printf("ngx_shm_alloc after mmap, shm->addr=%p\n", shm->addr);
 
     if (shm->addr == MAP_FAILED) {
         ngx_log_error(NGX_LOG_ALERT, shm->log, ngx_errno,
