@@ -51,6 +51,6 @@ void *
 mps_luadict_open_or_create(const char *shm_name, size_t shm_size);
 
 #define mps_luadict(pool)                                                     \
-    ((mps_luadict_t *) mps_slab_to_ptr((pool), ((pool)->data)))
+    ((mps_luadict_t *) mps_ptr((pool), ((pool)->data)))
 
 #endif /* _MPS_LUA_SHDICT_H_INCLUDED_ */

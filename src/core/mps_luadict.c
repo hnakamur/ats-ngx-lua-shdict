@@ -1,5 +1,4 @@
 #include "mps_luadict.h"
-#include <assert.h>
 
 static void
 mps_luadict_rbtree_insert(mps_slab_pool_t *pool,
@@ -19,20 +18,11 @@ mps_luadict_on_init(mps_slab_pool_t *pool)
         fprintf(stderr, "mps_luadict_on_init: mps_slab_alloc failed\n");
         return;
     }
-    printf("mps_luadict_on_init pool=%p, dict=%lu, dict->rbtree=%lu, dict->sentinel=%lu, dict->lru_queue=%lu\n",
-        pool, mps_slab_to_off(pool, dict), mps_slab_to_off(pool, &dict->rbtree),
-        mps_slab_to_off(pool, &dict->sentinel), mps_slab_to_off(pool, &dict->lru_queue));
 
-    pool->data = mps_slab_to_off(pool, dict);
+    pool->data = mps_offset(pool, dict);
     mps_rbtree_init(pool, &dict->rbtree, &dict->sentinel,
         mps_luadict_rbtree_insert);
-    assert(dict->rbtree.root == mps_slab_to_off(pool, &dict->sentinel));
-    assert(dict->rbtree.sentinel == mps_slab_to_off(pool, &dict->sentinel));
-    assert(ngx_rbt_is_black(&dict->sentinel));
-
     mps_queue_init(pool, &dict->lru_queue);
-    assert(dict->lru_queue.prev == mps_slab_to_off(pool, &dict->lru_queue));
-    assert(dict->lru_queue.next == mps_slab_to_off(pool, &dict->lru_queue));
 }
 
 void *

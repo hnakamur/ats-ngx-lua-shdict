@@ -69,8 +69,13 @@ MPS_OBJS = objs/src/core/mps_luadict.o \
            objs/src/core/mps_rbtree.o \
 		   objs/src/core/mps_slab.o
 
-test: objs/libmps_luadict.so
+
+dll: objs/libmps_luadict.so
+
+
+test: dll
 	sudo LD_LIBRARY_PATH=objs LUA_PATH=src/?.lua luajit mps_luadict_ex.lua
+
 
 objs/libmps_luadict.so: $(MPS_OBJS)
 	$(LINK) -o objs/libmps_luadict.so \
@@ -98,28 +103,6 @@ objs/src/core/mps_rbtree.o:	$(CORE_DEPS) \
 	$(CC) -c $(CFLAGS) $(CORE_INCS) \
 		-o objs/src/core/mps_rbtree.o \
 		src/core/mps_rbtree.c
-
-
-objs/src/core/mps_queue.o:	$(CORE_DEPS) \
-	src/core/mps_queue.c
-	$(CC) -c $(CFLAGS) $(CORE_INCS) \
-		-o objs/src/core/mps_queue.o \
-		src/core/mps_queue.c
-
-all: objs/libats_ngx_http_luadict.so objs/ats_ngx_http_luadict.so
-
-objs/libats_ngx_http_luadict.so: $(OBJS)
-	$(LINK) -o objs/libats_ngx_http_luadict.so \
-	$(OBJS) \
-	-L/usr/lib/x86_64-linux-gnu \
-	-shared
-
-
-objs/ats_ngx_http_luadict.so: $(OBJS)
-	$(LINK) -o objs/ats_ngx_http_luadict.so \
-	$(OBJS) \
-	-L/usr/lib/x86_64-linux-gnu \
-	-shared
 
 
 objs/src/ngx_http_luadict.o:	$(CORE_DEPS) \

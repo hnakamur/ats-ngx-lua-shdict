@@ -18,27 +18,26 @@ struct mps_queue_s {
     mps_ptroff_t  next;
 };
 
-#define mps_queue(pool, off)   ((mps_queue_t *) mps_slab_to_ptr(pool, off))
+#define mps_queue(pool, offset)   ((mps_queue_t *) mps_ptr(pool, offset))
 
 #define mps_queue_init(pool, q)                                               \
     do {                                                                      \
-        (q)->prev = mps_slab_to_off((pool), (q));                             \
-        (q)->next = mps_slab_to_off((pool), (q));                             \
+        (q)->prev = mps_offset((pool), (q));                                  \
+        (q)->next = mps_offset((pool), (q));                                  \
     } while (0)
 
 
-#define mps_queue_empty(pool, h)                                              \
-    (mps_slab_to_off((pool), (h)) == (h)->prev)
+#define mps_queue_empty(pool, h)  ((h) == mps_queue_prev(pool, h))
 
 
 #define mps_queue_insert_head(pool, h, x)                                     \
     do {                                                                      \
         mps_queue_t *x_next;                                                  \
         (x)->next = (h)->next;                                                \
-        x_next = mps_queue(pool, (x)->next);                                  \
-        x_next->prev = mps_slab_to_off((pool), (x));                          \
-        (x)->prev = mps_slab_to_off((pool), (h));                             \
-        (h)->next = mps_slab_to_off((pool), (x));                             \
+        x_next = mps_queue((pool), (x)->next);                                \
+        x_next->prev = mps_offset((pool), (x));                               \
+        (x)->prev = mps_offset((pool), (h));                                  \
+        (h)->next = mps_offset((pool), (x));                                  \
     } while (0)
 
 
@@ -49,10 +48,10 @@ struct mps_queue_s {
     do {                                                                      \
         mps_queue_t *x_prev;                                                  \
         (x)->prev = (h)->prev;                                                \
-        x_prev = mps_queue(pool, (x)->prev);                                  \
-        x_prev->next = mps_slab_to_off((pool), (x));                          \
-        (x)->next = mps_slab_to_off((pool), (h));                             \
-        (h)->prev = mps_slab_to_off((pool), (x));                             \
+        x_prev = mps_queue((pool), (x)->prev);                                \
+        x_prev->next = mps_offset((pool), (x));                               \
+        (x)->next = mps_offset((pool), (h));                                  \
+        (h)->prev = mps_offset((pool), (x));                                  \
     } while (0)
 
 
@@ -85,8 +84,8 @@ struct mps_queue_s {
         x_next->prev = (x)->prev;                                             \
         x_prev = mps_queue((pool), (x)->prev);                                \
         x_prev->next = (x)->next;                                             \
-        (x)->prev = 0;                                                        \
-        (x)->next = 0;                                                        \
+        (x)->prev = mps_nulloff;                                              \
+        (x)->next = mps_nulloff;                                              \
     } while (0)
 
 #else
@@ -108,12 +107,12 @@ struct mps_queue_s {
         mps_queue_t *n_prev, *h_prev;                                         \
         (n)->prev = (h)->prev;                                                \
         n_prev = mps_queue((pool), (n)->prev);                                \
-        n_prev->next = mps_slab_to_off((pool), (n));                          \
-        (n)->next = mps_slab_to_off((pool), (q));                             \
+        n_prev->next = mps_offset((pool), (n));                               \
+        (n)->next = mps_offset((pool), (q));                                  \
         (h)->prev = (q)->prev;                                                \
         h_prev = mps_queue((pool), (h)->prev);                                \
-        h_prev->next = mps_slab_to_off((pool), (h));                          \
-        (q)->prev = mps_slab_to_off((pool), (n));                             \
+        h_prev->next = mps_offset((pool), (h));                               \
+        (q)->prev = mps_offset((pool), (n));                                  \
     } while (0)
 
 
@@ -126,7 +125,7 @@ struct mps_queue_s {
         n_next->prev = (h)->prev;                                             \
         (h)->prev = (n)->prev;                                                \
         h_prev = mps_queue((pool), (h)->prev);                                \
-        h_prev->next = mps_slab_to_off((pool), (h));                          \
+        h_prev->next = mps_offset((pool), (h));                               \
     } while (0)
 
 

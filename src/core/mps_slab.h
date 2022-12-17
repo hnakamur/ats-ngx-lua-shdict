@@ -56,12 +56,14 @@ typedef struct {
     unsigned          log_nomem:1;
 } mps_slab_pool_t;
 
-#define mps_slab_to_off(pool, ptr)                                            \
-    (mps_ptroff_t) ((ptr) ? (u_char *) (ptr) - (u_char *) (pool) : 0)
+#define mps_nulloff                 0
+#define mps_offset(pool, ptr)                                                 \
+    (mps_ptroff_t) ((u_char *) (ptr) - (u_char *) (pool))
 
-#define mps_slab_to_ptr(pool, off)   ((off) ? (u_char *) (pool) + (off) : NULL)
-#define mps_slab_page(pool, off)                                              \
-    ((mps_slab_page_t *) mps_slab_to_ptr(pool, off))                                       
+#define mps_nullptr(pool)           (pool)
+#define mps_ptr(pool, offset)       ((u_char *) (pool) + (offset))
+
+#define mps_slab_page(pool, off)    ((mps_slab_page_t *) mps_ptr(pool, off))
 
 typedef void (*mps_slab_on_init_pt) (mps_slab_pool_t *pool);
 

@@ -38,7 +38,7 @@ mps_rbtree_insert(mps_slab_pool_t *pool, mps_rbtree_t *tree,
         node->left = sentinel;
         node->right = sentinel;
         ngx_rbt_black(node);
-        *root = mps_slab_to_off(pool, node);
+        *root = mps_offset(pool, node);
 
         return;
     }
@@ -104,7 +104,7 @@ mps_rbtree_insert_value(mps_slab_pool_t *pool, mps_rbtree_node_t *temp,
 {
     mps_ptroff_t   *p, s;
 
-    s = mps_slab_to_off(pool, sentinel);
+    s = mps_offset(pool, sentinel);
 
     for ( ;; ) {
 
@@ -117,8 +117,8 @@ mps_rbtree_insert_value(mps_slab_pool_t *pool, mps_rbtree_node_t *temp,
         temp = mps_rbtree_node(pool, *p);
     }
 
-    *p = mps_slab_to_off(pool, node);
-    node->parent = mps_slab_to_off(pool, temp);
+    *p = mps_offset(pool, node);
+    node->parent = mps_offset(pool, temp);
     node->left = s;
     node->right = s;
     ngx_rbt_red(node);
@@ -131,7 +131,7 @@ mps_rbtree_insert_timer_value(mps_slab_pool_t *pool, mps_rbtree_node_t *temp,
 {
     mps_ptroff_t   *p, s;
 
-    s = mps_slab_to_off(pool, sentinel);
+    s = mps_offset(pool, sentinel);
 
     for ( ;; ) {
 
@@ -154,8 +154,8 @@ mps_rbtree_insert_timer_value(mps_slab_pool_t *pool, mps_rbtree_node_t *temp,
         temp = mps_rbtree_node(pool, *p);
     }
 
-    *p = mps_slab_to_off(pool, node);
-    node->parent = mps_slab_to_off(pool, temp);
+    *p = mps_offset(pool, node);
+    node->parent = mps_offset(pool, temp);
     node->left = s;
     node->right = s;
     ngx_rbt_red(node);
@@ -192,13 +192,13 @@ mps_rbtree_delete(mps_slab_pool_t *pool, mps_rbtree_t *tree,
     }
 
     if (subst == mps_rbtree_node(pool, *root)) {
-        *root = mps_slab_to_off(pool, temp);
+        *root = mps_offset(pool, temp);
         ngx_rbt_black(temp);
 
         /* DEBUG stuff */
-        node->left = 0;
-        node->right = 0;
-        node->parent = 0;
+        node->left = mps_nulloff;
+        node->right = mps_nulloff;
+        node->parent = mps_nulloff;
         node->key = 0;
 
         return;
@@ -208,10 +208,10 @@ mps_rbtree_delete(mps_slab_pool_t *pool, mps_rbtree_t *tree,
 
     subst_parent = mps_rbtree_node(pool, subst->parent);
     if (subst == mps_rbtree_node(pool, subst_parent->left)) {
-        subst_parent->left = mps_slab_to_off(pool, temp);
+        subst_parent->left = mps_offset(pool, temp);
 
     } else {
-        subst_parent->right = mps_slab_to_off(pool, temp);
+        subst_parent->right = mps_offset(pool, temp);
     }
 
     if (subst == node) {
@@ -219,8 +219,8 @@ mps_rbtree_delete(mps_slab_pool_t *pool, mps_rbtree_t *tree,
 
     } else {
 
-        if (subst->parent == mps_slab_to_off(pool, node)) {
-            temp->parent = mps_slab_to_off(pool, subst);
+        if (subst->parent == mps_offset(pool, node)) {
+            temp->parent = mps_offset(pool, subst);
 
         } else {
             temp->parent = subst->parent;
@@ -232,34 +232,34 @@ mps_rbtree_delete(mps_slab_pool_t *pool, mps_rbtree_t *tree,
         ngx_rbt_copy_color(subst, node);
 
         if (node == mps_rbtree_node(pool, *root)) {
-            *root = mps_slab_to_off(pool, subst);
+            *root = mps_offset(pool, subst);
 
         } else {
             node_parent = mps_rbtree_node(pool, node->parent);
 
             if (node == mps_rbtree_node(pool, node_parent->left)) {
-                node_parent->left = mps_slab_to_off(pool, subst);
+                node_parent->left = mps_offset(pool, subst);
 
             } else {
-                node_parent->right = mps_slab_to_off(pool, subst);
+                node_parent->right = mps_offset(pool, subst);
             }
         }
 
         if (subst->left != sentinel) {
             subst_left = mps_rbtree_node(pool, subst->left);
-            subst_left->parent = mps_slab_to_off(pool, subst);
+            subst_left->parent = mps_offset(pool, subst);
         }
 
         if (subst->right != sentinel) {
             subst_right = mps_rbtree_node(pool, subst->right);
-            subst_right->parent = mps_slab_to_off(pool, subst);
+            subst_right->parent = mps_offset(pool, subst);
         }
     }
 
     /* DEBUG stuff */
-    node->left = 0;
-    node->right = 0;
-    node->parent = 0;
+    node->left = mps_nulloff;
+    node->right = mps_nulloff;
+    node->parent = mps_nulloff;
     node->key = 0;
 
     if (red) {
@@ -358,27 +358,27 @@ mps_rbtree_left_rotate(mps_slab_pool_t *pool, mps_ptroff_t *root,
 
     if (temp->left != sentinel) {
         temp_left = mps_rbtree_node(pool, temp->left);
-        temp_left->parent = mps_slab_to_off(pool, node);
+        temp_left->parent = mps_offset(pool, node);
     }
 
     temp->parent = node->parent;
 
     if (node == mps_rbtree_node(pool, *root)) {
-        *root = mps_slab_to_off(pool, temp);
+        *root = mps_offset(pool, temp);
 
     } else {
         node_parent = mps_rbtree_node(pool, node->parent);
 
         if (node == mps_rbtree_node(pool, node_parent->left)) {
-            node_parent->left = mps_slab_to_off(pool, temp);
+            node_parent->left = mps_offset(pool, temp);
 
         } else {
-            node_parent->right = mps_slab_to_off(pool, temp);
+            node_parent->right = mps_offset(pool, temp);
         }
     }
 
-    temp->left = mps_slab_to_off(pool, node);
-    node->parent = mps_slab_to_off(pool, temp);
+    temp->left = mps_offset(pool, node);
+    node->parent = mps_offset(pool, temp);
 }
 
 
@@ -393,27 +393,27 @@ mps_rbtree_right_rotate(mps_slab_pool_t *pool, mps_ptroff_t *root,
 
     if (temp->right != sentinel) {
         temp_right = mps_rbtree_node(pool, temp->right);
-        temp_right->parent = mps_slab_to_off(pool, node);
+        temp_right->parent = mps_offset(pool, node);
     }
 
     temp->parent = node->parent;
 
     if (node == mps_rbtree_node(pool, *root)) {
-        *root = mps_slab_to_off(pool, temp);
+        *root = mps_offset(pool, temp);
 
     } else {
         node_parent = mps_rbtree_node(pool, node->parent);
 
         if (node == mps_rbtree_node(pool, node_parent->right)) {
-            node_parent->right = mps_slab_to_off(pool, temp);
+            node_parent->right = mps_offset(pool, temp);
 
         } else {
-            node_parent->left = mps_slab_to_off(pool, temp);
+            node_parent->left = mps_offset(pool, temp);
         }
     }
 
-    temp->right = mps_slab_to_off(pool, node);
-    node->parent = mps_slab_to_off(pool, temp);
+    temp->right = mps_offset(pool, node);
+    node->parent = mps_offset(pool, temp);
 }
 
 
