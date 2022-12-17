@@ -1,5 +1,6 @@
 local ffi = require "ffi"
 local S = ffi.load("mps_slab")
+local sleep = require "sleep"
 
 ffi.cdef[[
     typedef struct pthread_mutex_t {
@@ -9,6 +10,7 @@ ffi.cdef[[
         };
     } pthread_mutex_t;
 
+    typedef int       mps_err_t;
     typedef uintptr_t mps_ptroff_t;
     typedef int ngx_int_t;
     typedef unsigned int ngx_uint_t;
@@ -67,7 +69,7 @@ ffi.cdef[[
     } mps_slab_pool_t;    
 
     void mps_slab_sizes_init(ngx_uint_t pagesize);
-    void mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t size);
+    mps_slab_pool_t *mps_slab_open_or_create(const char *shm_name, size_t shm_size);
     void mps_slab_lock(mps_slab_pool_t *pool);
     void mps_slab_unlock(mps_slab_pool_t *pool);
     void *mps_slab_alloc(mps_slab_pool_t *pool, size_t size);
@@ -80,16 +82,23 @@ local pagesize = 4096
 S.mps_slab_sizes_init(pagesize)
 local pagecount = 10
 local pool_size = pagesize * pagecount
-local pool_buf = ffi.new("u_char[?]", pool_size)
-print(string.format("pool_buf=%s", pool_buf))
+local pool = S.mps_slab_open_or_create("/my_shm1", pool_size)
+print(string.format("pool=%s", pool))
 
-local pool = ffi.cast("mps_slab_pool_t *", pool_buf)
-S.mps_slab_init(pool, pool_buf, pool_size)
-
-local p = S.mps_slab_alloc(pool, 80)
+S.mps_slab_lock(pool)
+local p = S.mps_slab_alloc_locked(pool, 80)
 print(string.format("p=%s", p))
-local q = S.mps_slab_alloc(pool, 128)
+local msg1 = "Hi, there"
+ffi.copy(p, msg1, #msg1)
+sleep(0.1)
+S.mps_slab_unlock(pool)
+
+S.mps_slab_lock(pool)
+local q = S.mps_slab_alloc_locked(pool, 128)
 print(string.format("q=%s", q))
+local msg2 = "Can you see me?"
+ffi.copy(q, msg2, #msg2)
+sleep(0.2)
+S.mps_slab_unlock(pool)
 
 S.mps_slab_free(pool, q)
-S.mps_slab_free(pool, p)

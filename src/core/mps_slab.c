@@ -8,8 +8,6 @@
 #include <ngx_core.h>
 #include "mps_slab.h"
 
-typedef int mps_error_t;
-
 #define MPS_SLAB_PAGE_MASK   3
 #define MPS_SLAB_PAGE        0
 #define MPS_SLAB_BIG         1
@@ -115,7 +113,7 @@ mps_slab_sizes_init(ngx_uint_t pagesize)
     printf("mps_slab_exact_shift=%lu\n", mps_slab_exact_shift);
 }
 
-static mps_error_t
+static mps_err_t
 mps_slab_init_mutex(mps_slab_pool_t *pool)
 {
     pthread_mutexattr_t attr;
@@ -157,7 +155,7 @@ mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
     ngx_int_t         m;
     ngx_uint_t        i, n, pages;
     mps_slab_page_t  *slots, *page, *last;
-    mps_error_t       err;
+    mps_err_t       err;
 
     err = mps_slab_init_mutex(pool);
     if (err != 0) {
@@ -229,6 +227,130 @@ mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
     pool->log_ctx = &pool->zero;
     pool->zero = '\0';
 }
+
+
+static mps_err_t
+mps_slab_create(mps_slab_pool_t **pool, const char *shm_name, size_t shm_size)
+{
+    int fd;
+    void *addr;
+    mps_err_t err = 0;
+
+    fd = shm_open(shm_name, O_RDWR | O_CREAT | O_EXCL, S_IRUSR);
+    if (fd == -1) {
+        fprintf(stderr, "mps_slab_create: shm_open: err=%s\n", strerror(errno));
+        return errno;
+    }
+
+    if (ftruncate(fd, shm_size) == -1) {
+        fprintf(stderr, "mps_slab_create: shm_open: err=%s\n", strerror(errno));
+        err = errno;
+        goto close;
+    }
+
+    addr = mmap(NULL, shm_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (addr == MAP_FAILED) {
+        fprintf(stderr, "mps_slab_create: mmap: err=%s\n", strerror(errno));
+        err = errno;
+        goto close;
+    }
+    *pool = (mps_slab_pool_t *) addr;
+
+    mps_slab_init(*pool, (u_char *) addr, shm_size);
+
+    if (fchmod(fd, S_IRUSR | S_IWUSR) == -1) {
+        fprintf(stderr, "mps_slab_create: fchmod: err=%s\n", strerror(errno));
+        err = errno;
+    }
+
+close:
+    if (close(fd) == -1) {
+        fprintf(stderr, "mps_slab_create: close: err=%s\n", strerror(errno));
+        if (err == 0) {
+            err = errno;
+        }
+    }
+    return err;
+}
+
+
+static mps_err_t
+mps_slab_open(mps_slab_pool_t **pool, const char *shm_name, size_t shm_size)
+{
+    mps_err_t err;
+    int fd;
+    void *addr;
+
+    fd = shm_open(shm_name, O_RDWR, S_IRUSR | S_IWUSR);
+    if (fd == -1) {
+        fprintf(stderr, "mps_slab_open: shm_open: errno=%d, err=%s\n", errno, strerror(errno));
+        return errno;
+    }
+
+    addr = mmap(NULL, shm_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (addr == MAP_FAILED) {
+        fprintf(stderr, "mps_slab_open: mmap: err=%s\n", strerror(errno));
+        return errno;
+    }
+    *pool = (mps_slab_pool_t *) addr;
+
+    if (close(fd) == -1) {
+        fprintf(stderr, "mps_slab_open: close: err=%s\n", strerror(errno));
+        err = errno;
+        if (munmap(addr, shm_size) == -1) {
+            fprintf(stderr, "mps_slab_open: munmap: err=%s\n", strerror(errno));
+        }
+        return err;
+    }
+
+    return 0;
+}
+
+
+mps_slab_pool_t *
+mps_slab_open_or_create(const char *shm_name, size_t shm_size)
+{
+    mps_err_t       err = 0;
+    mps_slab_pool_t *pool;
+    struct timespec sleep_time;
+
+    err = mps_slab_open(&pool, shm_name, shm_size);
+    if (err) {
+        if (err != ENOENT && err != EACCES) {
+            fprintf(stderr, "mps_slab_open_or_create: mps_slab_open#1: err=%s",
+                    strerror(err));
+            return NULL;
+        }
+
+        err = mps_slab_create(&pool, shm_name, shm_size);
+        if (err) {
+            if (err != EEXIST) {
+                fprintf(stderr,
+                        "mps_slab_open_or_create: mps_slab_create: err=%s",
+                        strerror(err));
+                return NULL;
+            }
+
+            sleep_time.tv_sec = 0;
+            sleep_time.tv_nsec = 10 * 1000 * 1000; // 10ms
+            if (nanosleep(&sleep_time, NULL) == -1) {
+                fprintf(stderr, "mps_slab_open_or_create: nanosleep: err=%s",
+                        strerror(errno));
+                return NULL;
+            }
+
+            err = mps_slab_open(&pool, shm_name, shm_size);
+            if (err) {
+                fprintf(stderr,
+                        "mps_slab_open_or_create: mps_slab_open#2: err=%s",
+                        strerror(err));
+                return NULL;
+            }
+        }
+    }
+    return pool;
+}
+
 
 void
 mps_slab_lock(mps_slab_pool_t *pool)

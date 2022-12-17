@@ -13,6 +13,7 @@
 #include <ngx_core.h>
 
 
+typedef int       mps_err_t;
 typedef uintptr_t mps_ptroff_t;
 
 typedef struct mps_slab_page_s  mps_slab_page_t;
@@ -60,7 +61,7 @@ typedef struct {
 } mps_slab_pool_t;
 
 void mps_slab_sizes_init(ngx_uint_t pagesize);
-void mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t size);
+mps_slab_pool_t *mps_slab_open_or_create(const char *shm_name, size_t shm_size);
 void mps_slab_lock(mps_slab_pool_t *pool);
 void mps_slab_unlock(mps_slab_pool_t *pool);
 void *mps_slab_alloc(mps_slab_pool_t *pool, size_t size);
