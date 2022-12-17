@@ -62,8 +62,6 @@ typedef struct {
 #define mps_pool_pages_ptr(pool) ((mps_slab_page_t *)((u_char *)(pool) + (pool)->pages))
 #define mps_pool_last_ptr(pool) ((mps_slab_page_t *)((u_char *)(pool) + (pool)->last))
 #define mps_pool_stats_ptr(pool) ((mps_slab_stat_t *)((u_char *)(pool) + (pool)->stats))
-#define mps_pool_start_ptr(pool) ((u_char *)(pool) + (pool)->start)
-#define mps_pool_end_ptr(pool) ((u_char *)(pool) + (pool)->end)
 
 void mps_slab_sizes_init(ngx_uint_t pagesize);
 void mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t size);
