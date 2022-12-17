@@ -2,6 +2,14 @@ local ffi = require "ffi"
 local S = ffi.load("mps_slab")
 
 ffi.cdef[[
+    typedef struct pthread_mutex_t {
+        union {
+            char __size[40];
+            long int __align;
+        };
+    } pthread_mutex_t;
+
+    typedef uintptr_t mps_ptroff_t;
     typedef int ngx_int_t;
     typedef unsigned int ngx_uint_t;
     typedef uint64_t size_t;
@@ -11,16 +19,9 @@ ffi.cdef[[
 
     struct mps_slab_page_s {
         uintptr_t         slab;
-        mps_slab_page_t  *next;
-        uintptr_t         prev;
+        mps_ptroff_t      next;
+        mps_ptroff_t      prev;
     };
-    
-
-    typedef union
-    {
-      char __size[32]; /* __SIZEOF_SEM_T for __WORDSIZE == 64 */
-      long int __align;
-    } sem_t; 
 
     typedef unsigned long               ngx_atomic_uint_t;
     typedef volatile ngx_atomic_uint_t  ngx_atomic_t;
@@ -29,16 +30,6 @@ ffi.cdef[[
         ngx_atomic_t   lock;
         ngx_atomic_t   wait;
     } ngx_shmtx_sh_t;
-    
-    
-    typedef struct {
-        ngx_atomic_t  *lock;
-        ngx_atomic_t  *wait;
-        ngx_uint_t     semaphore;
-        sem_t          sem;
-        ngx_uint_t     spin;
-    } ngx_shmtx_t;
-        
 
     typedef struct {
         ngx_uint_t        total;
@@ -48,24 +39,23 @@ ffi.cdef[[
         ngx_uint_t        fails;
     } mps_slab_stat_t;
     
-    
     typedef struct {
         ngx_shmtx_sh_t    lock;
     
         size_t            min_size;
         size_t            min_shift;
     
-        mps_slab_page_t  *pages;
-        mps_slab_page_t  *last;
+        mps_ptroff_t      pages;
+        mps_ptroff_t      last;
         mps_slab_page_t   free;
     
-        mps_slab_stat_t  *stats;
+        mps_ptroff_t      stats;
         ngx_uint_t        pfree;
     
-        u_char           *start;
-        u_char           *end;
+        mps_ptroff_t      start;
+        mps_ptroff_t      end;
     
-        ngx_shmtx_t       mutex;
+        pthread_mutex_t   mutex;
     
         u_char           *log_ctx;
         u_char            zero;
@@ -78,6 +68,8 @@ ffi.cdef[[
 
     void mps_slab_sizes_init(ngx_uint_t pagesize);
     void mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t size);
+    void mps_slab_lock(mps_slab_pool_t *pool);
+    void mps_slab_unlock(mps_slab_pool_t *pool);
     void *mps_slab_alloc(mps_slab_pool_t *pool, size_t size);
     void *mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size);
     void mps_slab_free(mps_slab_pool_t *pool, void *p);
