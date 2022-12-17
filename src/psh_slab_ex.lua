@@ -1,5 +1,5 @@
 local ffi = require "ffi"
-local S = ffi.load("mps_slab")
+local S = ffi.load("psh_slab")
 
 ffi.cdef[[
     typedef int ngx_int_t;
@@ -7,11 +7,11 @@ ffi.cdef[[
     typedef uint64_t size_t;
     typedef unsigned char u_char;
 
-    typedef struct mps_slab_page_s  mps_slab_page_t;
+    typedef struct psh_slab_page_s  psh_slab_page_t;
 
-    struct mps_slab_page_s {
+    struct psh_slab_page_s {
         uintptr_t         slab;
-        mps_slab_page_t  *next;
+        psh_slab_page_t  *next;
         uintptr_t         prev;
     };
     
@@ -46,7 +46,7 @@ ffi.cdef[[
     
         ngx_uint_t        reqs;
         ngx_uint_t        fails;
-    } mps_slab_stat_t;
+    } psh_slab_stat_t;
     
     
     typedef struct {
@@ -55,11 +55,11 @@ ffi.cdef[[
         size_t            min_size;
         size_t            min_shift;
     
-        mps_slab_page_t  *pages;
-        mps_slab_page_t  *last;
-        mps_slab_page_t   free;
+        psh_slab_page_t  *pages;
+        psh_slab_page_t  *last;
+        psh_slab_page_t   free;
     
-        mps_slab_stat_t  *stats;
+        psh_slab_stat_t  *stats;
         ngx_uint_t        pfree;
     
         u_char           *start;
@@ -74,30 +74,30 @@ ffi.cdef[[
     
         void             *data;
         void             *addr;
-    } mps_slab_pool_t;    
+    } psh_slab_pool_t;    
 
-    void mps_slab_sizes_init(ngx_uint_t pagesize);
-    void mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t size);
-    void *mps_slab_alloc(mps_slab_pool_t *pool, size_t size);
-    void *mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size);
-    void mps_slab_free(mps_slab_pool_t *pool, void *p);
-    void mps_slab_free_locked(mps_slab_pool_t *pool, void *p);
+    void psh_slab_sizes_init(ngx_uint_t pagesize);
+    void psh_slab_init(psh_slab_pool_t *pool, u_char *addr, size_t size);
+    void *psh_slab_alloc(psh_slab_pool_t *pool, size_t size);
+    void *psh_slab_alloc_locked(psh_slab_pool_t *pool, size_t size);
+    void psh_slab_free(psh_slab_pool_t *pool, void *p);
+    void psh_slab_free_locked(psh_slab_pool_t *pool, void *p);
 ]]
 
 local pagesize = 4096
-S.mps_slab_sizes_init(pagesize)
+S.psh_slab_sizes_init(pagesize)
 local pagecount = 10
 local pool_size = pagesize * pagecount
 local pool_buf = ffi.new("u_char[?]", pool_size)
 print(string.format("pool_buf=%s", pool_buf))
 
-local pool = ffi.cast("mps_slab_pool_t *", pool_buf)
-S.mps_slab_init(pool, pool_buf, pool_size)
+local pool = ffi.cast("psh_slab_pool_t *", pool_buf)
+S.psh_slab_init(pool, pool_buf, pool_size)
 
-local p = S.mps_slab_alloc_locked(pool, 80)
+local p = S.psh_slab_alloc_locked(pool, 80)
 print(string.format("p=%s", p))
-local q = S.mps_slab_alloc_locked(pool, 128)
+local q = S.psh_slab_alloc_locked(pool, 128)
 print(string.format("q=%s", q))
 
-S.mps_slab_free_locked(pool, q)
-S.mps_slab_free_locked(pool, p)
+S.psh_slab_free_locked(pool, q)
+S.psh_slab_free_locked(pool, p)
