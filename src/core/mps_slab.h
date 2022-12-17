@@ -34,7 +34,8 @@ typedef struct {
 
 
 typedef struct {
-    ngx_shmtx_sh_t    lock;
+    pthread_mutex_t   mutex;
+    mps_ptroff_t      data;
 
     size_t            min_size;
     size_t            min_shift;
@@ -49,15 +50,10 @@ typedef struct {
     mps_ptroff_t      start;
     mps_ptroff_t      end;
 
-    pthread_mutex_t   mutex;
-
     u_char           *log_ctx;
     u_char            zero;
 
     unsigned          log_nomem:1;
-
-    void             *data;
-    void             *addr;
 } mps_slab_pool_t;
 
 #define mps_slab_to_off(pool, ptr)                                            \
@@ -67,8 +63,11 @@ typedef struct {
 #define mps_slab_page(pool, off)                                              \
     ((mps_slab_page_t *) mps_slab_to_ptr(pool, off))                                       
 
+typedef void (*mps_slab_on_init_pt) (mps_slab_pool_t *pool);
+
 void mps_slab_sizes_init(ngx_uint_t pagesize);
-mps_slab_pool_t *mps_slab_open_or_create(const char *shm_name, size_t shm_size);
+mps_slab_pool_t *mps_slab_open_or_create(const char *shm_name, size_t shm_size,
+    mps_slab_on_init_pt on_init);
 void mps_slab_lock(mps_slab_pool_t *pool);
 void mps_slab_unlock(mps_slab_pool_t *pool);
 void *mps_slab_alloc(mps_slab_pool_t *pool, size_t size);

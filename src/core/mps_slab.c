@@ -156,7 +156,6 @@ mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
 
     pool->end = pool_size;
     pool->min_shift = 3;
-    pool->addr = addr;
 
     pool->min_size = (size_t) 1 << pool->min_shift;
 
@@ -221,7 +220,8 @@ mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
 
 
 static mps_err_t
-mps_slab_create(mps_slab_pool_t **pool, const char *shm_name, size_t shm_size)
+mps_slab_create(mps_slab_pool_t **pool, const char *shm_name, size_t shm_size,
+    mps_slab_on_init_pt on_init)
 {
     int fd;
     void *addr;
@@ -245,6 +245,9 @@ mps_slab_create(mps_slab_pool_t **pool, const char *shm_name, size_t shm_size)
     *pool = (mps_slab_pool_t *) addr;
 
     mps_slab_init(*pool, (u_char *) addr, shm_size);
+    if (on_init) {
+        on_init(*pool);
+    }
 
     if (fchmod(fd, S_IRUSR | S_IWUSR) == -1) {
         err = errno;
@@ -295,7 +298,8 @@ mps_slab_open(mps_slab_pool_t **pool, const char *shm_name, size_t shm_size)
 
 
 mps_slab_pool_t *
-mps_slab_open_or_create(const char *shm_name, size_t shm_size)
+mps_slab_open_or_create(const char *shm_name, size_t shm_size,
+    mps_slab_on_init_pt on_init)
 {
     mps_err_t       err = 0;
     mps_slab_pool_t *pool;
@@ -309,7 +313,7 @@ mps_slab_open_or_create(const char *shm_name, size_t shm_size)
             return NULL;
         }
 
-        err = mps_slab_create(&pool, shm_name, shm_size);
+        err = mps_slab_create(&pool, shm_name, shm_size, on_init);
         if (err) {
             if (err != EEXIST) {
                 fprintf(stderr,

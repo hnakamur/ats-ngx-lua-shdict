@@ -33,9 +33,10 @@ CORE_DEPS = src/core/nginx.h \
 	src/os/unix/ngx_linux_config.h \
 	src/os/unix/ngx_linux.h \
 	src/core/ngx_auto_config.h \
-	src/core/mps_slab.h \
+	src/core/mps_luadict.h \
 	src/core/mps_rbtree.h \
-	src/core/mps_queue.h
+	src/core/mps_queue.h \
+	src/core/mps_slab.h
 
 
 CORE_INCS = -I src/core \
@@ -46,7 +47,7 @@ ALL_INCS = $(CORE_INCS) \
            -I src/api
 
 
-OBJS = objs/src/ngx_http_lua_shdict.o \
+OBJS = objs/src/ngx_http_luadict.o \
        objs/src/core/ngx_array.o \
        objs/src/core/ngx_crc32.o \
        objs/src/core/ngx_list.o \
@@ -64,14 +65,26 @@ OBJS = objs/src/ngx_http_lua_shdict.o \
        objs/src/os/unix/ngx_stubs.o \
        objs/src/os/unix/ngx_global_vars.o
 
-MPS_OBJS = objs/src/core/mps_slab.o \
-           objs/src/core/mps_rbtree.o
+MPS_OBJS = objs/src/core/mps_luadict.o \
+           objs/src/core/mps_rbtree.o \
+		   objs/src/core/mps_slab.o
 
-objs/libmpshmem.so: $(MPS_OBJS)
-	$(LINK) -o objs/libmpshmem.so \
+test: objs/libmps_luadict.so
+	sudo LD_LIBRARY_PATH=objs LUA_PATH=src/?.lua luajit mps_luadict_ex.lua
+
+objs/libmps_luadict.so: $(MPS_OBJS)
+	$(LINK) -o objs/libmps_luadict.so \
 	$(MPS_OBJS) \
 	-L/usr/lib/x86_64-linux-gnu \
 	-shared
+
+
+objs/src/core/mps_luadict.o:	$(CORE_DEPS) \
+	src/core/mps_luadict.c
+	$(CC) -c $(CFLAGS) $(CORE_INCS) \
+		-o objs/src/core/mps_luadict.o \
+		src/core/mps_luadict.c
+
 
 objs/src/core/mps_slab.o:	$(CORE_DEPS) \
 	src/core/mps_slab.c
@@ -93,27 +106,27 @@ objs/src/core/mps_queue.o:	$(CORE_DEPS) \
 		-o objs/src/core/mps_queue.o \
 		src/core/mps_queue.c
 
-all: objs/libats_ngx_http_lua_shdict.so objs/ats_ngx_http_lua_shdict.so
+all: objs/libats_ngx_http_luadict.so objs/ats_ngx_http_luadict.so
 
-objs/libats_ngx_http_lua_shdict.so: $(OBJS)
-	$(LINK) -o objs/libats_ngx_http_lua_shdict.so \
+objs/libats_ngx_http_luadict.so: $(OBJS)
+	$(LINK) -o objs/libats_ngx_http_luadict.so \
 	$(OBJS) \
 	-L/usr/lib/x86_64-linux-gnu \
 	-shared
 
 
-objs/ats_ngx_http_lua_shdict.so: $(OBJS)
-	$(LINK) -o objs/ats_ngx_http_lua_shdict.so \
+objs/ats_ngx_http_luadict.so: $(OBJS)
+	$(LINK) -o objs/ats_ngx_http_luadict.so \
 	$(OBJS) \
 	-L/usr/lib/x86_64-linux-gnu \
 	-shared
 
 
-objs/src/ngx_http_lua_shdict.o:	$(CORE_DEPS) \
-	src/ngx_http_lua_shdict.c
+objs/src/ngx_http_luadict.o:	$(CORE_DEPS) \
+	src/ngx_http_luadict.c
 	$(CC) -c $(CFLAGS) $(ALL_INCS) \
-		-o objs/src/ngx_http_lua_shdict.o \
-		src/ngx_http_lua_shdict.c
+		-o objs/src/ngx_http_luadict.o \
+		src/ngx_http_luadict.c
 
 
 objs/src/core/ngx_array.o:	$(CORE_DEPS) \

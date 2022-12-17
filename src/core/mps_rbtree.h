@@ -43,6 +43,7 @@ struct mps_rbtree_s {
     mps_rbtree_insert_pt   insert;
 };
 
+#define mps_rbtree(pool, off)  ((mps_rbtree_t *) mps_slab_to_ptr(pool, off))
 
 #define mps_rbtree_init(pool, tree, s, i)                                     \
     mps_rbtree_sentinel_init(s);                                              \
