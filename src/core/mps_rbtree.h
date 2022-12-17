@@ -39,7 +39,7 @@ typedef void (*mps_rbtree_insert_pt) (mps_slab_pool_t *pool,
 
 struct mps_rbtree_s {
     mps_ptroff_t           root;
-    mps_rbtree_node_t     *sentinel;
+    mps_ptroff_t           sentinel;
     mps_rbtree_insert_pt   insert;
 };
 
@@ -47,7 +47,7 @@ struct mps_rbtree_s {
 #define mps_rbtree_init(pool, tree, s, i)                                     \
     mps_rbtree_sentinel_init(s);                                              \
     (tree)->root = mps_slab_to_off((pool), (s));                              \
-    (tree)->sentinel = s;                                                     \
+    (tree)->sentinel = mps_slab_to_off((pool), (s));                          \
     (tree)->insert = i
 
 #define mps_rbtree_data(node, type, link)                                     \

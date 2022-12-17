@@ -32,7 +32,10 @@ CORE_DEPS = src/core/nginx.h \
 	src/os/unix/ngx_user.h \
 	src/os/unix/ngx_linux_config.h \
 	src/os/unix/ngx_linux.h \
-	src/core/ngx_auto_config.h
+	src/core/ngx_auto_config.h \
+	src/core/mps_slab.h \
+	src/core/mps_rbtree.h \
+	src/core/mps_queue.h
 
 
 CORE_INCS = -I src/core \

@@ -31,7 +31,7 @@ mps_rbtree_insert(mps_slab_pool_t *pool, mps_rbtree_t *tree,
     /* a binary tree insert */
 
     root = &tree->root;
-    sentinel = tree->sentinel;
+    sentinel = mps_rbtree_node(pool, tree->sentinel);
 
     if (*root == mps_slab_to_off(pool, sentinel)) {
         node->parent = NULL;
@@ -169,7 +169,7 @@ mps_rbtree_delete(mps_slab_pool_t *pool, mps_rbtree_t *tree,
     /* a binary tree delete */
 
     root = &tree->root;
-    sentinel = tree->sentinel;
+    sentinel = mps_rbtree_node(pool, tree->sentinel);
 
     if (node->left == sentinel) {
         temp = node->right;
@@ -388,7 +388,7 @@ mps_rbtree_next(mps_slab_pool_t *pool, mps_rbtree_t *tree,
 {
     mps_rbtree_node_t  *root, *sentinel, *parent;
 
-    sentinel = tree->sentinel;
+    sentinel = mps_rbtree_node(pool, tree->sentinel);
 
     if (node->right != sentinel) {
         return mps_rbtree_min(node->right, sentinel);
