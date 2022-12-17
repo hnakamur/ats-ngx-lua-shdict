@@ -20,7 +20,7 @@ typedef struct mps_slab_page_s  mps_slab_page_t;
 struct mps_slab_page_s {
     uintptr_t         slab;
     mps_ptroff_t      next;
-    uintptr_t         prev;
+    mps_ptroff_t      prev;
 };
 
 #define mps_page_next_ptr(pool, page)                                         \
