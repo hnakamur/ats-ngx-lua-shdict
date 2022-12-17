@@ -45,6 +45,9 @@
 #define mps_slab_to_off(pool, ptr)                                            \
     (mps_ptroff_t) ((ptr) ? (u_char *) (ptr) - (u_char *) (pool) : 0)
 
+#define mps_pool_stats(pool)                                                  \
+    ((mps_slab_stat_t *) (u_char *) (pool) + (pool)->stats)
+
 #define mps_slab_slots(pool)                                                  \
     (mps_slab_page_t *) ((u_char *) (pool) + sizeof(mps_slab_pool_t))
 
@@ -145,7 +148,7 @@ mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
     p += n * sizeof(mps_slab_page_t);
 
     pool->stats = mps_slab_to_off(pool, p);
-    ngx_memzero(mps_pool_stats_ptr(pool), n * sizeof(mps_slab_stat_t));
+    ngx_memzero(mps_pool_stats(pool), n * sizeof(mps_slab_stat_t));
 
     p += n * sizeof(mps_slab_stat_t);
 
@@ -238,9 +241,9 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
         slot = 0;
     }
 
-    printf("mps_slab_alloc_locked slot=%lu, shift=%lu, stats=%p\n", slot, shift, mps_pool_stats_ptr(pool));
-    mps_pool_stats_ptr(pool)[slot].reqs++;
-    printf("mps_slab_alloc_locked slot=%lu, reqs=%lu\n", slot, mps_pool_stats_ptr(pool)[slot].reqs);
+    printf("mps_slab_alloc_locked slot=%lu, shift=%lu, stats=%p\n", slot, shift, mps_pool_stats(pool));
+    mps_pool_stats(pool)[slot].reqs++;
+    printf("mps_slab_alloc_locked slot=%lu, reqs=%lu\n", slot, mps_pool_stats(pool)[slot].reqs);
 
     ngx_log_debug2(NGX_LOG_DEBUG_ALLOC, ngx_cycle->log, 0,
                    "slab alloc: %uz slot: %ui", size, slot);
@@ -271,7 +274,7 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
 
                         p = (uintptr_t) bitmap + i;
 
-                        mps_pool_stats_ptr(pool)[slot].used++;
+                        mps_pool_stats(pool)[slot].used++;
 
                         if (bitmap[n] == MPS_SLAB_BUSY) {
                             for (n = n + 1; n < map; n++) {
@@ -315,7 +318,7 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
 
                 p = mps_slab_page_addr(pool, page) + (i << shift);
 
-                mps_pool_stats_ptr(pool)[slot].used++;
+                mps_pool_stats(pool)[slot].used++;
 
                 goto done;
             }
@@ -347,7 +350,7 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
 
                 p = mps_slab_page_addr(pool, page) + (i << shift);
 
-                mps_pool_stats_ptr(pool)[slot].used++;
+                mps_pool_stats(pool)[slot].used++;
 
                 goto done;
             }
@@ -391,11 +394,11 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
 
             slots[slot].next = mps_slab_to_off(pool, page);
 
-            mps_pool_stats_ptr(pool)[slot].total += (mps_pagesize >> shift) - n;
+            mps_pool_stats(pool)[slot].total += (mps_pagesize >> shift) - n;
 
             p = mps_slab_page_addr(pool, page) + (n << shift);
 
-            mps_pool_stats_ptr(pool)[slot].used++;
+            mps_pool_stats(pool)[slot].used++;
 
             goto done;
 
@@ -407,11 +410,11 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
 
             slots[slot].next = mps_slab_to_off(pool, page);
 
-            mps_pool_stats_ptr(pool)[slot].total += 8 * sizeof(uintptr_t);
+            mps_pool_stats(pool)[slot].total += 8 * sizeof(uintptr_t);
 
             p = mps_slab_page_addr(pool, page);
 
-            mps_pool_stats_ptr(pool)[slot].used++;
+            mps_pool_stats(pool)[slot].used++;
 
             goto done;
 
@@ -423,11 +426,11 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
 
             slots[slot].next = mps_slab_to_off(pool, page);
 
-            mps_pool_stats_ptr(pool)[slot].total += mps_pagesize >> shift;
+            mps_pool_stats(pool)[slot].total += mps_pagesize >> shift;
 
             p = mps_slab_page_addr(pool, page);
 
-            mps_pool_stats_ptr(pool)[slot].used++;
+            mps_pool_stats(pool)[slot].used++;
 
             goto done;
         }
@@ -435,7 +438,7 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
 
     p = 0;
 
-    mps_pool_stats_ptr(pool)[slot].fails++;
+    mps_pool_stats(pool)[slot].fails++;
 
 done:
     printf("mps_slab_alloc_locked done, alloc=%p\n", (void *) p);
@@ -566,7 +569,7 @@ mps_slab_free_locked(mps_slab_pool_t *pool, void *p)
 
             mps_slab_free_pages(pool, page, 1);
 
-            mps_pool_stats_ptr(pool)[slot].total -= (mps_pagesize >> shift) - n;
+            mps_pool_stats(pool)[slot].total -= (mps_pagesize >> shift) - n;
 
             goto done;
         }
@@ -606,7 +609,7 @@ mps_slab_free_locked(mps_slab_pool_t *pool, void *p)
 
             mps_slab_free_pages(pool, page, 1);
 
-            mps_pool_stats_ptr(pool)[slot].total -= 8 * sizeof(uintptr_t);
+            mps_pool_stats(pool)[slot].total -= 8 * sizeof(uintptr_t);
 
             goto done;
         }
@@ -647,7 +650,7 @@ mps_slab_free_locked(mps_slab_pool_t *pool, void *p)
 
             mps_slab_free_pages(pool, page, 1);
 
-            mps_pool_stats_ptr(pool)[slot].total -= mps_pagesize >> shift;
+            mps_pool_stats(pool)[slot].total -= mps_pagesize >> shift;
 
             goto done;
         }
@@ -687,7 +690,7 @@ mps_slab_free_locked(mps_slab_pool_t *pool, void *p)
 
 done:
 
-    mps_pool_stats_ptr(pool)[slot].used--;
+    mps_pool_stats(pool)[slot].used--;
 
     mps_slab_junk(p, size);
 

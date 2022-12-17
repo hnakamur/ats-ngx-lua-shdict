@@ -59,8 +59,6 @@ typedef struct {
     void             *addr;
 } mps_slab_pool_t;
 
-#define mps_pool_stats_ptr(pool) ((mps_slab_stat_t *)((u_char *)(pool) + (pool)->stats))
-
 void mps_slab_sizes_init(ngx_uint_t pagesize);
 void mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t size);
 void *mps_slab_alloc(mps_slab_pool_t *pool, size_t size);
