@@ -41,25 +41,25 @@
 
 #endif
 
-#define mps_slab_to_ptr(pool, off)   ((off) ? (u_char *) (pool) + (off) : NULL)
 #define mps_slab_to_off(pool, ptr)                                            \
     (mps_ptroff_t) ((ptr) ? (u_char *) (ptr) - (u_char *) (pool) : 0)
+
+#define mps_slab_to_ptr(pool, off)   ((off) ? (u_char *) (pool) + (off) : NULL)
+#define mps_slab_page(pool, off)                                              \
+    ((mps_slab_page_t *) mps_slab_to_ptr(pool, off))                                       
 
 #define mps_pool_stats(pool)                                                  \
     ((mps_slab_stat_t *) (u_char *) (pool) + (pool)->stats)
 
 #define mps_slab_slots(pool)                                                  \
-    (mps_slab_page_t *) ((u_char *) (pool) + sizeof(mps_slab_pool_t))
+    ((mps_slab_page_t *) ((u_char *) (pool) + sizeof(mps_slab_pool_t)))
 
 #define mps_slab_page_type(page)   ((page)->prev & MPS_SLAB_PAGE_MASK)
 
 #define mps_slab_page_prev(pool, page)                                        \
-    (mps_slab_page_t *) mps_slab_to_ptr(pool,                                 \
-                                        (page)->prev & ~MPS_SLAB_PAGE_MASK)
+    mps_slab_page(pool, (page)->prev & ~MPS_SLAB_PAGE_MASK)
 
-#define mps_slab_page_next(pool, page)                                        \
-     (mps_slab_page_t *) ((page)->next ? mps_slab_to_ptr(pool, (page)->next)  \
-                                       : NULL)
+#define mps_slab_page_next(pool, page)  mps_slab_page(pool, (page)->next)
 
 #define mps_slab_page_addr(pool, page)                                        \
     (((mps_slab_to_off(pool, page) - pool->pages) << mps_pagesize_shift)      \
@@ -179,7 +179,7 @@ mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
         page->slab = pages;
     }
 
-    last = (mps_slab_page_t *) mps_slab_to_ptr(pool, pages) + pages;
+    last = mps_slab_page(pool, pages) + pages;
     pool->last = mps_slab_to_off(pool, last);
     pool->pfree = pages;
 
@@ -508,7 +508,7 @@ mps_slab_free_locked(mps_slab_pool_t *pool, void *p)
     }
 
     n = (p_off - pool->start) >> mps_pagesize_shift;
-    page = &((mps_slab_page_t *) mps_slab_to_ptr(pool, pool->pages))[n];
+    page = &mps_slab_page(pool, pool->pages)[n];
     slab = page->slab;
     type = mps_slab_page_type(page);
 
@@ -731,13 +731,13 @@ mps_slab_alloc_pages(mps_slab_pool_t *pool, ngx_uint_t pages)
                 page[pages].next = page->next;
                 page[pages].prev = page->prev;
 
-                p = (mps_slab_page_t *) mps_slab_to_ptr(pool, page->prev);
+                p = mps_slab_page(pool, page->prev);
                 p->next = mps_slab_to_off(pool, &page[pages]);
                 next = mps_slab_page_next(pool, page);
                 next->prev = (uintptr_t) &page[pages];
 
             } else {
-                p = (mps_slab_page_t *) mps_slab_to_ptr(pool, page->prev);
+                p = mps_slab_page(pool, page->prev);
                 p->next = page->next;
                 next = mps_slab_page_next(pool, page);
                 next->prev = page->prev;
