@@ -21,9 +21,9 @@ typedef struct mps_rbtree_node_s  mps_rbtree_node_t;
 
 struct mps_rbtree_node_s {
     mps_rbtree_key_t       key;
-    mps_rbtree_node_t     *left;
-    mps_rbtree_node_t     *right;
-    mps_rbtree_node_t     *parent;
+    mps_ptroff_t           left;
+    mps_ptroff_t           right;
+    mps_ptroff_t           parent;
     u_char                 color;
     u_char                 data;
 };
@@ -58,10 +58,11 @@ void mps_rbtree_insert(mps_slab_pool_t *pool, mps_rbtree_t *tree,
     mps_rbtree_node_t *node);
 void mps_rbtree_delete(mps_slab_pool_t *pool, mps_rbtree_t *tree,
     mps_rbtree_node_t *node);
-void mps_rbtree_insert_value(mps_rbtree_node_t *root, mps_rbtree_node_t *node,
-    mps_rbtree_node_t *sentinel);
-void mps_rbtree_insert_timer_value(mps_rbtree_node_t *root,
+void mps_rbtree_insert_value(mps_slab_pool_t *pool, mps_rbtree_node_t *root,
     mps_rbtree_node_t *node, mps_rbtree_node_t *sentinel);
+void mps_rbtree_insert_timer_value(mps_slab_pool_t *pool,
+    mps_rbtree_node_t *root, mps_rbtree_node_t *node,
+    mps_rbtree_node_t *sentinel);
 mps_rbtree_node_t *mps_rbtree_next(mps_slab_pool_t *pool, mps_rbtree_t *tree,
     mps_rbtree_node_t *node);
 
@@ -79,10 +80,11 @@ mps_rbtree_node_t *mps_rbtree_next(mps_slab_pool_t *pool, mps_rbtree_t *tree,
 
 
 static ngx_inline mps_rbtree_node_t *
-mps_rbtree_min(mps_rbtree_node_t *node, mps_rbtree_node_t *sentinel)
+mps_rbtree_min(mps_slab_pool_t *pool, mps_rbtree_node_t *node,
+    mps_ptroff_t sentinel)
 {
     while (node->left != sentinel) {
-        node = node->left;
+        node = mps_rbtree_node(pool, node->left);
     }
 
     return node;
