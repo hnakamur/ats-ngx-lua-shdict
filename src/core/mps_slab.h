@@ -61,6 +61,8 @@ typedef struct {
 
 void mps_slab_sizes_init(ngx_uint_t pagesize);
 void mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t size);
+void mps_slab_mutex_lock(mps_slab_pool_t *pool);
+void mps_slab_mutex_unlock(mps_slab_pool_t *pool);
 void *mps_slab_alloc(mps_slab_pool_t *pool, size_t size);
 void *mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size);
 void *mps_slab_calloc(mps_slab_pool_t *pool, size_t size);

@@ -230,17 +230,28 @@ mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
     pool->zero = '\0';
 }
 
+void
+mps_slab_mutex_lock(mps_slab_pool_t *pool)
+{
+    pthread_mutex_lock(&pool->mutex);
+}
+
+void
+mps_slab_mutex_unlock(mps_slab_pool_t *pool)
+{
+    pthread_mutex_unlock(&pool->mutex);
+}
 
 void *
 mps_slab_alloc(mps_slab_pool_t *pool, size_t size)
 {
     void  *p;
 
-    pthread_mutex_lock(&pool->mutex);
+    mps_slab_mutex_lock(pool);
 
     p = mps_slab_alloc_locked(pool, size);
 
-    pthread_mutex_unlock(&pool->mutex);
+    mps_slab_mutex_unlock(pool);
 
     return p;
 }
@@ -497,11 +508,11 @@ mps_slab_calloc(mps_slab_pool_t *pool, size_t size)
 {
     void  *p;
 
-    pthread_mutex_lock(&pool->mutex);
+    mps_slab_mutex_lock(pool);
 
     p = mps_slab_calloc_locked(pool, size);
 
-    pthread_mutex_unlock(&pool->mutex);
+    mps_slab_mutex_unlock(pool);
 
     return p;
 }
@@ -524,11 +535,11 @@ mps_slab_calloc_locked(mps_slab_pool_t *pool, size_t size)
 void
 mps_slab_free(mps_slab_pool_t *pool, void *p)
 {
-    pthread_mutex_lock(&pool->mutex);
+    mps_slab_mutex_lock(pool);
 
     mps_slab_free_locked(pool, p);
 
-    pthread_mutex_unlock(&pool->mutex);
+    mps_slab_mutex_unlock(pool);
 }
 
 
