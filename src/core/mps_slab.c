@@ -103,14 +103,12 @@ mps_slab_sizes_init(ngx_uint_t pagesize)
 
     mps_pagesize = pagesize;
     for (n = mps_pagesize; n >>= 1; mps_pagesize_shift++) { /* void */ }
-    printf("mps_pagesize_shift=%lu\n", mps_pagesize_shift);
 
     mps_slab_max_size = mps_pagesize / 2;
     mps_slab_exact_size = mps_pagesize / (8 * sizeof(uintptr_t));
     for (n = mps_slab_exact_size; n >>= 1; mps_slab_exact_shift++) {
         /* void */
     }
-    printf("mps_slab_exact_shift=%lu\n", mps_slab_exact_shift);
 }
 
 static mps_err_t
@@ -238,19 +236,16 @@ mps_slab_create(mps_slab_pool_t **pool, const char *shm_name, size_t shm_size)
 
     fd = shm_open(shm_name, O_RDWR | O_CREAT | O_EXCL, S_IRUSR);
     if (fd == -1) {
-        fprintf(stderr, "mps_slab_create: shm_open: err=%s\n", strerror(errno));
         return errno;
     }
 
     if (ftruncate(fd, shm_size) == -1) {
-        fprintf(stderr, "mps_slab_create: shm_open: err=%s\n", strerror(errno));
         err = errno;
         goto close;
     }
 
     addr = mmap(NULL, shm_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (addr == MAP_FAILED) {
-        fprintf(stderr, "mps_slab_create: mmap: err=%s\n", strerror(errno));
         err = errno;
         goto close;
     }
@@ -259,7 +254,6 @@ mps_slab_create(mps_slab_pool_t **pool, const char *shm_name, size_t shm_size)
     mps_slab_init(*pool, (u_char *) addr, shm_size);
 
     if (fchmod(fd, S_IRUSR | S_IWUSR) == -1) {
-        fprintf(stderr, "mps_slab_create: fchmod: err=%s\n", strerror(errno));
         err = errno;
     }
 
@@ -269,7 +263,6 @@ mps_slab_create(mps_slab_pool_t **pool, const char *shm_name, size_t shm_size)
 
 close:
     if (close(fd) == -1) {
-        fprintf(stderr, "mps_slab_create: close: err=%s\n", strerror(errno));
         if (err == 0) {
             err = errno;
         }
@@ -287,19 +280,16 @@ mps_slab_open(mps_slab_pool_t **pool, const char *shm_name, size_t shm_size)
 
     fd = shm_open(shm_name, O_RDWR, S_IRUSR | S_IWUSR);
     if (fd == -1) {
-        fprintf(stderr, "mps_slab_open: shm_open: errno=%d, err=%s\n", errno, strerror(errno));
         return errno;
     }
 
     addr = mmap(NULL, shm_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (addr == MAP_FAILED) {
-        fprintf(stderr, "mps_slab_open: mmap: err=%s\n", strerror(errno));
         return errno;
     }
     *pool = (mps_slab_pool_t *) addr;
 
     if (close(fd) == -1) {
-        fprintf(stderr, "mps_slab_open: close: err=%s\n", strerror(errno));
         err = errno;
         if (munmap(addr, shm_size) == -1) {
             fprintf(stderr, "mps_slab_open: munmap: err=%s\n", strerror(errno));
@@ -391,7 +381,6 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
     ngx_uint_t        i, n, slot, shift, map;
     mps_slab_page_t  *page, *prev, *next, *slots;
 
-    printf("mps_slab_alloc_locked start, pool=%p, size=%lu, mps_slab_max_size=%lu\n", pool, size, mps_slab_max_size);
     if (size > mps_slab_max_size) {
 
         ngx_log_debug1(NGX_LOG_DEBUG_ALLOC, ngx_cycle->log, 0,
@@ -409,7 +398,6 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
         goto done;
     }
 
-    printf("mps_slab_alloc_locked pool->min_size=%lu, min_shift=%lu\n", pool->min_size, pool->min_shift);
     if (size > pool->min_size) {
         shift = 1;
         for (s = size - 1; s >>= 1; shift++) { /* void */ }
@@ -420,9 +408,7 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
         slot = 0;
     }
 
-    printf("mps_slab_alloc_locked slot=%lu, shift=%lu, stats=%p\n", slot, shift, mps_pool_stats(pool));
     mps_pool_stats(pool)[slot].reqs++;
-    printf("mps_slab_alloc_locked slot=%lu, reqs=%lu\n", slot, mps_pool_stats(pool)[slot].reqs);
 
     ngx_log_debug2(NGX_LOG_DEBUG_ALLOC, ngx_cycle->log, 0,
                    "slab alloc: %uz slot: %ui", size, slot);
@@ -540,7 +526,6 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
     }
 
     page = mps_slab_alloc_pages(pool, 1);
-    printf("mps_slab_alloc_locked after mps_slab_alloc_pages, page=%p\n", (void *) page);
 
     if (page) {
         if (shift < mps_slab_exact_shift) {
@@ -620,8 +605,6 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
     mps_pool_stats(pool)[slot].fails++;
 
 done:
-    printf("mps_slab_alloc_locked done, alloc=%p\n", (void *) p);
-
     ngx_log_debug1(NGX_LOG_DEBUG_ALLOC, ngx_cycle->log, 0,
                    "slab alloc: %p", (void *) p);
 
