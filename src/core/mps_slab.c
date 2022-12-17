@@ -263,6 +263,10 @@ mps_slab_create(mps_slab_pool_t **pool, const char *shm_name, size_t shm_size)
         err = errno;
     }
 
+    if (err && munmap(addr, shm_size) == -1) {
+        fprintf(stderr, "mps_slab_create: munmap: err=%s\n", strerror(errno));
+    }
+
 close:
     if (close(fd) == -1) {
         fprintf(stderr, "mps_slab_create: close: err=%s\n", strerror(errno));
