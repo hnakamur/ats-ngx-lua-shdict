@@ -61,10 +61,11 @@ OBJS = objs/src/ngx_http_lua_shdict.o \
        objs/src/os/unix/ngx_stubs.o \
        objs/src/os/unix/ngx_global_vars.o
 
-MPS_OBJS = objs/src/core/mps_slab.o
+MPS_OBJS = objs/src/core/mps_slab.o \
+           objs/src/core/mps_rbtree.o
 
-objs/libmps_slab.so: $(MPS_OBJS)
-	$(LINK) -o objs/libmps_slab.so \
+objs/libmpshmem.so: $(MPS_OBJS)
+	$(LINK) -o objs/libmpshmem.so \
 	$(MPS_OBJS) \
 	-L/usr/lib/x86_64-linux-gnu \
 	-shared
@@ -74,6 +75,13 @@ objs/src/core/mps_slab.o:	$(CORE_DEPS) \
 	$(CC) -c $(CFLAGS) $(CORE_INCS) \
 		-o objs/src/core/mps_slab.o \
 		src/core/mps_slab.c
+
+
+objs/src/core/mps_rbtree.o:	$(CORE_DEPS) \
+	src/core/mps_rbtree.c
+	$(CC) -c $(CFLAGS) $(CORE_INCS) \
+		-o objs/src/core/mps_rbtree.o \
+		src/core/mps_rbtree.c
 
 
 objs/src/core/mps_queue.o:	$(CORE_DEPS) \
