@@ -118,7 +118,7 @@ mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
     size_t            size;
     ngx_int_t         m;
     ngx_uint_t        i, n, pages;
-    mps_slab_page_t  *slots, *page;
+    mps_slab_page_t  *slots, *page, *last;
 
     pool->end = pool_size;
     pool->min_shift = 3;
@@ -176,7 +176,8 @@ mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
         page->slab = pages;
     }
 
-    pool->last = mps_slab_to_off(pool, mps_slab_to_ptr(pool, pages) + pages);
+    last = (mps_slab_page_t *) mps_slab_to_ptr(pool, pages) + pages;
+    pool->last = mps_slab_to_off(pool, last);
     pool->pfree = pages;
 
     pool->log_nomem = 1;
@@ -792,7 +793,7 @@ mps_slab_free_pages(mps_slab_pool_t *pool, mps_slab_page_t *page,
 
     join = page + page->slab;
 
-    if (join < mps_pool_last_ptr(pool)) {
+    if (mps_slab_to_off(pool, join) < pool->last) {
 
         if (mps_slab_page_type(join) == MPS_SLAB_PAGE) {
 
