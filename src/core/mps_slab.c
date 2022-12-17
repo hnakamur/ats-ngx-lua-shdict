@@ -280,8 +280,8 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
                             }
 
                             prev = mps_slab_page_prev(pool, page);
+                            prev->next = page->next;
                             next = mps_slab_page_next(pool, page);
-                            prev->next = mps_slab_to_off(pool, next);
                             next->prev = page->prev;
 
                             page->next = 0;
@@ -304,8 +304,8 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
 
                 if (page->slab == MPS_SLAB_BUSY) {
                     prev = mps_slab_page_prev(pool, page);
-                    next = mps_slab_page_next(pool, page);
                     prev->next = page->next;
+                    next = mps_slab_page_next(pool, page);
                     next->prev = page->prev;
 
                     page->next = 0;
@@ -336,8 +336,8 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
 
                 if ((page->slab & MPS_SLAB_MAP_MASK) == mask) {
                     prev = mps_slab_page_prev(pool, page);
-                    next = mps_slab_page_next(pool, page);
                     prev->next = page->next;
+                    next = mps_slab_page_next(pool, page);
                     next->prev = page->prev;
 
                     page->next = 0;
@@ -783,8 +783,8 @@ mps_slab_free_pages(mps_slab_pool_t *pool, mps_slab_page_t *page,
 
     if (mps_slab_page_next(pool, page)) {
         prev = mps_slab_page_prev(pool, page);
-        next = mps_slab_page_next(pool, page);
         prev->next = page->next;
+        next = mps_slab_page_next(pool, page);
         next->prev = page->prev;
     }
 
@@ -799,8 +799,8 @@ mps_slab_free_pages(mps_slab_pool_t *pool, mps_slab_page_t *page,
                 page->slab += join->slab;
 
                 prev = mps_slab_page_prev(pool, join);
-                next = mps_slab_page_next(pool, join);
                 prev->next = join->next;
+                next = mps_slab_page_next(pool, join);
                 next->prev = join->prev;
 
                 join->slab = MPS_SLAB_PAGE_FREE;
@@ -824,8 +824,8 @@ mps_slab_free_pages(mps_slab_pool_t *pool, mps_slab_page_t *page,
                 join->slab += page->slab;
 
                 prev = mps_slab_page_prev(pool, join);
-                next = mps_slab_page_next(pool, join);
                 prev->next = join->next;
+                next = mps_slab_page_next(pool, join);
                 next->prev = join->prev;
 
                 page->slab = MPS_SLAB_PAGE_FREE;
