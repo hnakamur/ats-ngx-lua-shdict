@@ -60,6 +60,13 @@ typedef struct {
     void             *addr;
 } mps_slab_pool_t;
 
+#define mps_slab_to_off(pool, ptr)                                            \
+    (mps_ptroff_t) ((ptr) ? (u_char *) (ptr) - (u_char *) (pool) : 0)
+
+#define mps_slab_to_ptr(pool, off)   ((off) ? (u_char *) (pool) + (off) : NULL)
+#define mps_slab_page(pool, off)                                              \
+    ((mps_slab_page_t *) mps_slab_to_ptr(pool, off))                                       
+
 void mps_slab_sizes_init(ngx_uint_t pagesize);
 mps_slab_pool_t *mps_slab_open_or_create(const char *shm_name, size_t shm_size);
 void mps_slab_lock(mps_slab_pool_t *pool);

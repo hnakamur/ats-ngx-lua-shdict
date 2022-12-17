@@ -40,13 +40,6 @@
 
 #endif
 
-#define mps_slab_to_off(pool, ptr)                                            \
-    (mps_ptroff_t) ((ptr) ? (u_char *) (ptr) - (u_char *) (pool) : 0)
-
-#define mps_slab_to_ptr(pool, off)   ((off) ? (u_char *) (pool) + (off) : NULL)
-#define mps_slab_page(pool, off)                                              \
-    ((mps_slab_page_t *) mps_slab_to_ptr(pool, off))                                       
-
 #define mps_pool_stats(pool)                                                  \
     ((mps_slab_stat_t *) (u_char *) (pool) + (pool)->stats)
 

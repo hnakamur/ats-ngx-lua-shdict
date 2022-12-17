@@ -76,6 +76,12 @@ objs/src/core/mps_slab.o:	$(CORE_DEPS) \
 		src/core/mps_slab.c
 
 
+objs/src/core/mps_queue.o:	$(CORE_DEPS) \
+	src/core/mps_queue.c
+	$(CC) -c $(CFLAGS) $(CORE_INCS) \
+		-o objs/src/core/mps_queue.o \
+		src/core/mps_queue.c
+
 all: objs/libats_ngx_http_lua_shdict.so objs/ats_ngx_http_lua_shdict.so
 
 objs/libats_ngx_http_lua_shdict.so: $(OBJS)
