@@ -6,7 +6,7 @@
 
 
 #ifndef _MPS_SLAB_H_INCLUDED_
-#define _NGX_SLAB_H_INCLUDED_
+#define _MPS_SLAB_H_INCLUDED_
 
 
 #include <ngx_config.h>
@@ -69,4 +69,4 @@ void mps_slab_free(mps_slab_pool_t *pool, void *p);
 void mps_slab_free_locked(mps_slab_pool_t *pool, void *p);
 
 
-#endif /* _NGX_SLAB_H_INCLUDED_ */
+#endif /* _MPS_SLAB_H_INCLUDED_ */
