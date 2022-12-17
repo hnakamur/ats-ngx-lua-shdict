@@ -526,7 +526,7 @@ mps_slab_free_locked(mps_slab_pool_t *pool, void *p)
         if (bitmap[n] & m) {
             slot = shift - pool->min_shift;
 
-            if (mps_slab_page_next(pool, page) == NULL) {
+            if (page->next == 0) {
                 slots = mps_slab_slots(pool);
 
                 page->next = slots[slot].next;
@@ -781,7 +781,7 @@ mps_slab_free_pages(mps_slab_pool_t *pool, mps_slab_page_t *page,
         ngx_memzero(&page[1], pages * sizeof(mps_slab_page_t));
     }
 
-    if (mps_slab_page_next(pool, page)) {
+    if (page->next) {
         prev = mps_slab_page_prev(pool, page);
         prev->next = page->next;
         next = mps_slab_page_next(pool, page);
@@ -794,7 +794,7 @@ mps_slab_free_pages(mps_slab_pool_t *pool, mps_slab_page_t *page,
 
         if (mps_slab_page_type(join) == MPS_SLAB_PAGE) {
 
-            if (mps_slab_page_next(pool, join) != NULL) {
+            if (join->next != 0) {
                 pages += join->slab;
                 page->slab += join->slab;
 
@@ -819,7 +819,7 @@ mps_slab_free_pages(mps_slab_pool_t *pool, mps_slab_page_t *page,
                 join = mps_slab_page_prev(pool, join);
             }
 
-            if (mps_slab_page_next(pool, join) != NULL) {
+            if (join->next != 0) {
                 pages += join->slab;
                 join->slab += page->slab;
 
