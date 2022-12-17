@@ -48,7 +48,7 @@ typedef struct {
     mps_ptroff_t      start;
     mps_ptroff_t      end;
 
-    ngx_shmtx_t       mutex;
+    pthread_mutex_t   mutex;
 
     u_char           *log_ctx;
     u_char            zero;

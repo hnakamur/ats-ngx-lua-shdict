@@ -8,6 +8,7 @@
 #include <ngx_core.h>
 #include "mps_slab.h"
 
+typedef int mps_error_t;
 
 #define MPS_SLAB_PAGE_MASK   3
 #define MPS_SLAB_PAGE        0
@@ -114,6 +115,40 @@ mps_slab_sizes_init(ngx_uint_t pagesize)
     printf("mps_slab_exact_shift=%lu\n", mps_slab_exact_shift);
 }
 
+static mps_error_t
+mps_slab_init_mutex(mps_slab_pool_t *pool)
+{
+    pthread_mutexattr_t attr;
+    int                 rc;
+
+    rc = pthread_mutexattr_init(&attr);
+    if (rc != 0) {
+        return rc;
+    }
+
+    rc = pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST);
+    if (rc != 0) {
+        return rc;
+    }
+
+    rc = pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
+    if (rc != 0) {
+        return rc;
+    }
+
+    rc = pthread_mutex_init(&pool->mutex, &attr);
+    if (rc != 0) {
+        return rc;
+    }
+
+    rc = pthread_mutexattr_destroy(&attr);
+    if (rc != 0) {
+        return rc;
+    }
+
+    return 0;
+}
+
 void
 mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
 {
@@ -122,6 +157,13 @@ mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
     ngx_int_t         m;
     ngx_uint_t        i, n, pages;
     mps_slab_page_t  *slots, *page, *last;
+    mps_error_t       err;
+
+    err = mps_slab_init_mutex(pool);
+    if (err != 0) {
+        fprintf(stderr, "mps_slab_init_mutex err=%d\n", err);
+        return;
+    }
 
     pool->end = pool_size;
     pool->min_shift = 3;
@@ -194,11 +236,11 @@ mps_slab_alloc(mps_slab_pool_t *pool, size_t size)
 {
     void  *p;
 
-    ngx_shmtx_lock(&pool->mutex);
+    pthread_mutex_lock(&pool->mutex);
 
     p = mps_slab_alloc_locked(pool, size);
 
-    ngx_shmtx_unlock(&pool->mutex);
+    pthread_mutex_unlock(&pool->mutex);
 
     return p;
 }
@@ -455,11 +497,11 @@ mps_slab_calloc(mps_slab_pool_t *pool, size_t size)
 {
     void  *p;
 
-    ngx_shmtx_lock(&pool->mutex);
+    pthread_mutex_lock(&pool->mutex);
 
     p = mps_slab_calloc_locked(pool, size);
 
-    ngx_shmtx_unlock(&pool->mutex);
+    pthread_mutex_unlock(&pool->mutex);
 
     return p;
 }
@@ -482,11 +524,11 @@ mps_slab_calloc_locked(mps_slab_pool_t *pool, size_t size)
 void
 mps_slab_free(mps_slab_pool_t *pool, void *p)
 {
-    ngx_shmtx_lock(&pool->mutex);
+    pthread_mutex_lock(&pool->mutex);
 
     mps_slab_free_locked(pool, p);
 
-    ngx_shmtx_unlock(&pool->mutex);
+    pthread_mutex_unlock(&pool->mutex);
 }
 
 
