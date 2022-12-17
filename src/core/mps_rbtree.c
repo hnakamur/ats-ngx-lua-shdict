@@ -15,38 +15,41 @@
  */
 
 
-static ngx_inline void mps_rbtree_left_rotate(mps_rbtree_node_t **root,
-    mps_rbtree_node_t *sentinel, mps_rbtree_node_t *node);
-static ngx_inline void mps_rbtree_right_rotate(mps_rbtree_node_t **root,
-    mps_rbtree_node_t *sentinel, mps_rbtree_node_t *node);
+static ngx_inline void mps_rbtree_left_rotate(mps_slab_pool_t *pool,
+    mps_ptroff_t *root, mps_rbtree_node_t *sentinel, mps_rbtree_node_t *node);
+static ngx_inline void mps_rbtree_right_rotate(mps_slab_pool_t *pool,
+    mps_ptroff_t *root, mps_rbtree_node_t *sentinel, mps_rbtree_node_t *node);
 
 
 void
-mps_rbtree_insert(mps_rbtree_t *tree, mps_rbtree_node_t *node)
+mps_rbtree_insert(mps_slab_pool_t *pool, mps_rbtree_t *tree,
+    mps_rbtree_node_t *node)
 {
-    mps_rbtree_node_t  **root, *temp, *sentinel;
+    mps_ptroff_t        *root;
+    mps_rbtree_node_t   *temp, *sentinel;
 
     /* a binary tree insert */
 
     root = &tree->root;
     sentinel = tree->sentinel;
 
-    if (*root == sentinel) {
+    if (*root == mps_slab_to_off(pool, sentinel)) {
         node->parent = NULL;
         node->left = sentinel;
         node->right = sentinel;
         ngx_rbt_black(node);
-        *root = node;
+        *root = mps_slab_to_off(pool, node);
 
         return;
     }
 
-    tree->insert(*root, node, sentinel);
+    tree->insert(pool, mps_rbtree_node(pool, *root), node, sentinel);
 
     /* re-balance tree */
 
-    while (node != *root && ngx_rbt_is_red(node->parent)) {
-
+    while (node != mps_rbtree_node(pool, *root)
+           && ngx_rbt_is_red(node->parent))
+    {
         if (node->parent == node->parent->parent->left) {
             temp = node->parent->parent->right;
 
@@ -59,12 +62,13 @@ mps_rbtree_insert(mps_rbtree_t *tree, mps_rbtree_node_t *node)
             } else {
                 if (node == node->parent->right) {
                     node = node->parent;
-                    mps_rbtree_left_rotate(root, sentinel, node);
+                    mps_rbtree_left_rotate(pool, root, sentinel, node);
                 }
 
                 ngx_rbt_black(node->parent);
                 ngx_rbt_red(node->parent->parent);
-                mps_rbtree_right_rotate(root, sentinel, node->parent->parent);
+                mps_rbtree_right_rotate(pool, root, sentinel,
+                    node->parent->parent);
             }
 
         } else {
@@ -79,17 +83,18 @@ mps_rbtree_insert(mps_rbtree_t *tree, mps_rbtree_node_t *node)
             } else {
                 if (node == node->parent->left) {
                     node = node->parent;
-                    mps_rbtree_right_rotate(root, sentinel, node);
+                    mps_rbtree_right_rotate(pool, root, sentinel, node);
                 }
 
                 ngx_rbt_black(node->parent);
                 ngx_rbt_red(node->parent->parent);
-                mps_rbtree_left_rotate(root, sentinel, node->parent->parent);
+                mps_rbtree_left_rotate(pool, root, sentinel,
+                    node->parent->parent);
             }
         }
     }
 
-    ngx_rbt_black(*root);
+    ngx_rbt_black(mps_rbtree_node(pool, *root));
 }
 
 
@@ -154,10 +159,12 @@ mps_rbtree_insert_timer_value(mps_rbtree_node_t *temp, mps_rbtree_node_t *node,
 
 
 void
-mps_rbtree_delete(mps_rbtree_t *tree, mps_rbtree_node_t *node)
+mps_rbtree_delete(mps_slab_pool_t *pool, mps_rbtree_t *tree,
+    mps_rbtree_node_t *node)
 {
     ngx_uint_t           red;
-    mps_rbtree_node_t  **root, *sentinel, *subst, *temp, *w;
+    mps_ptroff_t        *root;
+    mps_rbtree_node_t   *sentinel, *subst, *temp, *w;
 
     /* a binary tree delete */
 
@@ -177,8 +184,8 @@ mps_rbtree_delete(mps_rbtree_t *tree, mps_rbtree_node_t *node)
         temp = subst->right;
     }
 
-    if (subst == *root) {
-        *root = temp;
+    if (subst == mps_rbtree_node(pool, *root)) {
+        *root = mps_slab_to_off(pool, temp);
         ngx_rbt_black(temp);
 
         /* DEBUG stuff */
@@ -217,8 +224,8 @@ mps_rbtree_delete(mps_rbtree_t *tree, mps_rbtree_node_t *node)
         subst->parent = node->parent;
         ngx_rbt_copy_color(subst, node);
 
-        if (node == *root) {
-            *root = subst;
+        if (node == mps_rbtree_node(pool, *root)) {
+            *root = mps_slab_to_off(pool, subst);
 
         } else {
             if (node == node->parent->left) {
@@ -249,7 +256,7 @@ mps_rbtree_delete(mps_rbtree_t *tree, mps_rbtree_node_t *node)
 
     /* a delete fixup */
 
-    while (temp != *root && ngx_rbt_is_black(temp)) {
+    while (temp != mps_rbtree_node(pool, *root) && ngx_rbt_is_black(temp)) {
 
         if (temp == temp->parent->left) {
             w = temp->parent->right;
@@ -257,7 +264,7 @@ mps_rbtree_delete(mps_rbtree_t *tree, mps_rbtree_node_t *node)
             if (ngx_rbt_is_red(w)) {
                 ngx_rbt_black(w);
                 ngx_rbt_red(temp->parent);
-                mps_rbtree_left_rotate(root, sentinel, temp->parent);
+                mps_rbtree_left_rotate(pool, root, sentinel, temp->parent);
                 w = temp->parent->right;
             }
 
@@ -269,15 +276,15 @@ mps_rbtree_delete(mps_rbtree_t *tree, mps_rbtree_node_t *node)
                 if (ngx_rbt_is_black(w->right)) {
                     ngx_rbt_black(w->left);
                     ngx_rbt_red(w);
-                    mps_rbtree_right_rotate(root, sentinel, w);
+                    mps_rbtree_right_rotate(pool, root, sentinel, w);
                     w = temp->parent->right;
                 }
 
                 ngx_rbt_copy_color(w, temp->parent);
                 ngx_rbt_black(temp->parent);
                 ngx_rbt_black(w->right);
-                mps_rbtree_left_rotate(root, sentinel, temp->parent);
-                temp = *root;
+                mps_rbtree_left_rotate(pool, root, sentinel, temp->parent);
+                temp = mps_rbtree_node(pool, *root);
             }
 
         } else {
@@ -286,7 +293,7 @@ mps_rbtree_delete(mps_rbtree_t *tree, mps_rbtree_node_t *node)
             if (ngx_rbt_is_red(w)) {
                 ngx_rbt_black(w);
                 ngx_rbt_red(temp->parent);
-                mps_rbtree_right_rotate(root, sentinel, temp->parent);
+                mps_rbtree_right_rotate(pool, root, sentinel, temp->parent);
                 w = temp->parent->left;
             }
 
@@ -298,15 +305,15 @@ mps_rbtree_delete(mps_rbtree_t *tree, mps_rbtree_node_t *node)
                 if (ngx_rbt_is_black(w->left)) {
                     ngx_rbt_black(w->right);
                     ngx_rbt_red(w);
-                    mps_rbtree_left_rotate(root, sentinel, w);
+                    mps_rbtree_left_rotate(pool, root, sentinel, w);
                     w = temp->parent->left;
                 }
 
                 ngx_rbt_copy_color(w, temp->parent);
                 ngx_rbt_black(temp->parent);
                 ngx_rbt_black(w->left);
-                mps_rbtree_right_rotate(root, sentinel, temp->parent);
-                temp = *root;
+                mps_rbtree_right_rotate(pool, root, sentinel, temp->parent);
+                temp = mps_rbtree_node(pool, *root);
             }
         }
     }
@@ -316,8 +323,8 @@ mps_rbtree_delete(mps_rbtree_t *tree, mps_rbtree_node_t *node)
 
 
 static ngx_inline void
-mps_rbtree_left_rotate(mps_rbtree_node_t **root, mps_rbtree_node_t *sentinel,
-    mps_rbtree_node_t *node)
+mps_rbtree_left_rotate(mps_slab_pool_t *pool, mps_ptroff_t *root,
+    mps_rbtree_node_t *sentinel, mps_rbtree_node_t *node)
 {
     mps_rbtree_node_t  *temp;
 
@@ -330,8 +337,8 @@ mps_rbtree_left_rotate(mps_rbtree_node_t **root, mps_rbtree_node_t *sentinel,
 
     temp->parent = node->parent;
 
-    if (node == *root) {
-        *root = temp;
+    if (node == mps_rbtree_node(pool, *root)) {
+        *root = mps_slab_to_off(pool, temp);
 
     } else if (node == node->parent->left) {
         node->parent->left = temp;
@@ -346,8 +353,8 @@ mps_rbtree_left_rotate(mps_rbtree_node_t **root, mps_rbtree_node_t *sentinel,
 
 
 static ngx_inline void
-mps_rbtree_right_rotate(mps_rbtree_node_t **root, mps_rbtree_node_t *sentinel,
-    mps_rbtree_node_t *node)
+mps_rbtree_right_rotate(mps_slab_pool_t *pool, mps_ptroff_t *root,
+    mps_rbtree_node_t *sentinel, mps_rbtree_node_t *node)
 {
     mps_rbtree_node_t  *temp;
 
@@ -360,8 +367,8 @@ mps_rbtree_right_rotate(mps_rbtree_node_t **root, mps_rbtree_node_t *sentinel,
 
     temp->parent = node->parent;
 
-    if (node == *root) {
-        *root = temp;
+    if (node == mps_rbtree_node(pool, *root)) {
+        *root = mps_slab_to_off(pool, temp);
 
     } else if (node == node->parent->right) {
         node->parent->right = temp;
@@ -376,7 +383,8 @@ mps_rbtree_right_rotate(mps_rbtree_node_t **root, mps_rbtree_node_t *sentinel,
 
 
 mps_rbtree_node_t *
-mps_rbtree_next(mps_rbtree_t *tree, mps_rbtree_node_t *node)
+mps_rbtree_next(mps_slab_pool_t *pool, mps_rbtree_t *tree,
+    mps_rbtree_node_t *node)
 {
     mps_rbtree_node_t  *root, *sentinel, *parent;
 
@@ -386,7 +394,7 @@ mps_rbtree_next(mps_rbtree_t *tree, mps_rbtree_node_t *node)
         return mps_rbtree_min(node->right, sentinel);
     }
 
-    root = tree->root;
+    root = mps_rbtree_node(pool, tree->root);
 
     for ( ;; ) {
         parent = node->parent;

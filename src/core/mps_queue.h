@@ -18,7 +18,7 @@ struct mps_queue_s {
     mps_ptroff_t  next;
 };
 
-#define mps_queue(pool, off)   ((mps_queue_t *) mps_slab_to_ptr(pool, off))                                       
+#define mps_queue(pool, off)   ((mps_queue_t *) mps_slab_to_ptr(pool, off))
 
 #define mps_queue_init(pool, q)                                               \
     do {                                                                      \
