@@ -21,6 +21,13 @@ static ngx_inline void mps_rbtree_right_rotate(mps_slab_pool_t *pool,
     mps_ptroff_t *root, mps_ptroff_t sentinel, mps_rbtree_node_t *node);
 
 
+static mps_rbtree_insert_pt insert_values[MPS_RBTREE_INSERT_TYPE_ID_COUNT] = {
+    mps_rbtree_insert_value,
+    mps_rbtree_insert_timer_value,
+    mps_luadict_rbtree_insert_value,
+};
+
+
 void
 mps_rbtree_insert(mps_slab_pool_t *pool, mps_rbtree_t *tree,
     mps_rbtree_node_t *node)
@@ -44,22 +51,12 @@ mps_rbtree_insert(mps_slab_pool_t *pool, mps_rbtree_t *tree,
         return;
     }
 
-    printf("mps_rbtree_insert before tree->insert\n");
-    switch (tree->insert) {
-    case MPS_RBTREE_INSERT_TYPE_ID_STANDARD:
-        insert_value = mps_rbtree_insert_value;
-        break;
-    case MPS_RBTREE_INSERT_TYPE_ID_TIMER:
-        insert_value = mps_rbtree_insert_timer_value;
-        break;
-    case MPS_RBTREE_INSERT_TYPE_ID_LUADICT:
-        insert_value = mps_luadict_rbtree_insert_value;
-        break;
-    default:
+    if (tree->insert >= MPS_RBTREE_INSERT_TYPE_ID_COUNT) {
         fprintf(stderr, "mps_rbtree_insert invalid tree insert type: %ld\n", tree->insert);
         return;
     }
-
+    printf("mps_rbtree_insert before tree->insert\n");
+    insert_value = insert_values[tree->insert];
     insert_value(pool, mps_rbtree_node(pool, *root), node,
                  mps_rbtree_node(pool, sentinel));
     printf("mps_rbtree_insert after tree->insert\n");

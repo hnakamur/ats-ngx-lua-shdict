@@ -39,9 +39,12 @@ typedef void (*mps_rbtree_insert_pt) (mps_slab_pool_t *pool,
 
 typedef uintptr_t mps_rbtree_insert_type_id_t;
 
-#define MPS_RBTREE_INSERT_TYPE_ID_STANDARD 0
-#define MPS_RBTREE_INSERT_TYPE_ID_TIMER    1
-#define MPS_RBTREE_INSERT_TYPE_ID_LUADICT  2
+enum {
+    MPS_RBTREE_INSERT_TYPE_ID_STANDARD,
+    MPS_RBTREE_INSERT_TYPE_ID_TIMER,
+    MPS_RBTREE_INSERT_TYPE_ID_LUADICT,
+    MPS_RBTREE_INSERT_TYPE_ID_COUNT,
+};
 
 struct mps_rbtree_s {
     mps_ptroff_t                  root;
