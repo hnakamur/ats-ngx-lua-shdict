@@ -27,6 +27,7 @@ mps_rbtree_insert(mps_slab_pool_t *pool, mps_rbtree_t *tree,
 {
     mps_ptroff_t        *root, sentinel;
     mps_rbtree_node_t   *temp, *parent, *grand_parent;
+    mps_rbtree_insert_pt insert_value;
 
     /* a binary tree insert */
 
@@ -34,7 +35,7 @@ mps_rbtree_insert(mps_slab_pool_t *pool, mps_rbtree_t *tree,
     sentinel = tree->sentinel;
 
     if (*root == sentinel) {
-        node->parent = 0;
+        node->parent = mps_nulloff;
         node->left = sentinel;
         node->right = sentinel;
         ngx_rbt_black(node);
@@ -43,8 +44,25 @@ mps_rbtree_insert(mps_slab_pool_t *pool, mps_rbtree_t *tree,
         return;
     }
 
-    tree->insert(pool, mps_rbtree_node(pool, *root), node,
+    printf("mps_rbtree_insert before tree->insert\n");
+    switch (tree->insert) {
+    case MPS_RBTREE_INSERT_TYPE_ID_STANDARD:
+        insert_value = mps_rbtree_insert_value;
+        break;
+    case MPS_RBTREE_INSERT_TYPE_ID_TIMER:
+        insert_value = mps_rbtree_insert_timer_value;
+        break;
+    case MPS_RBTREE_INSERT_TYPE_ID_LUADICT:
+        insert_value = mps_luadict_rbtree_insert_value;
+        break;
+    default:
+        fprintf(stderr, "mps_rbtree_insert invalid tree insert type: %ld\n", tree->insert);
+        return;
+    }
+
+    insert_value(pool, mps_rbtree_node(pool, *root), node,
                  mps_rbtree_node(pool, sentinel));
+    printf("mps_rbtree_insert after tree->insert\n");
 
     /* re-balance tree */
 

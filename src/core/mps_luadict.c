@@ -1,9 +1,11 @@
 #include "mps_luadict.h"
 
-static ngx_inline void
-dd(const char *fmt, ...) {
-}
+#       define dd(...) fprintf(stderr, "lua *** %s: ", __func__);            \
+            fprintf(stderr, __VA_ARGS__);                                    \
+            fprintf(stderr, " at %s line %d.\n", __FILE__, __LINE__)
 
+static int mps_luadict_expire(mps_slab_pool_t *pool, mps_luadict_t *dict,
+    ngx_uint_t n);
 
 
 #define NGX_HTTP_LUA_SHDICT_ADD         0x0001
@@ -28,12 +30,48 @@ mps_luadict_get_list_head(mps_luadict_node_t *sd, size_t len)
 }
 
 
-static void
-mps_luadict_rbtree_insert(mps_slab_pool_t *pool,
-    mps_rbtree_node_t *root, mps_rbtree_node_t *node,
+void
+mps_luadict_rbtree_insert_value(mps_slab_pool_t *pool,
+    mps_rbtree_node_t *temp, mps_rbtree_node_t *node,
     mps_rbtree_node_t *sentinel)
 {
-    printf("mps_luadict_rbtree_insert start\n");
+    mps_ptroff_t         *p, s;
+    mps_luadict_node_t   *sdn, *sdnt;
+
+    printf("mps_luadict_rbtree_insert_value start\n");
+    s = mps_offset(pool, sentinel);
+
+    for ( ;; ) {
+
+        if (node->key < temp->key) {
+
+            p = &temp->left;
+
+        } else if (node->key > temp->key) {
+
+            p = &temp->right;
+
+        } else { /* node->key == temp->key */
+
+            sdn = (mps_luadict_node_t *) &node->color;
+            sdnt = (mps_luadict_node_t *) &temp->color;
+
+            p = ngx_memn2cmp(sdn->data, sdnt->data, sdn->key_len,
+                             sdnt->key_len) < 0 ? &temp->left : &temp->right;
+        }
+
+        if (*p == s) {
+            break;
+        }
+
+        temp = mps_rbtree_node(pool, *p);
+    }
+
+    *p = mps_offset(pool, node);
+    node->parent = mps_offset(pool, temp);
+    node->left = s;
+    node->right = s;
+    ngx_rbt_red(node);
 }
 
 static void
@@ -49,18 +87,19 @@ mps_luadict_on_init(mps_slab_pool_t *pool)
 
     pool->data = mps_offset(pool, dict);
     mps_rbtree_init(pool, &dict->rbtree, &dict->sentinel,
-        mps_luadict_rbtree_insert);
+        MPS_RBTREE_INSERT_TYPE_ID_LUADICT);
+    printf("mps_luadict_on_init mps_luadict_rbtree_insert_value=%p\n", mps_luadict_rbtree_insert_value);
     mps_queue_init(pool, &dict->lru_queue);
 }
 
-void *
+mps_slab_pool_t *
 mps_luadict_open_or_create(const char *shm_name, size_t shm_size)
 {
     return mps_slab_open_or_create(shm_name, shm_size, mps_luadict_on_init);
 }
 
 static ngx_int_t
-mps_luadict_lookup(mps_slab_pool_t *pl, ngx_uint_t hash,
+mps_luadict_lookup(mps_slab_pool_t *pool, ngx_uint_t hash,
     u_char *kdata, size_t klen, mps_luadict_node_t **sdp)
 {
     mps_luadict_t       *dict;
@@ -71,20 +110,20 @@ mps_luadict_lookup(mps_slab_pool_t *pl, ngx_uint_t hash,
     mps_rbtree_node_t   *node, *sentinel;
     mps_luadict_node_t  *sd;
 
-    dict = mps_luadict(pl);
+    dict = mps_luadict(pool);
 
-    node = mps_rbtree_node(pl, dict->rbtree.root);
-    sentinel = mps_rbtree_node(pl, dict->rbtree.sentinel);
+    node = mps_rbtree_node(pool, dict->rbtree.root);
+    sentinel = mps_rbtree_node(pool, dict->rbtree.sentinel);
 
     while (node != sentinel) {
 
         if (hash < node->key) {
-            node = mps_rbtree_node(pl, node->left);
+            node = mps_rbtree_node(pool, node->left);
             continue;
         }
 
         if (hash > node->key) {
-            node = mps_rbtree_node(pl, node->right);
+            node = mps_rbtree_node(pool, node->right);
             continue;
         }
 
@@ -95,8 +134,8 @@ mps_luadict_lookup(mps_slab_pool_t *pl, ngx_uint_t hash,
         rc = ngx_memn2cmp(kdata, sd->data, klen, (size_t) sd->key_len);
 
         if (rc == 0) {
-            mps_queue_remove(pl, &sd->queue);
-            mps_queue_insert_head(pl, &dict->lru_queue, &sd->queue);
+            mps_queue_remove(pool, &sd->queue);
+            mps_queue_insert_head(pool, &dict->lru_queue, &sd->queue);
 
             *sdp = sd;
 
@@ -119,7 +158,7 @@ mps_luadict_lookup(mps_slab_pool_t *pl, ngx_uint_t hash,
             return NGX_OK;
         }
 
-        node = mps_rbtree_node(pl, (rc < 0) ? node->left : node->right);
+        node = mps_rbtree_node(pool, (rc < 0) ? node->left : node->right);
     }
 
     *sdp = NULL;
@@ -128,28 +167,99 @@ mps_luadict_lookup(mps_slab_pool_t *pl, ngx_uint_t hash,
 }
 
 
+static int
+mps_luadict_expire(mps_slab_pool_t *pool, mps_luadict_t *dict, ngx_uint_t n)
+{
+    ngx_time_t                      *tp;
+    uint64_t                         now;
+    mps_queue_t                     *q, *list_queue, *lq;
+    int64_t                          ms;
+    mps_rbtree_node_t               *node;
+    mps_luadict_node_t              *sd;
+    int                              freed = 0;
+    mps_luadict_list_node_t         *lnode;
+
+    tp = ngx_timeofday();
+
+    now = (uint64_t) tp->sec * 1000 + tp->msec;
+
+    /*
+     * n == 1 deletes one or two expired entries
+     * n == 0 deletes oldest entry by force
+     *        and one or two zero rate entries
+     */
+
+    while (n < 3) {
+
+        if (mps_queue_empty(pool, &dict->lru_queue)) {
+            return freed;
+        }
+
+        q = mps_queue_last(pool, &dict->lru_queue);
+
+        sd = mps_queue_data(q, mps_luadict_node_t, queue);
+
+        if (n++ != 0) {
+
+            if (sd->expires == 0) {
+                return freed;
+            }
+
+            ms = sd->expires - now;
+            if (ms > 0) {
+                return freed;
+            }
+        }
+
+        if (sd->value_type == SHDICT_TLIST) {
+            list_queue = mps_luadict_get_list_head(sd, sd->key_len);
+
+            for (lq = mps_queue_head(pool, list_queue);
+                 lq != mps_queue_sentinel(pool, list_queue);
+                 lq = mps_queue_next(pool, lq))
+            {
+                lnode = mps_queue_data(lq, mps_luadict_list_node_t,
+                                       queue);
+
+                mps_slab_free_locked(pool, lnode);
+            }
+        }
+
+        mps_queue_remove(pool, q);
+
+        node = (mps_rbtree_node_t *)
+                          ((u_char *) sd - offsetof(mps_rbtree_node_t, color));
+
+        mps_rbtree_delete(pool, &dict->rbtree, node);
+
+        mps_slab_free_locked(pool, node);
+
+        freed++;
+    }
+
+    return freed;
+}
+
+
 int
-mps_luadict_get(void *pool, u_char *key,
+mps_luadict_get(mps_slab_pool_t *pool, u_char *key,
     size_t key_len, int *value_type, u_char **str_value_buf,
     size_t *str_value_len, double *num_value, int *user_flags,
     int get_stale, int *is_stale, char **err)
 {
-    mps_slab_pool_t     *pl;
     uint32_t             hash;
     ngx_int_t            rc;
     mps_luadict_node_t  *sd;
     ngx_str_t            value;
 
-    pl = (mps_slab_pool_t *) pool;
-
     hash = ngx_crc32_short(key, key_len);
 
-    mps_slab_lock(pl);
+    mps_slab_lock(pool);
 
-    rc = mps_luadict_lookup(pl, hash, key, key_len, &sd);
+    rc = mps_luadict_lookup(pool, hash, key, key_len, &sd);
 
     if (rc == NGX_DECLINED || (rc == NGX_DONE && !get_stale)) {
-        mps_slab_unlock(pl);
+        mps_slab_unlock(pool);
         *value_type = LUA_TNIL;
         return NGX_OK;
     }
@@ -164,14 +274,14 @@ mps_luadict_get(void *pool, u_char *key,
 
     if (*str_value_len < (size_t) value.len) {
         if (*value_type == SHDICT_TBOOLEAN) {
-            mps_slab_unlock(pl);
+            mps_slab_unlock(pool);
             return NGX_ERROR;
         }
 
         if (*value_type == SHDICT_TSTRING) {
             *str_value_buf = malloc(value.len);
             if (*str_value_buf == NULL) {
-                mps_slab_unlock(pl);
+                mps_slab_unlock(pool);
                 return NGX_ERROR;
             }
         }
@@ -187,7 +297,7 @@ mps_luadict_get(void *pool, u_char *key,
     case SHDICT_TNUMBER:
 
         if (value.len != sizeof(double)) {
-            mps_slab_unlock(pl);
+            mps_slab_unlock(pool);
             ngx_log_error(NGX_LOG_ERR, ngx_cycle->log, 0,
                           "bad lua number value size found for key %*s "
                           "in shared_dict %V: %z", key_len, key,
@@ -202,7 +312,7 @@ mps_luadict_get(void *pool, u_char *key,
     case SHDICT_TBOOLEAN:
 
         if (value.len != sizeof(u_char)) {
-            mps_slab_unlock(pl);
+            mps_slab_unlock(pool);
             ngx_log_error(NGX_LOG_ERR, ngx_cycle->log, 0,
                           "bad lua boolean value size found for key %*s "
                           "in shared_dict %V: %z", key_len, key, &name,
@@ -215,14 +325,14 @@ mps_luadict_get(void *pool, u_char *key,
 
     case SHDICT_TLIST:
 
-        mps_slab_unlock(pl);
+        mps_slab_unlock(pool);
 
         *err = "value is a list";
         return NGX_ERROR;
 
     default:
 
-        mps_slab_unlock(pl);
+        mps_slab_unlock(pool);
         ngx_log_error(NGX_LOG_ERR, ngx_cycle->log, 0,
                       "bad value type found for key %*s in "
                       "shared_dict %V: %d", key_len, key, &name,
@@ -233,7 +343,7 @@ mps_luadict_get(void *pool, u_char *key,
     *user_flags = sd->user_flags;
     dd("user flags: %d", *user_flags);
 
-    mps_slab_unlock(pl);
+    mps_slab_unlock(pool);
 
     if (get_stale) {
 
@@ -246,13 +356,218 @@ mps_luadict_get(void *pool, u_char *key,
     return NGX_OK;
 }
 
+
 int
-mps_luadict_store(void *pool, int op, u_char *key,
+mps_luadict_incr(mps_slab_pool_t *pool, u_char *key,
+    size_t key_len, double *value, char **err, int has_init, double init,
+    long init_ttl, int *forcible)
+{
+    int                          i, n;
+    uint32_t                     hash;
+    ngx_int_t                    rc;
+    ngx_time_t                  *tp = NULL;
+    mps_luadict_t               *dict;
+    mps_luadict_node_t          *sd;
+    double                       num;
+    mps_rbtree_node_t           *node;
+    u_char                      *p;
+    mps_queue_t                 *queue, *q;
+
+    if (init_ttl > 0) {
+        tp = ngx_timeofday();
+    }
+
+    dict = mps_luadict(pool);
+
+    *forcible = 0;
+
+    hash = ngx_crc32_short(key, key_len);
+
+    // dd("looking up key %.*s in shared dict %.*s", (int) key_len, key,
+    //    (int) ctx->name.len, ctx->name.data);
+
+    mps_slab_lock(pool);
+#if 1
+    mps_luadict_expire(pool, dict, 1);
+#endif
+    rc = mps_luadict_lookup(pool, hash, key, key_len, &sd);
+
+    dd("shdict lookup returned %d", (int) rc);
+
+    if (rc == NGX_DECLINED || rc == NGX_DONE) {
+        if (!has_init) {
+            mps_slab_unlock(pool);
+            *err = "not found";
+            return NGX_ERROR;
+        }
+
+        /* add value */
+        num = *value + init;
+
+        if (rc == NGX_DONE) {
+
+            /* found an expired item */
+
+            if ((size_t) sd->value_len == sizeof(double)
+                && sd->value_type != SHDICT_TLIST)
+            {
+                ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ctx->log, 0,
+                               "lua shared dict incr: found old entry and "
+                               "value size matched, reusing it");
+
+                mps_queue_remove(pool, &sd->queue);
+                mps_queue_insert_head(pool, &dict->lru_queue, &sd->queue);
+
+                dd("go to setvalue");
+                goto setvalue;
+            }
+
+            dd("go to remove");
+            goto remove;
+        }
+
+        dd("go to insert");
+        goto insert;
+    }
+
+    /* rc == NGX_OK */
+
+    if (sd->value_type != SHDICT_TNUMBER || sd->value_len != sizeof(double)) {
+        mps_slab_unlock(pool);
+        *err = "not a number";
+        return NGX_ERROR;
+    }
+
+    mps_queue_remove(pool, &sd->queue);
+    mps_queue_insert_head(pool, &dict->lru_queue, &sd->queue);
+
+    dd("setting value type to %d", (int) sd->value_type);
+
+    p = sd->data + key_len;
+
+    ngx_memcpy(&num, p, sizeof(double));
+    num += *value;
+
+    ngx_memcpy(p, (double *) &num, sizeof(double));
+
+    mps_slab_unlock(pool);
+
+    *value = num;
+    return NGX_OK;
+
+remove:
+
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ctx->log, 0,
+                   "lua shared dict incr: found old entry but value size "
+                   "NOT matched, removing it first");
+
+    if (sd->value_type == SHDICT_TLIST) {
+        queue = mps_luadict_get_list_head(sd, key_len);
+
+        for (q = mps_queue_head(pool, queue);
+             q != mps_queue_sentinel(pool, queue);
+             q = mps_queue_next(pool, q))
+        {
+            p = (u_char *) mps_queue_data(q, mps_luadict_list_node_t,
+                                          queue);
+
+            mps_slab_free_locked(pool, p);
+        }
+    }
+
+    mps_queue_remove(pool, &sd->queue);
+
+    node = (mps_rbtree_node_t *)
+               ((u_char *) sd - offsetof(mps_rbtree_node_t, color));
+
+    mps_rbtree_delete(pool, &dict->rbtree, node);
+
+    mps_slab_free_locked(pool, node);
+
+insert:
+
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ctx->log, 0,
+                   "lua shared dict incr: creating a new entry");
+
+    n = offsetof(mps_rbtree_node_t, color)
+        + offsetof(mps_luadict_node_t, data)
+        + key_len
+        + sizeof(double);
+
+    node = mps_slab_alloc_locked(pool, n);
+
+    if (node == NULL) {
+
+        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, ctx->log, 0,
+                       "lua shared dict incr: overriding non-expired items "
+                       "due to memory shortage for entry \"%*s\"", key_len,
+                       key);
+
+        for (i = 0; i < 30; i++) {
+            if (mps_luadict_expire(pool, dict, 0) == 0) {
+                break;
+            }
+
+            *forcible = 1;
+
+            node = mps_slab_alloc_locked(pool, n);
+            if (node != NULL) {
+                goto allocated;
+            }
+        }
+
+        mps_slab_unlock(pool);
+
+        *err = "no memory";
+        return NGX_ERROR;
+    }
+
+allocated:
+
+    sd = (mps_luadict_node_t *) &node->color;
+
+    node->key = hash;
+
+    sd->key_len = (u_short) key_len;
+
+    sd->value_len = (uint32_t) sizeof(double);
+
+    mps_rbtree_insert(pool, &dict->rbtree, node);
+
+    mps_queue_insert_head(pool, &dict->lru_queue, &sd->queue);
+
+setvalue:
+
+    sd->user_flags = 0;
+
+    if (init_ttl > 0) {
+        sd->expires = (uint64_t) tp->sec * 1000 + tp->msec
+                      + (uint64_t) init_ttl;
+
+    } else {
+        sd->expires = 0;
+    }
+
+    dd("setting value type to %d", LUA_TNUMBER);
+
+    sd->value_type = (uint8_t) LUA_TNUMBER;
+
+    p = ngx_copy(sd->data, key, key_len);
+    ngx_memcpy(p, (double *) &num, sizeof(double));
+
+    mps_slab_unlock(pool);
+
+    *value = num;
+    return NGX_OK;
+}
+
+
+int
+mps_luadict_store(mps_slab_pool_t *pool, int op, u_char *key,
     size_t key_len, int value_type, u_char *str_value_buf,
     size_t str_value_len, double num_value, long exptime, int user_flags,
     char **errmsg, int *forcible)
 {
-    mps_slab_pool_t     *pl;
     mps_luadict_t       *dict;
     int                  n;
     uint32_t             hash;
@@ -263,8 +578,7 @@ mps_luadict_store(void *pool, int op, u_char *key,
     mps_luadict_node_t  *sd;
     u_char               c, *p;
 
-    pl = (mps_slab_pool_t *) pool;
-    dict = mps_luadict(pl);
+    dict = mps_luadict(pool);
 
     *forcible = 0;
 
@@ -303,19 +617,19 @@ mps_luadict_store(void *pool, int op, u_char *key,
         return NGX_ERROR;
     }
 
-    mps_slab_lock(pl);
+    mps_slab_lock(pool);
 
-#if 0
-    mps_luadict_expire(ctx, 1);
+#if 1
+    mps_luadict_expire(pool, dict, 1);
 #endif
 
-    rc = mps_luadict_lookup(pl, hash, key, key_len, &sd);
+    rc = mps_luadict_lookup(pool, hash, key, key_len, &sd);
     dd("lookup returns %d", (int) rc);
 
     if (op & NGX_HTTP_LUA_SHDICT_REPLACE) {
 
         if (rc == NGX_DECLINED || rc == NGX_DONE) {
-            mps_slab_unlock(pl);
+            mps_slab_unlock(pool);
             *errmsg = "not found";
             return NGX_DECLINED;
         }
@@ -328,7 +642,7 @@ mps_luadict_store(void *pool, int op, u_char *key,
     if (op & NGX_HTTP_LUA_SHDICT_ADD) {
 
         if (rc == NGX_OK) {
-            mps_slab_unlock(pl);
+            mps_slab_unlock(pool);
             *errmsg = "exists";
             return NGX_DECLINED;
         }
@@ -363,8 +677,8 @@ replace:
                            "lua shared dict set: found old entry and value "
                            "size matched, reusing it");
 
-            mps_queue_remove(pl, &sd->queue);
-            mps_queue_insert_head(pl, &dict->lru_queue, &sd->queue);
+            mps_queue_remove(pool, &sd->queue);
+            mps_queue_insert_head(pool, &dict->lru_queue, &sd->queue);
 
             if (exptime > 0) {
                 tp = ngx_timeofday();
@@ -383,7 +697,7 @@ replace:
 
             ngx_memcpy(sd->data + key_len, str_value_buf, str_value_len);
 
-            mps_slab_unlock(pl);
+            mps_slab_unlock(pool);
 
             return NGX_OK;
         }
@@ -397,26 +711,26 @@ remove:
         if (sd->value_type == SHDICT_TLIST) {
             queue = mps_luadict_get_list_head(sd, key_len);
 
-            for (q = mps_queue_head(pl, queue);
-                 q != mps_queue_sentinel(pl, queue);
-                 q = mps_queue_next(pl, q))
+            for (q = mps_queue_head(pool, queue);
+                 q != mps_queue_sentinel(pool, queue);
+                 q = mps_queue_next(pool, q))
             {
                 p = (u_char *) mps_queue_data(q,
                                               mps_luadict_list_node_t,
                                               queue);
 
-                mps_slab_free_locked(pl, p);
+                mps_slab_free_locked(pool, p);
             }
         }
 
-        mps_queue_remove(pl, &sd->queue);
+        mps_queue_remove(pool, &sd->queue);
 
         node = (mps_rbtree_node_t *)
                    ((u_char *) sd - offsetof(mps_rbtree_node_t, color));
 
-        mps_rbtree_delete(pl, &dict->rbtree, node);
+        mps_rbtree_delete(pool, &dict->rbtree, node);
 
-        mps_slab_free_locked(pl, node);
+        mps_slab_free_locked(pool, node);
 
     }
 
@@ -425,7 +739,7 @@ insert:
     /* rc == NGX_DECLINED or value size unmatch */
 
     if (str_value_buf == NULL) {
-        mps_slab_unlock(pl);
+        mps_slab_unlock(pool);
         return NGX_OK;
     }
 
@@ -437,10 +751,10 @@ insert:
         + key_len
         + str_value_len;
 
-    node = mps_slab_alloc_locked(pl, n);
+    node = mps_slab_alloc_locked(pool, n);
 
     if (node == NULL) {
-        mps_slab_unlock(pl);
+        mps_slab_unlock(pool);
         return NGX_ERROR;
     }
 
@@ -456,9 +770,11 @@ insert:
     p = ngx_copy(sd->data, key, key_len);
     ngx_memcpy(p, str_value_buf, str_value_len);
 
-    mps_rbtree_insert(pl, &dict->rbtree, node);
-    mps_queue_insert_head(pl, &dict->lru_queue, &sd->queue);
-    mps_slab_unlock(pl);
+    printf("mps_luadict_store before mps_rbtree_insert\n");
+    mps_rbtree_insert(pool, &dict->rbtree, node);
+    printf("mps_luadict_store after mps_rbtree_insert\n");
+    mps_queue_insert_head(pool, &dict->lru_queue, &sd->queue);
+    mps_slab_unlock(pool);
 
     return NGX_OK;
 }

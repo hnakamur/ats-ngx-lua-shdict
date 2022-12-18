@@ -47,7 +47,8 @@ typedef struct {
     mps_queue_t                   lru_queue;
 } mps_luadict_t;
 
-void *
+
+mps_slab_pool_t *
 mps_luadict_open_or_create(const char *shm_name, size_t shm_size);
 
 #define mps_luadict(pool)                                                     \

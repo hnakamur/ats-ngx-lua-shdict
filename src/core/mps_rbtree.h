@@ -37,10 +37,16 @@ typedef void (*mps_rbtree_insert_pt) (mps_slab_pool_t *pool,
     mps_rbtree_node_t *root, mps_rbtree_node_t *node,
     mps_rbtree_node_t *sentinel);
 
+typedef uintptr_t mps_rbtree_insert_type_id_t;
+
+#define MPS_RBTREE_INSERT_TYPE_ID_STANDARD 0
+#define MPS_RBTREE_INSERT_TYPE_ID_TIMER    1
+#define MPS_RBTREE_INSERT_TYPE_ID_LUADICT  2
+
 struct mps_rbtree_s {
-    mps_ptroff_t           root;
-    mps_ptroff_t           sentinel;
-    mps_rbtree_insert_pt   insert;
+    mps_ptroff_t                  root;
+    mps_ptroff_t                  sentinel;
+    mps_rbtree_insert_type_id_t   insert;
 };
 
 #define mps_rbtree(pool, off)  ((mps_rbtree_t *) mps_ptr(pool, off))
@@ -63,6 +69,9 @@ void mps_rbtree_insert_value(mps_slab_pool_t *pool, mps_rbtree_node_t *root,
     mps_rbtree_node_t *node, mps_rbtree_node_t *sentinel);
 void mps_rbtree_insert_timer_value(mps_slab_pool_t *pool,
     mps_rbtree_node_t *root, mps_rbtree_node_t *node,
+    mps_rbtree_node_t *sentinel);
+void mps_luadict_rbtree_insert_value(mps_slab_pool_t *pool,
+    mps_rbtree_node_t *temp, mps_rbtree_node_t *node,
     mps_rbtree_node_t *sentinel);
 mps_rbtree_node_t *mps_rbtree_next(mps_slab_pool_t *pool, mps_rbtree_t *tree,
     mps_rbtree_node_t *node);

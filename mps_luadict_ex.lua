@@ -63,11 +63,13 @@ mps_luadict_store = function(pool, op,
             errmsg, forcible)
 end
 
+
 if not pcall(function () return C.free end) then
     ffi.cdef[[
 void free(void *ptr);
     ]]
 end
+
 
 local value_type = ffi_new("int[1]")
 local user_flags = ffi_new("int[1]")
@@ -77,11 +79,13 @@ local forcible = ffi_new("int[1]")
 local str_value_buf = ffi_new("unsigned char *[1]")
 local errmsg = base.get_errmsg_ptr()
 
+
 local function check_pool(pool)
     return pool
 end
 
 local function shdict_store(pool, op, key, value, exptime, flags)
+    print(string.format("shdict_store start, op=%s, key=%s, value=%s", op, key, value))
     pool = check_pool(pool)
 
     if not exptime then
@@ -128,7 +132,7 @@ local function shdict_store(pool, op, key, value, exptime, flags)
         valtyp = 3  -- LUA_TNUMBER
         num_val = value
 
-    elseif valtyp_str == nil then
+    elseif value == nil then
         valtyp = 0  -- LUA_TNIL
 
     elseif valtyp_str == "boolean" then
@@ -235,6 +239,31 @@ local function shdict_set(pool, key, value, exptime, flags)
     return shdict_store(pool, 0, key, value, exptime, flags)
 end
 
+
+local function shdict_safe_set(zone, key, value, exptime, flags)
+    return shdict_store(zone, 0x0004, key, value, exptime, flags)
+end
+
+
+local function shdict_add(zone, key, value, exptime, flags)
+    return shdict_store(zone, 0x0001, key, value, exptime, flags)
+end
+
+
+local function shdict_safe_add(zone, key, value, exptime, flags)
+    return shdict_store(zone, 0x0005, key, value, exptime, flags)
+end
+
+
+local function shdict_replace(zone, key, value, exptime, flags)
+    return shdict_store(zone, 0x0002, key, value, exptime, flags)
+end
+
+
+local function shdict_delete(zone, key)
+    return shdict_set(zone, key, nil)
+end
+
 local pagesize = 4096
 S.mps_slab_sizes_init(pagesize)
 local pagecount = 10
@@ -242,9 +271,21 @@ local pool_size = pagesize * pagecount
 local pool = S.mps_luadict_open_or_create("/my_dict1", pool_size)
 print(string.format("pool=%s", pool))
 
-local success, err, forcible = shdict_set(pool, "foo", "bar")
-print(string.format("shdict_set, success=%s, err=%s, forcible=%s", success, err, forcible))
+local success, err, forcible = shdict_set(pool, "foo", "value1")
+print(string.format("shdict_set#1, success=%s, err=%s, forcible=%s", success, err, forcible))
+
+local success, err, forcible = shdict_set(pool, "bar", "value2")
+print(string.format("shdict_set#2, success=%s, err=%s, forcible=%s", success, err, forcible))
+
+local value, flags = shdict_get(pool, "foo")
+print(string.format("shdict_get#1, value=%s, flags=%s", value, flags))
+
+local value, flags = shdict_get(pool, "bar")
+print(string.format("shdict_get#2, value=%s, flags=%s", value, flags))
+
+print("before shdict_delete")
+local success, err, forcible = shdict_delete(pool, "foo")
+print(string.format("shdict_delete, success=%s, err=%s, forcible=%s", success, err, forcible))
 
 local value, flags = shdict_get(pool, "foo")
 print(string.format("shdict_get, value=%s, flags=%s", value, flags))
-
