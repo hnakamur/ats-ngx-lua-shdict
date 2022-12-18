@@ -67,14 +67,17 @@ OBJS = objs/src/ngx_http_luadict.o \
 
 MPS_OBJS = objs/src/core/mps_luadict.o \
            objs/src/core/mps_rbtree.o \
-		   objs/src/core/mps_slab.o
+		   objs/src/core/mps_slab.o \
+           objs/src/core/ngx_crc32.o \
+           objs/src/core/ngx_string.o \
+           objs/src/os/unix/ngx_global_vars.o
 
 
 dll: objs/libmps_luadict.so
 
 
 test: dll
-	sudo LD_LIBRARY_PATH=objs LUA_PATH=src/?.lua luajit mps_luadict_ex.lua
+	sudo LD_LIBRARY_PATH=objs 'LUA_PATH=src/?.lua;lib/?.lua;;' luajit mps_luadict_ex.lua
 
 
 objs/libmps_luadict.so: $(MPS_OBJS)
