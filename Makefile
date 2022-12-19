@@ -77,7 +77,7 @@ dll: objs/libmps_luadict.so
 
 
 test: dll
-	sudo LD_LIBRARY_PATH=objs 'LUA_PATH=src/?.lua;lib/?.lua;;' luajit mps_luadict_ex.lua
+	sudo LD_LIBRARY_PATH=objs 'LUA_PATH=src/?.lua;lib/?.lua;?.lua;;' luajit mps_luadict_ex.lua
 
 
 objs/libmps_luadict.so: $(MPS_OBJS)
