@@ -218,6 +218,7 @@ mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
     pool->zero = '\0';
 }
 
+#define MPS_SHM_MODE (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
 
 static mps_err_t
 mps_slab_create(mps_slab_pool_t **pool, const char *shm_name, size_t shm_size,
@@ -249,7 +250,7 @@ mps_slab_create(mps_slab_pool_t **pool, const char *shm_name, size_t shm_size,
         on_init(*pool);
     }
 
-    if (fchmod(fd, S_IRUSR | S_IWUSR) == -1) {
+    if (fchmod(fd, MPS_SHM_MODE) == -1) {
         err = errno;
     }
 
@@ -274,7 +275,7 @@ mps_slab_open(mps_slab_pool_t **pool, const char *shm_name, size_t shm_size)
     int fd;
     void *addr;
 
-    fd = shm_open(shm_name, O_RDWR, S_IRUSR | S_IWUSR);
+    fd = shm_open(shm_name, O_RDWR, MPS_SHM_MODE);
     if (fd == -1) {
         return errno;
     }
