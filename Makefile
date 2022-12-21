@@ -33,7 +33,7 @@ CORE_DEPS = src/core/nginx.h \
 	src/os/unix/ngx_linux_config.h \
 	src/os/unix/ngx_linux.h \
 	src/core/ngx_auto_config.h \
-	src/core/mps_luadict.h \
+	src/core/mps_shdict.h \
 	src/core/mps_rbtree.h \
 	src/core/mps_queue.h \
 	src/core/mps_slab.h
@@ -65,7 +65,7 @@ OBJS = objs/src/ngx_http_luadict.o \
        objs/src/os/unix/ngx_stubs.o \
        objs/src/os/unix/ngx_global_vars.o
 
-MPS_OBJS = objs/src/core/mps_luadict.o \
+MPS_OBJS = objs/src/core/mps_shdict.o \
            objs/src/core/mps_rbtree.o \
 		   objs/src/core/mps_slab.o \
            objs/src/core/ngx_crc32.o \
@@ -73,25 +73,25 @@ MPS_OBJS = objs/src/core/mps_luadict.o \
            objs/src/os/unix/ngx_global_vars.o
 
 
-dll: objs/libmps_luadict.so
+dll: objs/libmps_shdict.so
 
 
 test: dll
-	sudo LD_LIBRARY_PATH=objs 'LUA_PATH=src/?.lua;lib/?.lua;?.lua;;' luajit mps_luadict_ex.lua
+	sudo LD_LIBRARY_PATH=objs 'LUA_PATH=src/?.lua;lib/?.lua;?.lua;;' luajit mps_shdict_ex.lua
 
 
-objs/libmps_luadict.so: $(MPS_OBJS)
-	$(LINK) -o objs/libmps_luadict.so \
+objs/libmps_shdict.so: $(MPS_OBJS)
+	$(LINK) -o objs/libmps_shdict.so \
 	$(MPS_OBJS) \
 	-L/usr/lib/x86_64-linux-gnu \
 	-shared
 
 
-objs/src/core/mps_luadict.o:	$(CORE_DEPS) \
-	src/core/mps_luadict.c
+objs/src/core/mps_shdict.o:	$(CORE_DEPS) \
+	src/core/mps_shdict.c
 	$(CC) -c $(CFLAGS) $(CORE_INCS) \
-		-o objs/src/core/mps_luadict.o \
-		src/core/mps_luadict.c
+		-o objs/src/core/mps_shdict.o \
+		src/core/mps_shdict.c
 
 
 objs/src/core/mps_slab.o:	$(CORE_DEPS) \

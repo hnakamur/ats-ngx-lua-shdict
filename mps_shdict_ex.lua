@@ -1,4 +1,4 @@
-local mps_luadict = require "mps_luadict"
+local mps_luadict = require "mps_shdict"
 
 local pagesize = 4096
 mps_luadict.slab_sizes_init(pagesize)
