@@ -73,7 +73,7 @@ void mps_rbtree_insert_value(mps_slab_pool_t *pool, mps_rbtree_node_t *root,
 void mps_rbtree_insert_timer_value(mps_slab_pool_t *pool,
     mps_rbtree_node_t *root, mps_rbtree_node_t *node,
     mps_rbtree_node_t *sentinel);
-void mps_luadict_rbtree_insert_value(mps_slab_pool_t *pool,
+void mps_shdict_rbtree_insert_value(mps_slab_pool_t *pool,
     mps_rbtree_node_t *temp, mps_rbtree_node_t *node,
     mps_rbtree_node_t *sentinel);
 mps_rbtree_node_t *mps_rbtree_next(mps_slab_pool_t *pool, mps_rbtree_t *tree,

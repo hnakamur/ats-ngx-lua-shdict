@@ -100,7 +100,7 @@ mps_shdict_open_or_create(const char *shm_name, size_t shm_size)
 
 static ngx_int_t
 mps_shdict_lookup(mps_slab_pool_t *pool, ngx_uint_t hash,
-    u_char *kdata, size_t klen, mps_shdict_node_t **sdp)
+    const u_char *kdata, size_t klen, mps_shdict_node_t **sdp)
 {
     mps_shdict_t       *dict;
     ngx_int_t           rc;
@@ -242,8 +242,8 @@ mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_t *dict, ngx_uint_t n)
 
 
 int
-mps_shdict_store(mps_slab_pool_t *pool, int op, u_char *key,
-    size_t key_len, int value_type, u_char *str_value_buf,
+mps_shdict_store(mps_slab_pool_t *pool, int op, const u_char *key,
+    size_t key_len, int value_type, const u_char *str_value_buf,
     size_t str_value_len, double num_value, long exptime, int user_flags,
     char **errmsg, int *forcible)
 {
@@ -460,7 +460,7 @@ insert:
 
 
 int
-mps_shdict_get(mps_slab_pool_t *pool, u_char *key,
+mps_shdict_get(mps_slab_pool_t *pool, const u_char *key,
     size_t key_len, int *value_type, u_char **str_value_buf,
     size_t *str_value_len, double *num_value, int *user_flags,
     int get_stale, int *is_stale, char **err)
@@ -576,7 +576,7 @@ mps_shdict_get(mps_slab_pool_t *pool, u_char *key,
 
 
 int
-mps_shdict_incr(mps_slab_pool_t *pool, u_char *key,
+mps_shdict_incr(mps_slab_pool_t *pool, const u_char *key,
     size_t key_len, double *value, char **err, int has_init, double init,
     long init_ttl, int *forcible)
 {
@@ -809,7 +809,7 @@ mps_shdict_flush_all(mps_slab_pool_t *pool)
 
 static ngx_int_t
 mps_shdict_peek(mps_slab_pool_t *pool, ngx_uint_t hash,
-    u_char *kdata, size_t klen, mps_shdict_node_t **sdp)
+    const u_char *kdata, size_t klen, mps_shdict_node_t **sdp)
 {
     ngx_int_t           rc;
     mps_rbtree_node_t  *node, *sentinel;
@@ -854,7 +854,7 @@ mps_shdict_peek(mps_slab_pool_t *pool, ngx_uint_t hash,
 
 
 long
-mps_shdict_get_ttl(mps_slab_pool_t *pool, u_char *key, size_t key_len)
+mps_shdict_get_ttl(mps_slab_pool_t *pool, const u_char *key, size_t key_len)
 {
     uint32_t            hash;
     uint64_t            now;
@@ -893,7 +893,7 @@ mps_shdict_get_ttl(mps_slab_pool_t *pool, u_char *key, size_t key_len)
 
 
 int
-mps_shdict_set_expire(mps_slab_pool_t *pool, u_char *key, size_t key_len,
+mps_shdict_set_expire(mps_slab_pool_t *pool, const u_char *key, size_t key_len,
     long exptime)
 {
     uint32_t            hash;
@@ -946,7 +946,7 @@ mps_shdict_free_space(mps_slab_pool_t *pool)
     size_t   bytes;
 
     mps_slab_lock(pool);
-    bytes = pool->pfree * ngx_pagesize;
+    bytes = pool->pfree * mps_pagesize;
     mps_slab_unlock(pool);
 
     return bytes;

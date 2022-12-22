@@ -12,6 +12,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 
+extern ngx_uint_t  mps_pagesize;
 
 typedef int       mps_err_t;
 typedef uintptr_t mps_ptroff_t;

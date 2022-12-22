@@ -81,7 +81,7 @@ static void mps_slab_error(mps_slab_pool_t *pool, ngx_uint_t level,
     char *text);
 
 
-static ngx_uint_t  mps_pagesize;
+ngx_uint_t  mps_pagesize;
 static ngx_uint_t  mps_pagesize_shift;
 
 static ngx_uint_t  mps_slab_max_size;

@@ -24,7 +24,7 @@ static ngx_inline void mps_rbtree_right_rotate(mps_slab_pool_t *pool,
 static mps_rbtree_insert_pt insert_values[MPS_RBTREE_INSERT_TYPE_ID_COUNT] = {
     mps_rbtree_insert_value,
     mps_rbtree_insert_timer_value,
-    mps_luadict_rbtree_insert_value,
+    mps_shdict_rbtree_insert_value,
 };
 
 

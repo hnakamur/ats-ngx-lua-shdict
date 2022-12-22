@@ -868,7 +868,7 @@ ngx_rstrncasecmp(u_char *s1, u_char *s2, size_t n)
 
 
 ngx_int_t
-ngx_memn2cmp(u_char *s1, u_char *s2, size_t n1, size_t n2)
+ngx_memn2cmp(const u_char *s1, const u_char *s2, size_t n1, size_t n2)
 {
     size_t     n;
     ngx_int_t  m, z;

@@ -18,7 +18,7 @@ extern uint32_t   ngx_crc32_table256[];
 
 
 static ngx_inline uint32_t
-ngx_crc32_short(u_char *p, size_t len)
+ngx_crc32_short(const u_char *p, size_t len)
 {
     u_char    c;
     uint32_t  crc;
@@ -36,7 +36,7 @@ ngx_crc32_short(u_char *p, size_t len)
 
 
 static ngx_inline uint32_t
-ngx_crc32_long(u_char *p, size_t len)
+ngx_crc32_long(const u_char *p, size_t len)
 {
     uint32_t  crc;
 
@@ -55,7 +55,7 @@ ngx_crc32_long(u_char *p, size_t len)
 
 
 static ngx_inline void
-ngx_crc32_update(uint32_t *crc, u_char *p, size_t len)
+ngx_crc32_update(uint32_t *crc, const u_char *p, size_t len)
 {
     uint32_t  c;
 

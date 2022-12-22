@@ -7,7 +7,7 @@ ngx = {
 }
 
 local ffi = require "ffi"
-local S = ffi.load("mps_luadict")
+local S = ffi.load("mps_shdict")
 local base = require "resty.core.base"
 local sleep = require "sleep"
 
@@ -17,6 +17,7 @@ local C = ffi.C
 local get_string_buf = base.get_string_buf
 local get_string_buf_size = base.get_string_buf_size
 local get_size_ptr = base.get_size_ptr
+local FFI_DECLINED = base.FFI_DECLINED
 
 ffi.cdef[[
     typedef struct pthread_mutex_t {
@@ -81,46 +82,35 @@ ffi.cdef[[
     } mps_slab_pool_t;    
 
     void mps_slab_sizes_init(size_t pagesize);
-    mps_slab_pool_t *mps_luadict_open_or_create(const char *shm_name, size_t shm_size);
+    mps_slab_pool_t *mps_shdict_open_or_create(const char *shm_name, size_t shm_size);
 
-    int mps_luadict_get(mps_slab_pool_t *pool, const unsigned char *key,
+    int mps_shdict_get(mps_slab_pool_t *pool, const unsigned char *key,
         size_t key_len, int *value_type, unsigned char **str_value_buf,
         size_t *str_value_len, double *num_value, int *user_flags,
         int get_stale, int *is_stale, char **errmsg);
 
-    int mps_luadict_store(mps_slab_pool_t *pool, int op,
+    int mps_shdict_store(mps_slab_pool_t *pool, int op,
         const unsigned char *key, size_t key_len, int value_type,
         const unsigned char *str_value_buf, size_t str_value_len,
         double num_value, long exptime, int user_flags, char **errmsg,
-        int *forcible);    
+        int *forcible);
+
+    int mps_shdict_incr(mps_slab_pool_t *pool, const u_char *key,
+        size_t key_len, double *value, char **err, int has_init, double init,
+        long init_ttl, int *forcible);
+
+    int mps_shdict_flush_all(mps_slab_pool_t *pool);
+
+    long mps_shdict_get_ttl(mps_slab_pool_t *pool, const u_char *key,
+        size_t key_len);
+
+    int mps_shdict_set_expire(mps_slab_pool_t *pool, const u_char *key,
+        size_t key_len, long exptime);
+
+    size_t mps_shdict_capacity(mps_slab_pool_t *pool);
+
+    size_t mps_shdict_free_space(mps_slab_pool_t *pool);
 ]]
-
-local mps_luadict_get
-local mps_luadict_store
-
-mps_luadict_get = function(pool, key, key_len, value_type,
-    str_value_buf, value_len,
-    num_value, user_flags,
-    get_stale, is_stale, errmsg)
-
-    return S.mps_luadict_get(pool, key, key_len, value_type,
-            str_value_buf, value_len,
-            num_value, user_flags,
-            get_stale, is_stale, errmsg)
-end
-
-mps_luadict_store = function(pool, op,
-    key, key_len, value_type,
-    str_value_buf, str_value_len,
-    num_value, exptime, user_flags,
-    errmsg, forcible)
-
-    return S.mps_luadict_store(pool, op,
-            key, key_len, value_type,
-            str_value_buf, str_value_len,
-            num_value, exptime, user_flags,
-            errmsg, forcible)
-end
 
 
 if not pcall(function () return C.free end) then
@@ -139,13 +129,8 @@ local str_value_buf = ffi_new("unsigned char *[1]")
 local errmsg = base.get_errmsg_ptr()
 
 
-local function check_pool(pool)
-    return pool
-end
-
 local function shdict_store(pool, op, key, value, exptime, flags)
     print(string.format("shdict_store start, op=%s, key=%s, value=%s", op, key, value))
-    pool = check_pool(pool)
 
     if not exptime then
         exptime = 0
@@ -202,11 +187,11 @@ local function shdict_store(pool, op, key, value, exptime, flags)
         return nil, "bad value type"
     end
 
-    local rc = mps_luadict_store(pool, op, key, key_len,
-                                        valtyp, str_val_buf,
-                                        str_val_len, num_val,
-                                        exptime * 1000, flags, errmsg,
-                                        forcible)
+    local rc = S.mps_shdict_store(pool, op, key, key_len,
+                                  valtyp, str_val_buf,
+                                  str_val_len, num_val,
+                                  exptime * 1000, flags, errmsg,
+                                  forcible)
 
     -- print("rc == ", rc)
 
@@ -222,9 +207,8 @@ end
 local metatable = {}
 metatable.__index = metatable
 
-function metatable:get(key)
-    pool = check_pool(self)
 
+function metatable:get(key)
     if key == nil then
         return nil, "nil key"
     end
@@ -247,10 +231,10 @@ function metatable:get(key)
     local value_len = get_size_ptr()
     value_len[0] = size
 
-    local rc = mps_luadict_get(pool, key, key_len, value_type,
-                                      str_value_buf, value_len,
-                                      num_value, user_flags, 0,
-                                      is_stale, errmsg)
+    local rc = S.mps_shdict_get(self, key, key_len, value_type,
+                                str_value_buf, value_len,
+                                num_value, user_flags, 0,
+                                is_stale, errmsg)
     if rc ~= 0 then
         if errmsg[0] ~= nil then
             return nil, ffi_str(errmsg[0])
@@ -325,9 +309,158 @@ function metatable:delete(key)
     return self:set(key, nil)
 end
 
+function metatable:incr(key, value, init, init_ttl)
+    print(string.format("incr method start, key=%s, value=%s", key, value))
+    if key == nil then
+        return nil, "nil key"
+    end
+
+    if type(key) ~= "string" then
+        key = tostring(key)
+    end
+
+    local key_len = #key
+    if key_len == 0 then
+        return nil, "empty key"
+    end
+    if key_len > 65535 then
+        return nil, "key too long"
+    end
+
+    if type(value) ~= "number" then
+        value = tonumber(value)
+    end
+    num_value[0] = value
+
+    if init then
+        local typ = type(init)
+        if typ ~= "number" then
+            init = tonumber(init)
+
+            if not init then
+                error("bad init arg: number expected, got " .. typ, 2)
+            end
+        end
+    end
+
+    if init_ttl ~= nil then
+        local typ = type(init_ttl)
+        if typ ~= "number" then
+            init_ttl = tonumber(init_ttl)
+
+            if not init_ttl then
+                error("bad init_ttl arg: number expected, got " .. typ, 2)
+            end
+        end
+
+        if init_ttl < 0 then
+            error('bad "init_ttl" argument', 2)
+        end
+
+        if not init then
+            error('must provide "init" when providing "init_ttl"', 2)
+        end
+
+    else
+        init_ttl = 0
+    end
+
+    local rc = S.mps_shdict_incr(self, key, key_len, num_value,
+                                 errmsg, init and 1 or 0,
+                                 init or 0, init_ttl * 1000,
+                                 forcible)
+    if rc ~= 0 then  -- ~= NGX_OK
+        return nil, ffi_str(errmsg[0])
+    end
+
+    if not init then
+        return tonumber(num_value[0])
+    end
+
+    return tonumber(num_value[0]), nil, forcible[0] == 1
+end
+
+
+function metatable:flush_all()
+    S.mps_shdict_flush_all(self)
+end
+
+
+function metatable:ttl(key)
+    if key == nil then
+        return nil, "nil key"
+    end
+
+    if type(key) ~= "string" then
+        key = tostring(key)
+    end
+
+    local key_len = #key
+    if key_len == 0 then
+        return nil, "empty key"
+    end
+
+    if key_len > 65535 then
+        return nil, "key too long"
+    end
+
+    local rc = S.mps_shdict_get_ttl(self, key, key_len)
+
+    if rc == FFI_DECLINED then
+        return nil, "not found"
+    end
+
+    return tonumber(rc) / 1000
+end
+
+
+function metatable:expire(key, exptime)
+    if not exptime then
+        error('bad "exptime" argument', 2)
+    end
+
+    if key == nil then
+        return nil, "nil key"
+    end
+
+    if type(key) ~= "string" then
+        key = tostring(key)
+    end
+
+    local key_len = #key
+    if key_len == 0 then
+        return nil, "empty key"
+    end
+
+    if key_len > 65535 then
+        return nil, "key too long"
+    end
+
+    local rc = S.mps_shdict_set_expire(self, key, key_len, exptime * 1000)
+
+    if rc == FFI_DECLINED then
+        return nil, "not found"
+    end
+
+    -- NGINX_OK/FFI_OK
+
+    return true
+end
+
+
+function metatable:capacity()
+    return tonumber(S.mps_shdict_capacity(self))
+end
+
+
+function metatable:free_space()
+    return tonumber(S.mps_shdict_free_space(self))
+end
+
+
 ffi.metatype('mps_slab_pool_t', metatable)
 
 return {
     slab_sizes_init = S.mps_slab_sizes_init,
-    open_or_create = S.mps_luadict_open_or_create,
+    open_or_create = S.mps_shdict_open_or_create,
 }
