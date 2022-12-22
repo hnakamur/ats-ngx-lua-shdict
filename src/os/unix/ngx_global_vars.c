@@ -1,8 +1,6 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 
-ngx_int_t   ngx_ncpu;
-
 ngx_uint_t  ngx_cacheline_size = NGX_CPU_CACHE_LINE;
 
 #define NGX_TIME_SLOTS   64
