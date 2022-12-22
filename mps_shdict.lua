@@ -9,7 +9,6 @@ ngx = {
 local ffi = require "ffi"
 local S = ffi.load("mps_shdict")
 local base = require "resty.core.base"
-local sleep = require "sleep"
 
 local ffi_new = ffi.new
 local ffi_str = ffi.string
