@@ -105,13 +105,17 @@ mps_slab_sizes_init(ngx_uint_t pagesize)
 }
 
 
-static pthread_once_t mps_slab_sizes_initialized = PTHREAD_ONCE_INIT;
+static pthread_once_t mps_slab_initialized = PTHREAD_ONCE_INIT;
 
 static void
-mps_slab_sizes_init_auto()
+mps_slab_init_once()
 {
     mps_slab_sizes_init(getpagesize());
-    fprintf(stderr, "mps_slab_sizes_init_auto, mps_pagesize=%ld\n", mps_pagesize);
+    fprintf(stderr, "mps_slab_init_once, mps_pagesize=%ld\n", mps_pagesize);
+
+    if (ngx_crc32_table_init() != NGX_OK) {
+        fprintf(stderr, "ngx_crc32_table_init failed\n");
+    }
 }
 
 
@@ -317,7 +321,7 @@ mps_slab_open_or_create(const char *shm_name, size_t shm_size,
     struct timespec   sleep_time;
     int               rc;
 
-    rc = pthread_once(&mps_slab_sizes_initialized, mps_slab_sizes_init_auto);
+    rc = pthread_once(&mps_slab_initialized, mps_slab_init_once);
     if (rc != 0) {
         fprintf(stderr, "mps_slab_open_or_create init sizes err=%d\n", rc);
         return NULL;
