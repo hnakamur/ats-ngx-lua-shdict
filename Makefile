@@ -47,51 +47,51 @@ objs/libmps_shdict.so: $(MPS_OBJS)
 
 
 objs/src/core/mps_shdict.o:	$(MPS_DEPS) \
-	objs/src/core src/core/mps_shdict.c
+	src/core/mps_shdict.c
+	@mkdir -p objs/src/core
 	$(CC) -c $(CFLAGS) $(CORE_INCS) \
 		-o objs/src/core/mps_shdict.o \
 		src/core/mps_shdict.c
 
 
 objs/src/core/mps_slab.o:	$(MPS_DEPS) \
-	objs/src/core src/core/mps_slab.c
+	src/core/mps_slab.c
+	@mkdir -p objs/src/core
 	$(CC) -c $(CFLAGS) $(CORE_INCS) \
 		-o objs/src/core/mps_slab.o \
 		src/core/mps_slab.c
 
 
 objs/src/core/mps_rbtree.o:	$(MPS_DEPS) \
-	objs/src/core src/core/mps_rbtree.c
+	src/core/mps_rbtree.c
+	@mkdir -p objs/src/core
 	$(CC) -c $(CFLAGS) $(CORE_INCS) \
 		-o objs/src/core/mps_rbtree.o \
 		src/core/mps_rbtree.c
 
 
 objs/src/core/ngx_crc32.o:	$(MPS_DEPS) \
-	objs/src/core src/core/ngx_crc32.c
+	src/core/ngx_crc32.c
+	@mkdir -p objs/src/core
 	$(CC) -c $(CFLAGS) $(CORE_INCS) \
 		-o objs/src/core/ngx_crc32.o \
 		src/core/ngx_crc32.c
 
 
 objs/src/core/ngx_string.o:	$(MPS_DEPS) \
-	objs/src/core src/core/ngx_string.c
+	src/core/ngx_string.c
+	@mkdir -p objs/src/core
 	$(CC) -c $(CFLAGS) $(CORE_INCS) \
 		-o objs/src/core/ngx_string.o \
 		src/core/ngx_string.c
 
 
 objs/src/os/unix/ngx_global_vars.o:	$(MPS_DEPS) \
-	objs/src/os/unix src/os/unix/ngx_global_vars.c
+	src/os/unix/ngx_global_vars.c
+	@mkdir -p objs/src/os/unix
 	$(CC) -c $(CFLAGS) $(CORE_INCS) \
 		-o objs/src/os/unix/ngx_global_vars.o \
 		src/os/unix/ngx_global_vars.c
-
-objs/src/core:
-	@mkdir -p objs/src/core
-
-objs/src/os/unix:
-	@mkdir -p objs/src/os/unix
 
 clean:
 	@rm -r objs
