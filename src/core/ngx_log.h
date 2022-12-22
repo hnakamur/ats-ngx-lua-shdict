@@ -41,7 +41,7 @@
 #define NGX_LOG_DEBUG_CONNECTION  0x80000000
 #define NGX_LOG_DEBUG_ALL         0x7ffffff0
 
-
+#if 0
 typedef u_char *(*ngx_log_handler_pt) (ngx_log_t *log, u_char *buf, size_t len);
 typedef void (*ngx_log_writer_pt) (ngx_log_t *log, ngx_uint_t level,
     u_char *buf, size_t len);
@@ -51,7 +51,9 @@ struct ngx_log_s {
     ngx_uint_t           log_level;
     ngx_open_file_t     *file;
 
+#if 0
     ngx_atomic_uint_t    connection;
+#endif
 
     time_t               disk_full_time;
 
@@ -71,7 +73,7 @@ struct ngx_log_s {
 
     ngx_log_t           *next;
 };
-
+#endif
 
 #define NGX_MAX_ERROR_STR   2048
 
@@ -132,7 +134,7 @@ void ngx_cdecl ngx_log_debug_core(ngx_log_t *log, ngx_err_t err,
 
 #endif /* variadic macros */
 
-#endif
+#endif /* 1 */
 
 /*********************************/
 
@@ -237,6 +239,8 @@ void ngx_cdecl ngx_log_debug_core(ngx_log_t *log, ngx_err_t err,
 
 /*********************************/
 
+#if 0
+
 ngx_log_t *ngx_log_init(u_char *prefix, u_char *error_log);
 void ngx_cdecl ngx_log_abort(ngx_err_t err, const char *fmt, ...);
 void ngx_cdecl ngx_log_stderr(ngx_err_t err, const char *fmt, ...);
@@ -273,5 +277,6 @@ ngx_write_stdout(char *text)
 extern ngx_module_t  ngx_errlog_module;
 extern ngx_uint_t    ngx_use_stderr;
 
+#endif
 
 #endif /* _NGX_LOG_H_INCLUDED_ */

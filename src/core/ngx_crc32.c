@@ -114,7 +114,11 @@ ngx_crc32_table_init(void)
         return NGX_OK;
     }
 
+#if 1
+    p = malloc(16 * sizeof(uint32_t) + ngx_cacheline_size);
+#else
     p = ngx_alloc(16 * sizeof(uint32_t) + ngx_cacheline_size, ngx_cycle->log);
+#endif
     if (p == NULL) {
         return NGX_ERROR;
     }

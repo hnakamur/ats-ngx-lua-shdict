@@ -353,9 +353,11 @@ replace:
             && sd->value_type != SHDICT_TLIST)
         {
 
+#if 0
             ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ctx->log, 0,
                            "lua shared dict set: found old entry and value "
                            "size matched, reusing it");
+#endif
 
             mps_queue_remove(pool, &sd->queue);
             mps_queue_insert_head(pool, &dict->lru_queue, &sd->queue);
@@ -382,9 +384,11 @@ replace:
             return NGX_OK;
         }
 
+#if 0
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ctx->log, 0,
                        "lua shared dict set: found old entry but value size "
                        "NOT matched, removing it first");
+#endif
 
 remove:
 
@@ -423,8 +427,10 @@ insert:
         return NGX_OK;
     }
 
+#if 0
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ctx->log, 0,
                    "lua shared dict set: creating a new entry");
+#endif
 
     n = offsetof(mps_rbtree_node_t, color)
         + offsetof(mps_shdict_node_t, data)
@@ -517,10 +523,12 @@ mps_shdict_get(mps_slab_pool_t *pool, const u_char *key,
 
         if (value.len != sizeof(double)) {
             mps_slab_unlock(pool);
+#if 0
             ngx_log_error(NGX_LOG_ERR, ngx_cycle->log, 0,
                           "bad lua number value size found for key %*s "
                           "in shared_dict %V: %z", key_len, key,
                           &name, value.len);
+#endif
             return NGX_ERROR;
         }
 
@@ -532,10 +540,12 @@ mps_shdict_get(mps_slab_pool_t *pool, const u_char *key,
 
         if (value.len != sizeof(u_char)) {
             mps_slab_unlock(pool);
+#if 0
             ngx_log_error(NGX_LOG_ERR, ngx_cycle->log, 0,
                           "bad lua boolean value size found for key %*s "
                           "in shared_dict %V: %z", key_len, key, &name,
                           value.len);
+#endif
             return NGX_ERROR;
         }
 
@@ -552,10 +562,12 @@ mps_shdict_get(mps_slab_pool_t *pool, const u_char *key,
     default:
 
         mps_slab_unlock(pool);
+#if 0
         ngx_log_error(NGX_LOG_ERR, ngx_cycle->log, 0,
                       "bad value type found for key %*s in "
                       "shared_dict %V: %d", key_len, key, &name,
                       *value_type);
+#endif
         return NGX_ERROR;
     }
 
@@ -630,9 +642,11 @@ mps_shdict_incr(mps_slab_pool_t *pool, const u_char *key,
             if ((size_t) sd->value_len == sizeof(double)
                 && sd->value_type != SHDICT_TLIST)
             {
+#if 0
                 ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ctx->log, 0,
                                "lua shared dict incr: found old entry and "
                                "value size matched, reusing it");
+#endif
 
                 mps_queue_remove(pool, &sd->queue);
                 mps_queue_insert_head(pool, &dict->lru_queue, &sd->queue);
@@ -676,9 +690,11 @@ mps_shdict_incr(mps_slab_pool_t *pool, const u_char *key,
 
 remove:
 
+#if 0
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ctx->log, 0,
                    "lua shared dict incr: found old entry but value size "
                    "NOT matched, removing it first");
+#endif
 
     if (sd->value_type == SHDICT_TLIST) {
         queue = mps_shdict_get_list_head(sd, key_len);
@@ -705,8 +721,10 @@ remove:
 
 insert:
 
+#if 0
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ctx->log, 0,
                    "lua shared dict incr: creating a new entry");
+#endif
 
     n = offsetof(mps_rbtree_node_t, color)
         + offsetof(mps_shdict_node_t, data)
@@ -717,10 +735,12 @@ insert:
 
     if (node == NULL) {
 
+#if 0
         ngx_log_debug2(NGX_LOG_DEBUG_HTTP, ctx->log, 0,
                        "lua shared dict incr: overriding non-expired items "
                        "due to memory shortage for entry \"%*s\"", key_len,
                        key);
+#endif
 
         for (i = 0; i < 30; i++) {
             if (mps_shdict_expire(pool, dict, 0) == 0) {

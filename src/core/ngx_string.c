@@ -8,7 +8,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 
-
+#if 0
 static u_char *ngx_sprintf_num(u_char *buf, u_char *last, uint64_t ui64,
     u_char zero, ngx_uint_t hexadecimal, ngx_uint_t width);
 static u_char *ngx_sprintf_str(u_char *buf, u_char *last, u_char *src,
@@ -17,7 +17,7 @@ static void ngx_encode_base64_internal(ngx_str_t *dst, ngx_str_t *src,
     const u_char *basis, ngx_uint_t padding);
 static ngx_int_t ngx_decode_base64_internal(ngx_str_t *dst, ngx_str_t *src,
     const u_char *basis);
-
+#endif
 
 void
 ngx_strlow(u_char *dst, u_char *src, size_t n)
@@ -70,7 +70,7 @@ ngx_cpystrn(u_char *dst, u_char *src, size_t n)
     return dst;
 }
 
-
+#if 0
 u_char *
 ngx_pstrdup(ngx_pool_t *pool, ngx_str_t *src)
 {
@@ -85,6 +85,7 @@ ngx_pstrdup(ngx_pool_t *pool, ngx_str_t *src)
 
     return dst;
 }
+#endif
 
 
 /*
@@ -118,7 +119,7 @@ ngx_pstrdup(ngx_pool_t *pool, ngx_str_t *src)
  *    %C                        wchar
  */
 
-
+#if 0
 u_char * ngx_cdecl
 ngx_sprintf(u_char *buf, const char *fmt, ...)
 {
@@ -159,7 +160,6 @@ ngx_slprintf(u_char *buf, u_char *last, const char *fmt, ...)
 
     return p;
 }
-
 
 u_char *
 ngx_vslprintf(u_char *buf, u_char *last, const char *fmt, va_list args)
@@ -623,7 +623,7 @@ ngx_sprintf_str(u_char *buf, u_char *last, u_char *src, size_t len,
 
     return buf;
 }
-
+#endif
 
 /*
  * We use ngx_strcasecmp()/ngx_strncasecmp() for 7-bit ASCII strings only,
@@ -1182,7 +1182,7 @@ ngx_hex_dump(u_char *dst, u_char *src, size_t len)
     return dst;
 }
 
-
+#if 0
 void
 ngx_encode_base64(ngx_str_t *dst, ngx_str_t *src)
 {
@@ -1345,7 +1345,7 @@ ngx_decode_base64_internal(ngx_str_t *dst, ngx_str_t *src, const u_char *basis)
 
     return NGX_OK;
 }
-
+#endif
 
 /*
  * ngx_utf8_decode() decodes two and more bytes UTF sequences only
@@ -1485,7 +1485,7 @@ ngx_utf8_cpystrn(u_char *dst, u_char *src, size_t n, size_t len)
     return dst;
 }
 
-
+#if 0
 uintptr_t
 ngx_escape_uri(u_char *dst, u_char *src, size_t size, ngx_uint_t type)
 {
@@ -2042,6 +2042,7 @@ ngx_str_rbtree_lookup(ngx_rbtree_t *rbtree, ngx_str_t *val, uint32_t hash)
 }
 
 
+#if 0
 /* ngx_sort() is implemented as insertion sort because we need stable sort */
 
 void
@@ -2073,14 +2074,17 @@ ngx_sort(void *base, size_t n, size_t size,
 
     ngx_free(p);
 }
+#endif
+#endif
 
-
+#if 0
 void
 ngx_explicit_memzero(void *buf, size_t n)
 {
     ngx_memzero(buf, n);
     ngx_memory_barrier();
 }
+#endif
 
 
 #if (NGX_MEMCPY_LIMIT)

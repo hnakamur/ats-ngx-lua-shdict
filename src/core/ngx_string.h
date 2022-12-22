@@ -19,6 +19,8 @@ typedef struct {
 } ngx_str_t;
 
 
+#if 0
+
 typedef struct {
     ngx_str_t   key;
     ngx_str_t   value;
@@ -35,6 +37,8 @@ typedef struct {
 
     u_char     *data;
 } ngx_variable_value_t;
+
+#endif
 
 
 #define ngx_string(str)     { sizeof(str) - 1, (u_char *) str }
@@ -88,7 +92,9 @@ ngx_strlchr(u_char *p, u_char *last, u_char c)
 #define ngx_memzero(buf, n)       (void) memset(buf, 0, n)
 #define ngx_memset(buf, c, n)     (void) memset(buf, c, n)
 
+#if 0
 void ngx_explicit_memzero(void *buf, size_t n);
+#endif
 
 
 #if (NGX_MEMCPY_LIMIT)
@@ -107,7 +113,6 @@ void *ngx_memcpy(void *dst, const void *src, size_t n);
 #define ngx_cpymem(dst, src, n)   (((u_char *) memcpy(dst, src, n)) + (n))
 
 #endif
-
 
 #if ( __INTEL_COMPILER >= 800 )
 
@@ -139,7 +144,6 @@ ngx_copy(u_char *dst, u_char *src, size_t len)
 
 #endif
 
-
 #define ngx_memmove(dst, src, n)  (void) memmove(dst, src, n)
 #define ngx_movemem(dst, src, n)  (((u_char *) memmove(dst, src, n)) + (n))
 
@@ -149,6 +153,7 @@ ngx_copy(u_char *dst, u_char *src, size_t len)
 
 
 u_char *ngx_cpystrn(u_char *dst, u_char *src, size_t n);
+#if 0
 u_char *ngx_pstrdup(ngx_pool_t *pool, ngx_str_t *src);
 u_char * ngx_cdecl ngx_sprintf(u_char *buf, const char *fmt, ...);
 u_char * ngx_cdecl ngx_snprintf(u_char *buf, size_t max, const char *fmt, ...);
@@ -157,6 +162,7 @@ u_char * ngx_cdecl ngx_slprintf(u_char *buf, u_char *last, const char *fmt,
 u_char *ngx_vslprintf(u_char *buf, u_char *last, const char *fmt, va_list args);
 #define ngx_vsnprintf(buf, max, fmt, args)                                   \
     ngx_vslprintf(buf, buf + (max), fmt, args)
+#endif
 
 ngx_int_t ngx_strcasecmp(u_char *s1, u_char *s2);
 ngx_int_t ngx_strncasecmp(u_char *s1, u_char *s2, size_t n);
@@ -169,7 +175,9 @@ u_char *ngx_strlcasestrn(u_char *s1, u_char *last, u_char *s2, size_t n);
 
 ngx_int_t ngx_rstrncmp(u_char *s1, u_char *s2, size_t n);
 ngx_int_t ngx_rstrncasecmp(u_char *s1, u_char *s2, size_t n);
+#endif
 ngx_int_t ngx_memn2cmp(const u_char *s1, const u_char *s2, size_t n1, size_t n2);
+#if 0
 ngx_int_t ngx_dns_strcmp(u_char *s1, u_char *s2);
 ngx_int_t ngx_filename_cmp(u_char *s1, u_char *s2, size_t n);
 
@@ -233,6 +241,5 @@ void ngx_sort(void *base, size_t n, size_t size,
 
 #define ngx_value_helper(n)   #n
 #define ngx_value(n)          ngx_value_helper(n)
-
 
 #endif /* _NGX_STRING_H_INCLUDED_ */

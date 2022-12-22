@@ -398,8 +398,10 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
 
     if (size > mps_slab_max_size) {
 
+#if 0
         ngx_log_debug1(NGX_LOG_DEBUG_ALLOC, ngx_cycle->log, 0,
                        "slab alloc: %uz", size);
+#endif
 
         page = mps_slab_alloc_pages(pool, (size >> mps_pagesize_shift)
                                           + ((size % mps_pagesize) ? 1 : 0));
@@ -425,8 +427,11 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
 
     mps_pool_stats(pool)[slot].reqs++;
 
+#if 0
     ngx_log_debug2(NGX_LOG_DEBUG_ALLOC, ngx_cycle->log, 0,
                    "slab alloc: %uz slot: %ui", size, slot);
+#endif
+
 
     slots = mps_slab_slots(pool);
     page = mps_slab_page_next(pool, &slots[slot]);
@@ -614,8 +619,11 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
     mps_pool_stats(pool)[slot].fails++;
 
 done:
+#if 0
     ngx_log_debug1(NGX_LOG_DEBUG_ALLOC, ngx_cycle->log, 0,
                    "slab alloc: %p", (void *) p);
+#endif
+
 
     return (void *) p;
 }
@@ -670,7 +678,10 @@ mps_slab_free_locked(mps_slab_pool_t *pool, void *p)
     mps_slab_page_t  *slots, *page, *next;
     mps_ptroff_t      p_off;
 
+#if 0
     ngx_log_debug1(NGX_LOG_DEBUG_ALLOC, ngx_cycle->log, 0, "slab free: %p", p);
+#endif
+
 
     p_off = mps_offset(pool, p);
     if (p_off < pool->start || p_off > pool->end) {
@@ -1029,5 +1040,8 @@ mps_slab_free_pages(mps_slab_pool_t *pool, mps_slab_page_t *page,
 static void
 mps_slab_error(mps_slab_pool_t *pool, ngx_uint_t level, char *text)
 {
+#if 0
     ngx_log_error(level, ngx_cycle->log, 0, "%s%s", text, pool->log_ctx);
+#endif
+
 }
