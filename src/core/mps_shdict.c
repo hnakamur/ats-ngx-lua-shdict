@@ -93,9 +93,10 @@ mps_shdict_on_init(mps_slab_pool_t *pool)
 }
 
 mps_slab_pool_t *
-mps_shdict_open_or_create(const char *shm_name, size_t shm_size)
+mps_shdict_open_or_create(const char *shm_name, size_t shm_size, mode_t mode)
 {
-    return mps_slab_open_or_create(shm_name, shm_size, mps_shdict_on_init);
+    return mps_slab_open_or_create(shm_name, shm_size, mode,
+        mps_shdict_on_init);
 }
 
 static ngx_int_t

@@ -69,7 +69,7 @@ typedef struct {
 typedef void (*mps_slab_on_init_pt) (mps_slab_pool_t *pool);
 
 mps_slab_pool_t *mps_slab_open_or_create(const char *shm_name, size_t shm_size,
-    mps_slab_on_init_pt on_init);
+    mode_t mode, mps_slab_on_init_pt on_init);
 void mps_slab_lock(mps_slab_pool_t *pool);
 void mps_slab_unlock(mps_slab_pool_t *pool);
 void *mps_slab_alloc(mps_slab_pool_t *pool, size_t size);

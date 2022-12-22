@@ -229,11 +229,9 @@ mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
     pool->zero = '\0';
 }
 
-#define MPS_SHM_MODE (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
-
 static mps_err_t
 mps_slab_create(mps_slab_pool_t **pool, const char *shm_name, size_t shm_size,
-    mps_slab_on_init_pt on_init)
+    mode_t mode, mps_slab_on_init_pt on_init)
 {
     int fd;
     void *addr;
@@ -261,7 +259,7 @@ mps_slab_create(mps_slab_pool_t **pool, const char *shm_name, size_t shm_size,
         on_init(*pool);
     }
 
-    if (fchmod(fd, MPS_SHM_MODE) == -1) {
+    if (fchmod(fd, mode) == -1) {
         err = errno;
     }
 
@@ -280,13 +278,14 @@ close:
 
 
 static mps_err_t
-mps_slab_open(mps_slab_pool_t **pool, const char *shm_name, size_t shm_size)
+mps_slab_open(mps_slab_pool_t **pool, const char *shm_name, size_t shm_size,
+    mode_t mode)
 {
     mps_err_t err;
     int fd;
     void *addr;
 
-    fd = shm_open(shm_name, O_RDWR, MPS_SHM_MODE);
+    fd = shm_open(shm_name, O_RDWR, mode);
     if (fd == -1) {
         return errno;
     }
@@ -311,7 +310,7 @@ mps_slab_open(mps_slab_pool_t **pool, const char *shm_name, size_t shm_size)
 
 mps_slab_pool_t *
 mps_slab_open_or_create(const char *shm_name, size_t shm_size,
-    mps_slab_on_init_pt on_init)
+    mode_t mode, mps_slab_on_init_pt on_init)
 {
     mps_err_t         err = 0;
     mps_slab_pool_t  *pool;
@@ -324,7 +323,7 @@ mps_slab_open_or_create(const char *shm_name, size_t shm_size,
         return NULL;
     }
 
-    err = mps_slab_open(&pool, shm_name, shm_size);
+    err = mps_slab_open(&pool, shm_name, shm_size, mode);
     if (err) {
         if (err != ENOENT && err != EACCES) {
             fprintf(stderr, "mps_slab_open_or_create: mps_slab_open#1: err=%s",
@@ -332,7 +331,7 @@ mps_slab_open_or_create(const char *shm_name, size_t shm_size,
             return NULL;
         }
 
-        err = mps_slab_create(&pool, shm_name, shm_size, on_init);
+        err = mps_slab_create(&pool, shm_name, shm_size, mode, on_init);
         if (err) {
             if (err != EEXIST) {
                 fprintf(stderr,
@@ -349,7 +348,7 @@ mps_slab_open_or_create(const char *shm_name, size_t shm_size,
                 return NULL;
             }
 
-            err = mps_slab_open(&pool, shm_name, shm_size);
+            err = mps_slab_open(&pool, shm_name, shm_size, mode);
             if (err) {
                 fprintf(stderr,
                         "mps_slab_open_or_create: mps_slab_open#2: err=%s",

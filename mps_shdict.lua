@@ -33,6 +33,7 @@ ffi.cdef[[
     typedef unsigned int ngx_uint_t;
     typedef uint64_t size_t;
     typedef unsigned char u_char;
+    typedef unsigned int mode_t;
 
     typedef struct mps_slab_page_s  mps_slab_page_t;
 
@@ -81,7 +82,8 @@ ffi.cdef[[
         unsigned          log_nomem:1;
     } mps_slab_pool_t;    
 
-    mps_slab_pool_t *mps_shdict_open_or_create(const char *shm_name, size_t shm_size);
+    mps_slab_pool_t *mps_shdict_open_or_create(const char *shm_name,
+        size_t shm_size, mode_t mode);
 
     int mps_shdict_get(mps_slab_pool_t *pool, const unsigned char *key,
         size_t key_len, int *value_type, unsigned char **str_value_buf,
@@ -126,7 +128,6 @@ local is_stale = ffi_new("int[1]")
 local forcible = ffi_new("int[1]")
 local str_value_buf = ffi_new("unsigned char *[1]")
 local errmsg = base.get_errmsg_ptr()
-
 
 local function shdict_store(pool, op, key, value, exptime, flags)
     print(string.format("shdict_store start, op=%s, key=%s, value=%s", op, key, value))
@@ -461,4 +462,10 @@ ffi.metatype('mps_slab_pool_t', metatable)
 
 return {
     open_or_create = S.mps_shdict_open_or_create,
+    S_IRUSR = 0x100,
+    S_IWUSR = 0x80,
+    S_IRGRP = 0x20,
+    S_IWGRP = 0x10,
+    S_IROTH = 4,
+    S_IWOTH = 2,
 }

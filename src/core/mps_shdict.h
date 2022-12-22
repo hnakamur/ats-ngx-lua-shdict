@@ -17,7 +17,7 @@ typedef struct {
         lua_Number  n; /* number */
         ngx_str_t   s; /* string */
     } value;
-
+    
 } mps_lua_value_t;
 
 
@@ -49,7 +49,7 @@ typedef struct {
 
 
 mps_slab_pool_t *
-mps_shdict_open_or_create(const char *shm_name, size_t shm_size);
+mps_shdict_open_or_create(const char *shm_name, size_t shm_size, mode_t mode);
 
 #define mps_shdict(pool)                                                     \
     ((mps_shdict_t *) mps_ptr((pool), ((pool)->data)))
