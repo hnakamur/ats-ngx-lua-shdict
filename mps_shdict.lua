@@ -1,24 +1,47 @@
----@diagnostic disable: lowercase-global
-ngx = {
-    config = {
-        subsystem = 'http',
-        ngx_lua_version = 10022,
-    }
-}
 
 local ffi = require "ffi"
-local S = ffi.load("mps_shdict")
-local base = require "resty.core.base"
-
-local ffi_new = ffi.new
-local ffi_str = ffi.string
 local C = ffi.C
-local get_string_buf = base.get_string_buf
-local get_string_buf_size = base.get_string_buf_size
-local get_size_ptr = base.get_size_ptr
-local FFI_DECLINED = base.FFI_DECLINED
+local S = ffi.load("mps_shdict")
+
+local str_buf_size = 4096
+local str_buf
+local size_ptr
+local c_buf_type = ffi.typeof("char[?]")
+
+local function get_string_buf(size, must_alloc)
+    if size > str_buf_size or must_alloc then
+        return ffi.new(c_buf_type, size)
+    end
+
+    if not str_buf then
+        str_buf = ffi.new(c_buf_type, str_buf_size)
+    end
+
+    return str_buf
+end
+
+local function get_string_buf_size()
+    return str_buf_size
+end
+
+local function get_size_ptr()
+    if not size_ptr then
+        size_ptr = ffi.new("size_t[1]")
+    end
+
+    return size_ptr
+end
+
+-- local FFI_OK = 0
+-- local FFI_ERROR = -1
+-- local FFI_AGAIN = -2
+-- local FFI_BUSY = -3
+-- local FFI_DONE = -4
+local FFI_DECLINED = -5
 
 ffi.cdef[[
+    void free(void *ptr);
+
     typedef struct pthread_mutex_t {
         union {
             char __size[40];
@@ -84,14 +107,14 @@ ffi.cdef[[
     mps_slab_pool_t *mps_shdict_open_or_create(const char *shm_name,
         size_t shm_size, mode_t mode);
 
-    int mps_shdict_get(mps_slab_pool_t *pool, const unsigned char *key,
-        size_t key_len, int *value_type, unsigned char **str_value_buf,
+    int mps_shdict_get(mps_slab_pool_t *pool, const u_char *key,
+        size_t key_len, int *value_type, u_char **str_value_buf,
         size_t *str_value_len, double *num_value, int *user_flags,
         int get_stale, int *is_stale, char **errmsg);
 
     int mps_shdict_store(mps_slab_pool_t *pool, int op,
-        const unsigned char *key, size_t key_len, int value_type,
-        const unsigned char *str_value_buf, size_t str_value_len,
+        const u_char *key, size_t key_len, int value_type,
+        const u_char *str_value_buf, size_t str_value_len,
         double num_value, long exptime, int user_flags, char **errmsg,
         int *forcible);
 
@@ -112,21 +135,13 @@ ffi.cdef[[
     size_t mps_shdict_free_space(mps_slab_pool_t *pool);
 ]]
 
-
-if not pcall(function () return C.free end) then
-    ffi.cdef[[
-void free(void *ptr);
-    ]]
-end
-
-
-local value_type = ffi_new("int[1]")
-local user_flags = ffi_new("int[1]")
-local num_value = ffi_new("double[1]")
-local is_stale = ffi_new("int[1]")
-local forcible = ffi_new("int[1]")
-local str_value_buf = ffi_new("unsigned char *[1]")
-local errmsg = base.get_errmsg_ptr()
+local value_type = ffi.new("int[1]")
+local user_flags = ffi.new("int[1]")
+local num_value = ffi.new("double[1]")
+local is_stale = ffi.new("int[1]")
+local forcible = ffi.new("int[1]")
+local str_value_buf = ffi.new("unsigned char *[1]")
+local errmsg = ffi.new("char *[1]")
 
 local function shdict_store(pool, op, key, value, exptime, flags)
     print(string.format("shdict_store start, op=%s, key=%s, value=%s", op, key, value))
@@ -199,13 +214,11 @@ local function shdict_store(pool, op, key, value, exptime, flags)
     end
 
     -- NGX_DECLINED or NGX_ERROR
-    return false, ffi_str(errmsg[0]), forcible[0] == 1
+    return false, ffi.string(errmsg[0]), forcible[0] == 1
 end
-
 
 local metatable = {}
 metatable.__index = metatable
-
 
 function metatable:get(key)
     if key == nil then
@@ -236,7 +249,7 @@ function metatable:get(key)
                                 is_stale, errmsg)
     if rc ~= 0 then
         if errmsg[0] ~= nil then
-            return nil, ffi_str(errmsg[0])
+            return nil, ffi.string(errmsg[0])
         end
 
         error("failed to get the key")
@@ -256,10 +269,10 @@ function metatable:get(key)
         if str_value_buf[0] ~= buf then
             -- ngx.say("len: ", tonumber(value_len[0]))
             buf = str_value_buf[0]
-            val = ffi_str(buf, value_len[0])
+            val = ffi.string(buf, value_len[0])
             C.free(buf)
         else
-            val = ffi_str(buf, value_len[0])
+            val = ffi.string(buf, value_len[0])
         end
 
     elseif typ == 3 then -- LUA_TNUMBER
@@ -283,26 +296,21 @@ function metatable:set(key, value, exptime, flags)
     return shdict_store(self, 0, key, value, exptime, flags)
 end
 
-
 function metatable:safe_set(key, value, exptime, flags)
     return shdict_store(self, 0x0004, key, value, exptime, flags)
 end
-
 
 function metatable:add(key, value, exptime, flags)
     return shdict_store(self, 0x0001, key, value, exptime, flags)
 end
 
-
 function metatable:safe_add(key, value, exptime, flags)
     return shdict_store(self, 0x0005, key, value, exptime, flags)
 end
 
-
 function metatable:replace(key, value, exptime, flags)
     return shdict_store(self, 0x0002, key, value, exptime, flags)
 end
-
 
 function metatable:delete(key)
     return self:set(key, nil)
@@ -369,7 +377,7 @@ function metatable:incr(key, value, init, init_ttl)
                                  init or 0, init_ttl * 1000,
                                  forcible)
     if rc ~= 0 then  -- ~= NGX_OK
-        return nil, ffi_str(errmsg[0])
+        return nil, ffi.string(errmsg[0])
     end
 
     if not init then
@@ -379,11 +387,9 @@ function metatable:incr(key, value, init, init_ttl)
     return tonumber(num_value[0]), nil, forcible[0] == 1
 end
 
-
 function metatable:flush_all()
     S.mps_shdict_flush_all(self)
 end
-
 
 function metatable:ttl(key)
     if key == nil then
@@ -411,7 +417,6 @@ function metatable:ttl(key)
 
     return tonumber(rc) / 1000
 end
-
 
 function metatable:expire(key, exptime)
     if not exptime then
@@ -446,25 +451,22 @@ function metatable:expire(key, exptime)
     return true
 end
 
-
 function metatable:capacity()
     return tonumber(S.mps_shdict_capacity(self))
 end
 
-
 function metatable:free_space()
     return tonumber(S.mps_shdict_free_space(self))
 end
-
 
 ffi.metatype('mps_slab_pool_t', metatable)
 
 return {
     open_or_create = S.mps_shdict_open_or_create,
     S_IRUSR = 0x100,
-    S_IWUSR = 0x80,
-    S_IRGRP = 0x20,
-    S_IWGRP = 0x10,
-    S_IROTH = 4,
-    S_IWOTH = 2,
+    S_IWUSR = 0x080,
+    S_IRGRP = 0x020,
+    S_IWGRP = 0x010,
+    S_IROTH = 0x004,
+    S_IWOTH = 0x002,
 }

@@ -36,7 +36,7 @@ dll: objs/libmps_shdict.so
 
 
 test: dll
-	sudo LD_LIBRARY_PATH=objs 'LUA_PATH=src/?.lua;lib/?.lua;?.lua;;' luajit mps_shdict_ex.lua
+	env LD_LIBRARY_PATH=objs luajit mps_shdict_ex.lua
 
 
 objs/libmps_shdict.so: $(MPS_OBJS)
