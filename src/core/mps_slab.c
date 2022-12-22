@@ -89,7 +89,7 @@ static ngx_uint_t  mps_slab_exact_size;
 static ngx_uint_t  mps_slab_exact_shift;
 
 
-void
+static void
 mps_slab_sizes_init(ngx_uint_t pagesize)
 {
     ngx_uint_t  n;
@@ -103,6 +103,17 @@ mps_slab_sizes_init(ngx_uint_t pagesize)
         /* void */
     }
 }
+
+
+static pthread_once_t mps_slab_sizes_initialized = PTHREAD_ONCE_INIT;
+
+static void
+mps_slab_sizes_init_auto()
+{
+    mps_slab_sizes_init(getpagesize());
+    fprintf(stderr, "mps_slab_sizes_init_auto, mps_pagesize=%ld\n", mps_pagesize);
+}
+
 
 static mps_err_t
 mps_slab_init_mutex(mps_slab_pool_t *pool)
@@ -146,7 +157,7 @@ mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
     ngx_int_t         m;
     ngx_uint_t        i, n, pages;
     mps_slab_page_t  *slots, *page, *last;
-    mps_err_t       err;
+    mps_err_t         err;
 
     err = mps_slab_init_mutex(pool);
     if (err != 0) {
@@ -302,9 +313,16 @@ mps_slab_pool_t *
 mps_slab_open_or_create(const char *shm_name, size_t shm_size,
     mps_slab_on_init_pt on_init)
 {
-    mps_err_t       err = 0;
-    mps_slab_pool_t *pool;
-    struct timespec sleep_time;
+    mps_err_t         err = 0;
+    mps_slab_pool_t  *pool;
+    struct timespec   sleep_time;
+    int               rc;
+
+    rc = pthread_once(&mps_slab_sizes_initialized, mps_slab_sizes_init_auto);
+    if (rc != 0) {
+        fprintf(stderr, "mps_slab_open_or_create init sizes err=%d\n", rc);
+        return NULL;
+    }
 
     err = mps_slab_open(&pool, shm_name, shm_size);
     if (err) {

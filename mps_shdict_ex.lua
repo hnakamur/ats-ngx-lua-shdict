@@ -1,7 +1,6 @@
 local mps_shdict = require "mps_shdict"
 
 local pagesize = 4096
-mps_shdict.slab_sizes_init(pagesize)
 local pagecount = 10
 local pool_size = pagesize * pagecount
 local dict = mps_shdict.open_or_create("/my_dict1", pool_size)

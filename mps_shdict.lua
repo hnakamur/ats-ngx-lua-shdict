@@ -81,7 +81,6 @@ ffi.cdef[[
         unsigned          log_nomem:1;
     } mps_slab_pool_t;    
 
-    void mps_slab_sizes_init(size_t pagesize);
     mps_slab_pool_t *mps_shdict_open_or_create(const char *shm_name, size_t shm_size);
 
     int mps_shdict_get(mps_slab_pool_t *pool, const unsigned char *key,
@@ -461,6 +460,5 @@ end
 ffi.metatype('mps_slab_pool_t', metatable)
 
 return {
-    slab_sizes_init = S.mps_slab_sizes_init,
     open_or_create = S.mps_shdict_open_or_create,
 }
