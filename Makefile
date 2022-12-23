@@ -38,6 +38,9 @@ dll: objs/libmps_shdict.so
 test: dll
 	env LD_LIBRARY_PATH=objs luajit mps_shdict_ex.lua
 
+install: dll
+	sudo install objs/libmps_shdict.so /usr/lib/x86_64-linux-gnu/
+	sudo install mps_shdict.lua /usr/local/share/lua/5.1/
 
 objs/libmps_shdict.so: $(MPS_OBJS)
 	$(LINK) -o objs/libmps_shdict.so \
