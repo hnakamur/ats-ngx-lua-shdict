@@ -22,6 +22,27 @@ enum {
 };
 
 
+static inline uint64_t
+msec_from_timespec(const struct timespec *ts)
+{
+    return (uint64_t) ts->tv_sec * 1000 + (uint64_t) ts->tv_nsec / 1000000;
+}
+
+
+static inline uint64_t
+mps_clock_time_ms()
+{
+    struct timespec ts;
+
+    if (clock_gettime(CLOCK_REALTIME, &ts) == -1) {
+        perror("clock_gettime");
+        exit(1);
+    }
+
+    return msec_from_timespec(&ts);
+}
+
+
 static ngx_inline mps_queue_t *
 mps_shdict_get_list_head(mps_shdict_node_t *sd, size_t len)
 {
@@ -105,7 +126,6 @@ mps_shdict_lookup(mps_slab_pool_t *pool, ngx_uint_t hash,
 {
     mps_shdict_t       *dict;
     ngx_int_t           rc;
-    ngx_time_t         *tp;
     uint64_t            now;
     int64_t             ms;
     mps_rbtree_node_t  *node, *sentinel;
@@ -143,9 +163,7 @@ mps_shdict_lookup(mps_slab_pool_t *pool, ngx_uint_t hash,
             dd("node expires: %lld", (long long) sd->expires);
 
             if (sd->expires != 0) {
-                tp = ngx_timeofday();
-
-                now = (uint64_t) tp->sec * 1000 + tp->msec;
+                now = mps_clock_time_ms();
                 ms = sd->expires - now;
 
                 dd("time to live: %lld", (long long) ms);
@@ -171,7 +189,6 @@ mps_shdict_lookup(mps_slab_pool_t *pool, ngx_uint_t hash,
 static int
 mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_t *dict, ngx_uint_t n)
 {
-    ngx_time_t              *tp;
     uint64_t                 now;
     mps_queue_t             *q, *list_queue, *lq;
     int64_t                  ms;
@@ -180,9 +197,7 @@ mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_t *dict, ngx_uint_t n)
     int                      freed = 0;
     mps_shdict_list_node_t  *lnode;
 
-    tp = ngx_timeofday();
-
-    now = (uint64_t) tp->sec * 1000 + tp->msec;
+    now = mps_clock_time_ms();
 
     /*
      * n == 1 deletes one or two expired entries
@@ -252,7 +267,6 @@ mps_shdict_store(mps_slab_pool_t *pool, int op, const u_char *key,
     int                 n;
     uint32_t            hash;
     ngx_int_t           rc;
-    ngx_time_t         *tp;
     mps_queue_t        *queue, *q;
     mps_rbtree_node_t  *node;
     mps_shdict_node_t  *sd;
@@ -363,9 +377,7 @@ replace:
             mps_queue_insert_head(pool, &dict->lru_queue, &sd->queue);
 
             if (exptime > 0) {
-                tp = ngx_timeofday();
-                sd->expires = (uint64_t) tp->sec * 1000 + tp->msec
-                              + (uint64_t) exptime;
+                sd->expires = mps_clock_time_ms() + (uint64_t) exptime;
 
             } else {
                 sd->expires = 0;
@@ -596,7 +608,7 @@ mps_shdict_incr(mps_slab_pool_t *pool, const u_char *key,
     int                 i, n;
     uint32_t            hash;
     ngx_int_t           rc;
-    ngx_time_t         *tp = NULL;
+    uint64_t            now = 0;
     mps_shdict_t       *dict;
     mps_shdict_node_t  *sd;
     double              num;
@@ -605,7 +617,7 @@ mps_shdict_incr(mps_slab_pool_t *pool, const u_char *key,
     mps_queue_t        *queue, *q;
 
     if (init_ttl > 0) {
-        tp = ngx_timeofday();
+        now = mps_clock_time_ms();
     }
 
     dict = mps_shdict(pool);
@@ -780,8 +792,7 @@ setvalue:
     sd->user_flags = 0;
 
     if (init_ttl > 0) {
-        sd->expires = (uint64_t) tp->sec * 1000 + tp->msec
-                      + (uint64_t) init_ttl;
+        sd->expires = now + (uint64_t) init_ttl;
 
     } else {
         sd->expires = 0;
@@ -878,10 +889,8 @@ long
 mps_shdict_get_ttl(mps_slab_pool_t *pool, const u_char *key, size_t key_len)
 {
     uint32_t            hash;
-    uint64_t            now;
-    uint64_t            expires;
+    uint64_t            expires, now;
     ngx_int_t           rc;
-    ngx_time_t         *tp;
     mps_shdict_node_t  *sd;
 
     hash = ngx_crc32_short(key, key_len);
@@ -906,8 +915,7 @@ mps_shdict_get_ttl(mps_slab_pool_t *pool, const u_char *key, size_t key_len)
         return 0;
     }
 
-    tp = ngx_timeofday();
-    now = (uint64_t) tp->sec * 1000 + tp->msec;
+    now = mps_clock_time_ms();
 
     return expires - now;
 }
@@ -919,11 +927,11 @@ mps_shdict_set_expire(mps_slab_pool_t *pool, const u_char *key, size_t key_len,
 {
     uint32_t            hash;
     ngx_int_t           rc;
-    ngx_time_t         *tp = NULL;
+    uint64_t            now = 0;
     mps_shdict_node_t  *sd;
 
     if (exptime > 0) {
-        tp = ngx_timeofday();
+        now = mps_clock_time_ms();
     }
 
     hash = ngx_crc32_short(key, key_len);
@@ -941,8 +949,7 @@ mps_shdict_set_expire(mps_slab_pool_t *pool, const u_char *key, size_t key_len,
     /* rc == NGX_OK */
 
     if (exptime > 0) {
-        sd->expires = (uint64_t) tp->sec * 1000 + tp->msec
-                      + (uint64_t) exptime;
+        sd->expires = now + (uint64_t) exptime;
 
     } else {
         sd->expires = 0;

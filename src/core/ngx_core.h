@@ -44,20 +44,9 @@ typedef void (*ngx_connection_handler_pt)(ngx_connection_t *c);
 
 #include <pthread.h>
 
-// #include <ngx_thread.h>
-// #include <ngx_time.h>
-// #include <ngx_socket.h>
 #include <ngx_string.h>
-// #include <ngx_shmem.h>
-
-
-// #include <ngx_process.h>
-// #include <ngx_user.h>
 #include <ngx_log.h>
 #include <ngx_crc32.h>
-#include <ngx_times.h>
-// #include <ngx_cycle.h>
-// #include <ngx_os.h>
 
 #define ngx_debug_point()
 extern ngx_uint_t  ngx_cacheline_size;
@@ -71,7 +60,6 @@ extern ngx_uint_t  ngx_cacheline_size;
 #define ngx_max(val1, val2)  ((val1 < val2) ? (val2) : (val1))
 #define ngx_min(val1, val2)  ((val1 > val2) ? (val2) : (val1))
 
-// void ngx_cpuinfo(void);
 
 #if (NGX_HAVE_OPENAT)
 #define NGX_DISABLE_SYMLINKS_OFF        0
