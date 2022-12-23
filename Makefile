@@ -3,17 +3,19 @@ CFLAGS = -fPIC -I/usr/include/luajit-2.1  -pipe  -O -W -Wall -Wpointer-arith -Wn
 LINK =	$(CC)
 
 
-MPS_DEPS = src/core/ngx_config.h \
-	       src/core/ngx_core.h \
-	       src/core/ngx_log.h \
-	       src/core/ngx_string.h \
-	       src/core/ngx_crc32.h \
-	       src/os/unix/ngx_linux_config.h \
-	       src/core/ngx_auto_config.h \
-	       src/core/mps_shdict.h \
-	       src/core/mps_rbtree.h \
-	       src/core/mps_queue.h \
-	       src/core/mps_slab.h
+MPS_DEPS = src/core/mps_core.h \
+           src/core/mps_queue.h \
+           src/core/mps_rbtree.h \
+           src/core/mps_shdict.h \
+           src/core/mps_slab.h \
+           src/core/ngx_config.h \
+           src/core/ngx_core.h \
+           src/core/ngx_crc32.h \
+           src/core/ngx_string.h \
+           src/core/ngx_auto_config.h \
+           src/core/ngx_auto_headers.h \
+           src/os/unix/ngx_linux_config.h \
+           src/core/tslog.h
 
 
 CORE_INCS = -I src/core \
@@ -24,9 +26,9 @@ ALL_INCS = $(CORE_INCS) \
            -I src/api
 
 
-MPS_OBJS = objs/src/core/mps_shdict.o \
-           objs/src/core/mps_rbtree.o \
-		   objs/src/core/mps_slab.o \
+MPS_OBJS = objs/src/core/mps_rbtree.o \
+           objs/src/core/mps_shdict.o \
+           objs/src/core/mps_slab.o \
            objs/src/core/ngx_crc32.o \
            objs/src/core/ngx_string.o \
            objs/src/os/unix/ngx_global_vars.o
