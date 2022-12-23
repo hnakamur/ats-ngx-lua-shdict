@@ -7,6 +7,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include "mps_slab.h"
+#include "mps_log.h"
 
 #define MPS_SLAB_PAGE_MASK   3
 #define MPS_SLAB_PAGE        0
@@ -94,6 +95,7 @@ mps_slab_sizes_init(ngx_uint_t pagesize)
 {
     ngx_uint_t  n;
 
+    TSDebug(MPS_LOG_TAG, "tid=%" PRId64 ", mps_slab_sizes_init pagesize=%" PRId64, pthread_self(), pagesize);
     mps_pagesize = pagesize;
     for (n = mps_pagesize; n >>= 1; mps_pagesize_shift++) { /* void */ }
 
@@ -111,10 +113,9 @@ static void
 mps_slab_init_once()
 {
     mps_slab_sizes_init(getpagesize());
-    fprintf(stderr, "mps_slab_init_once, mps_pagesize=%ld\n", mps_pagesize);
 
     if (ngx_crc32_table_init() != NGX_OK) {
-        fprintf(stderr, "ngx_crc32_table_init failed\n");
+        TSEmergency("ngx_crc32_table_init failed");
     }
 }
 
@@ -165,8 +166,7 @@ mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
 
     err = mps_slab_init_mutex(pool);
     if (err != 0) {
-        fprintf(stderr, "mps_slab_init_mutex err=%d\n", err);
-        return;
+        TSEmergency("mps_slab_init_mutex failed, err=%d", err);
     }
 
     pool->end = pool_size;
@@ -358,8 +358,14 @@ mps_slab_open_or_create(const char *shm_name, size_t shm_size,
                         "mps_slab_open_or_create: mps_slab_open#2: err=%s",
                         strerror(err));
                 return NULL;
+            } else {
+                TSDebug(MPS_LOG_TAG, "tid=%" PRId64 ", mps_slab_open_or_create second open ok name=%s", pthread_self(), shm_name);
             }
+        } else {
+            TSDebug(MPS_LOG_TAG, "tid=%" PRId64 ", mps_slab_open_or_create create ok name=%s", pthread_self(), shm_name);
         }
+    } else {
+        TSDebug(MPS_LOG_TAG, "tid=%" PRId64 ", mps_slab_open_or_create first open ok name=%s", pthread_self(), shm_name);
     }
     return pool;
 }

@@ -19,5 +19,7 @@ tsapi void TSFatal(const char *fmt, ...) TS_PRINTFLIKE(1, 2);     // Log recover
 tsapi void TSAlert(const char *fmt, ...) TS_PRINTFLIKE(1, 2);     // Log recoverable crash, fail CI, exit & restart, Ops attention
 tsapi void TSEmergency(const char *fmt, ...) TS_PRINTFLIKE(1, 2); // Log unrecoverable crash, fail CI, exit, Ops attention
 
+tsapi int TSIsDebugTagSet(const char *t);
+tsapi void TSDebug(const char *tag, const char *format_str, ...) TS_PRINTFLIKE(2, 3);
 
 #endif /* _TSLOG_H_INCLUDED_ */

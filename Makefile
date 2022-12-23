@@ -4,6 +4,7 @@ LINK =	$(CC)
 
 
 MPS_DEPS = src/core/mps_core.h \
+           src/core/mps_log.h \
            src/core/mps_queue.h \
            src/core/mps_rbtree.h \
            src/core/mps_shdict.h \
@@ -11,6 +12,7 @@ MPS_DEPS = src/core/mps_core.h \
            src/core/ngx_config.h \
            src/core/ngx_core.h \
            src/core/ngx_crc32.h \
+           src/core/ngx_log.h \
            src/core/ngx_string.h \
            src/core/ngx_auto_config.h \
            src/core/ngx_auto_headers.h \

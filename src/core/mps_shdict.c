@@ -1,4 +1,5 @@
 #include "mps_shdict.h"
+#include "mps_log.h"
 
 #       define dd(...) fprintf(stderr, "lua *** %s: ", __func__);            \
             fprintf(stderr, __VA_ARGS__);                                    \
@@ -100,6 +101,7 @@ mps_shdict_on_init(mps_slab_pool_t *pool)
 {
     mps_shdict_t *dict;
 
+    TSNote("mps_shdict_on_init start");
     dict = mps_slab_alloc(pool, sizeof(mps_shdict_t));
     if (!dict) {
         fprintf(stderr, "mps_shdict_on_init: mps_slab_alloc failed\n");
@@ -109,8 +111,8 @@ mps_shdict_on_init(mps_slab_pool_t *pool)
     pool->data = mps_offset(pool, dict);
     mps_rbtree_init(pool, &dict->rbtree, &dict->sentinel,
         MPS_RBTREE_INSERT_TYPE_ID_LUADICT);
-    printf("mps_shdict_on_init mps_shdict_rbtree_insert_value=%p\n", mps_shdict_rbtree_insert_value);
     mps_queue_init(pool, &dict->lru_queue);
+    TSNote("mps_shdict_on_init exit");
 }
 
 mps_slab_pool_t *
