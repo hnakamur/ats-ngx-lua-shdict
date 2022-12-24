@@ -107,10 +107,12 @@ ngx_crc32_table_init(void)
 {
     void  *p;
 
+    printf("ngx_crc32_table_init start\n");
     if (((uintptr_t) ngx_crc32_table_short
           & ~((uintptr_t) ngx_cacheline_size - 1))
         == (uintptr_t) ngx_crc32_table_short)
     {
+        printf("ngx_crc32_table_init already aligned\n");
         return NGX_OK;
     }
 

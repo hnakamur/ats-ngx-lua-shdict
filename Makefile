@@ -50,6 +50,10 @@ install: $(SHLIBS)
 	sudo install $(SHLIBS) /usr/lib/x86_64-linux-gnu/
 	sudo install mps_shdict.lua mps_ngx_shdict.lua /usr/local/share/lua/5.1/
 
+run_bench_hash:
+	cc -O2 -I src bench_hash.c src/ngx_crc32.c src/ngx_global_vars.c src/ngx_murmurhash.c -o bench_hash
+	./bench_hash 100000
+
 # build SHLIBS
 
 objs/libmps_shdict.so: $(MPS_OBJS)
