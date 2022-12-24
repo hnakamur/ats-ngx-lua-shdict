@@ -153,8 +153,6 @@ local str_value_buf = ffi.new("unsigned char *[1]")
 local errmsg = ffi.new("char *[1]")
 
 local function shdict_store(dict, op, key, value, exptime, flags)
-    print(string.format("shdict_store start, op=%s, key=%s, value=%s", op, key, value))
-
     if not exptime then
         exptime = 0
     elseif exptime < 0 then
@@ -326,7 +324,6 @@ function metatable:delete(key)
 end
 
 function metatable:incr(key, value, init, init_ttl)
-    print(string.format("incr method start, key=%s, value=%s", key, value))
     if key == nil then
         return nil, "nil key"
     end
@@ -470,21 +467,17 @@ end
 
 ffi.metatype('mps_shdict_t', metatable)
 
-local dicts = {}
-
 local function open_or_create(name, size, mode)
     local dict = ffi.new("mps_shdict_t[1]")
     local err = S.mps_shdict_open_or_create(dict[0], name, size, mode)
     if err ~= 0 then
         return nil, err
     end
-    dicts[name] = dict
     return dict[0]
 end
 
 return {
     open_or_create = open_or_create,
-    dicts = dicts,
     S_IRUSR = 0x100,
     S_IWUSR = 0x080,
     S_IRGRP = 0x020,
