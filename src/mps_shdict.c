@@ -115,19 +115,22 @@ mps_shdict_on_init(mps_slab_pool_t *pool)
     TSNote("mps_shdict_on_init exit");
 }
 
-mps_shdict_t
-mps_shdict_open_or_create(const char *shm_name, size_t shm_size, mode_t mode)
+mps_err_t
+mps_shdict_open_or_create(mps_shdict_t *dict, const char *shm_name,
+    size_t shm_size, mode_t mode)
 {
-    mps_shdict_t     dict;
     mps_slab_pool_t *pool;
 
     pool = mps_slab_open_or_create(shm_name, shm_size, mode,
         mps_shdict_on_init);
+    if (pool == NULL) {
+        return -1;
+    }
 
-    dict.pool = pool;
-    dict.name = shm_name;
+    dict->pool = pool;
+    dict->name = shm_name;
 
-    return dict;
+    return 0;
 }
 
 static ngx_int_t

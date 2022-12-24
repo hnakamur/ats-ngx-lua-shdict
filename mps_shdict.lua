@@ -110,6 +110,9 @@ ffi.cdef[[
         const char       *name;
     } mps_shdict_t;
 
+    mps_err_t mps_shdict_open_or_create(mps_shdict_t *dict,
+        const char *shm_name, size_t shm_size, mode_t mode);
+
     mps_shdict_t mps_shdict_open_or_create(const char *shm_name,
         size_t shm_size, mode_t mode);
 
@@ -467,8 +470,22 @@ end
 
 ffi.metatype('mps_shdict_t', metatable)
 
+local dicts = {}
+
+local function open_or_create(name, size, mode)
+    local dict = ffi.new("mps_shdict_t[1]")
+    local err = S.mps_shdict_open_or_create(dict[0], name, size, mode)
+    print(string.format("open_or_create dict.pool=%s, err=%s", dict[0].pool, err))
+    if err ~= 0 then
+        return nil, err
+    end
+    dicts[name] = dict
+    return dict[0]
+end
+
 return {
-    open_or_create = S.mps_shdict_open_or_create,
+    open_or_create = open_or_create,
+    dicts = dicts,
     S_IRUSR = 0x100,
     S_IWUSR = 0x080,
     S_IRGRP = 0x020,
