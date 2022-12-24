@@ -8,6 +8,19 @@ extern volatile ngx_cycle_t  *ngx_cycle;
 
 #if (NGX_HAVE_C99_VARIADIC_MACROS)
 
+#if 1
+
+#define TSEmergency(...) fprintf(stderr, __VA_ARGS__)
+#define TSAlert(...) fprintf(stderr, __VA_ARGS__)
+#define TSFatal(...) fprintf(stderr, __VA_ARGS__)
+#define TSError(...) fprintf(stderr, __VA_ARGS__)
+#define TSWarning(...) fprintf(stderr, __VA_ARGS__)
+#define TSNote(...) fprintf(stderr, __VA_ARGS__)
+#define TSStatus(...) fprintf(stderr, __VA_ARGS__)
+#define TSDebug(tag, ...) fprintf(stderr, __VA_ARGS__)
+
+#else
+
 #define TSEmergency(...)                                                      \
     ngx_log_error(NGX_LOG_EMERG, ngx_cycle->log, 0, __VA_ARGS__)
 
@@ -31,6 +44,8 @@ extern volatile ngx_cycle_t  *ngx_cycle;
 
 #define TSDebug(tag, ...)                                                     \
     ngx_log_debug(NGX_LOG_DEBUG, ngx_cycle->log, 0, __VA_ARGS__)
+
+#endif
 
 #elif (NGX_HAVE_GCC_VARIADIC_MACROS)
 
