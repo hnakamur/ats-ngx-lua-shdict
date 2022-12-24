@@ -1,7 +1,7 @@
 
 local ffi = require "ffi"
 local C = ffi.C
-local S = ffi.load("mps_shdict")
+local S = ffi.load("mps_ats_shdict")
 
 local str_buf_size = 4096
 local str_buf

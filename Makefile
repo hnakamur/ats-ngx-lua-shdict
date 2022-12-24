@@ -27,35 +27,28 @@ MPS_DEPS = src/mps_core.h \
            src/ngx_string.h \
            src/tslog.h
 
-MPS_OBJS = objs/ngx_murmurhash.o \
-           objs/mps_rbtree.o \
-           objs/mps_shdict.o \
-           objs/mps_slab.o \
-           objs/ngx_string.o
+MPS_ATS_OBJS = objs/ngx_murmurhash.o \
+               objs/mps_rbtree.o \
+               objs/mps_shdict.o \
+               objs/mps_slab.o \
+               objs/ngx_string.o
 
 MPS_NGX_OBJS = objs/ngx/mps_rbtree.o \
                objs/ngx/mps_shdict.o \
                objs/ngx/mps_slab.o
 
-SHLIBS = objs/libmps_shdict.so \
+SHLIBS = objs/libmps_ats_shdict.so \
          objs/libmps_ngx_shdict.so
 
 build: $(SHLIBS)
 
-test: $(SHLIBS)
-	env LD_LIBRARY_PATH=objs luajit mps_shdict_ex.lua
-
 install: $(SHLIBS)
 	sudo install $(SHLIBS) /usr/lib/x86_64-linux-gnu/
-	sudo install mps_shdict.lua mps_ngx_shdict.lua /usr/local/share/lua/5.1/
-
-run_bench_hash:
-	cc -O2 -I src bench_hash.c src/ngx_crc32.c src/ngx_global_vars.c src/ngx_murmurhash.c -o bench_hash
-	./bench_hash 100000
+	sudo install mps_ats_shdict.lua mps_ngx_shdict.lua /usr/local/share/lua/5.1/
 
 # build SHLIBS
 
-objs/libmps_shdict.so: $(MPS_OBJS)
+objs/libmps_ats_shdict.so: $(MPS_ATS_OBJS)
 	$(LINK) -o $@ $^ -shared
 
 objs/libmps_ngx_shdict.so: $(MPS_NGX_OBJS)
