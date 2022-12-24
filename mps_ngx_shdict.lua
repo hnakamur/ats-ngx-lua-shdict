@@ -104,35 +104,41 @@ ffi.cdef[[
         unsigned          log_nomem:1;
     } mps_slab_pool_t;    
 
-    mps_slab_pool_t *mps_shdict_open_or_create(const char *shm_name,
+    
+    typedef struct {
+        mps_slab_pool_t  *pool;
+        const char       *name;
+    } mps_shdict_t;
+
+    mps_shdict_t mps_shdict_open_or_create(const char *shm_name,
         size_t shm_size, mode_t mode);
 
-    int mps_shdict_get(mps_slab_pool_t *pool, const u_char *key,
+    int mps_shdict_get(mps_shdict_t *dict, const u_char *key,
         size_t key_len, int *value_type, u_char **str_value_buf,
         size_t *str_value_len, double *num_value, int *user_flags,
         int get_stale, int *is_stale, char **errmsg);
 
-    int mps_shdict_store(mps_slab_pool_t *pool, int op,
+    int mps_shdict_store(mps_shdict_t *dict, int op,
         const u_char *key, size_t key_len, int value_type,
         const u_char *str_value_buf, size_t str_value_len,
         double num_value, long exptime, int user_flags, char **errmsg,
         int *forcible);
 
-    int mps_shdict_incr(mps_slab_pool_t *pool, const u_char *key,
+    int mps_shdict_incr(mps_shdict_t *dict, const u_char *key,
         size_t key_len, double *value, char **err, int has_init, double init,
         long init_ttl, int *forcible);
 
-    int mps_shdict_flush_all(mps_slab_pool_t *pool);
+    int mps_shdict_flush_all(mps_shdict_t *dict);
 
-    long mps_shdict_get_ttl(mps_slab_pool_t *pool, const u_char *key,
+    long mps_shdict_get_ttl(mps_shdict_t *dict, const u_char *key,
         size_t key_len);
 
-    int mps_shdict_set_expire(mps_slab_pool_t *pool, const u_char *key,
+    int mps_shdict_set_expire(mps_shdict_t *dict, const u_char *key,
         size_t key_len, long exptime);
 
-    size_t mps_shdict_capacity(mps_slab_pool_t *pool);
+    size_t mps_shdict_capacity(mps_shdict_t *dict);
 
-    size_t mps_shdict_free_space(mps_slab_pool_t *pool);
+    size_t mps_shdict_free_space(mps_shdict_t *dict);
 ]]
 
 local value_type = ffi.new("int[1]")
@@ -143,7 +149,7 @@ local forcible = ffi.new("int[1]")
 local str_value_buf = ffi.new("unsigned char *[1]")
 local errmsg = ffi.new("char *[1]")
 
-local function shdict_store(pool, op, key, value, exptime, flags)
+local function shdict_store(dict, op, key, value, exptime, flags)
     print(string.format("shdict_store start, op=%s, key=%s, value=%s", op, key, value))
 
     if not exptime then
@@ -201,7 +207,7 @@ local function shdict_store(pool, op, key, value, exptime, flags)
         return nil, "bad value type"
     end
 
-    local rc = S.mps_shdict_store(pool, op, key, key_len,
+    local rc = S.mps_shdict_store(dict, op, key, key_len,
                                   valtyp, str_val_buf,
                                   str_val_len, num_val,
                                   exptime * 1000, flags, errmsg,
@@ -459,7 +465,7 @@ function metatable:free_space()
     return tonumber(S.mps_shdict_free_space(self))
 end
 
-ffi.metatype('mps_slab_pool_t', metatable)
+ffi.metatype('mps_shdict_t', metatable)
 
 return {
     open_or_create = S.mps_shdict_open_or_create,

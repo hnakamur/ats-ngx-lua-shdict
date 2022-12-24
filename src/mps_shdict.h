@@ -22,33 +22,39 @@ typedef struct {
 
 
 typedef struct {
-    u_char                       color;
-    uint8_t                      value_type;
-    u_short                      key_len;
-    uint32_t                     value_len;
-    uint64_t                     expires;
-    mps_queue_t                  queue;
-    uint32_t                     user_flags;
-    u_char                       data[1];
+    u_char             color;
+    uint8_t            value_type;
+    u_short            key_len;
+    uint32_t           value_len;
+    uint64_t           expires;
+    mps_queue_t        queue;
+    uint32_t           user_flags;
+    u_char             data[1];
 } mps_shdict_node_t;
 
 
 typedef struct {
-    mps_queue_t                  queue;
-    uint32_t                     value_len;
-    uint8_t                      value_type;
-    u_char                       data[1];
+    mps_queue_t        queue;
+    uint32_t           value_len;
+    uint8_t            value_type;
+    u_char             data[1];
 } mps_shdict_list_node_t;
 
 
 typedef struct {
-    mps_rbtree_t                  rbtree;
-    mps_rbtree_node_t             sentinel;
-    mps_queue_t                   lru_queue;
+    mps_rbtree_t       rbtree;
+    mps_rbtree_node_t  sentinel;
+    mps_queue_t        lru_queue;
 } mps_shdict_tree_t;
 
 
-mps_slab_pool_t *
+typedef struct {
+    mps_slab_pool_t   *pool;
+    const char        *name;
+} mps_shdict_t;
+
+
+mps_shdict_t
 mps_shdict_open_or_create(const char *shm_name, size_t shm_size, mode_t mode);
 
 #define mps_shdict_tree(pool)                                                 \
