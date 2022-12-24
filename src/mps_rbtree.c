@@ -8,6 +8,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include "mps_rbtree.h"
+#include "mps_log.h"
 
 /*
  * The red-black tree code is based on the algorithm described in
@@ -52,14 +53,13 @@ mps_rbtree_insert(mps_slab_pool_t *pool, mps_rbtree_t *tree,
     }
 
     if (tree->insert >= MPS_RBTREE_INSERT_TYPE_ID_COUNT) {
-        fprintf(stderr, "mps_rbtree_insert invalid tree insert type: %ld\n", tree->insert);
+        TSError("mps_rbtree_insert invalid tree insert type: %ld\n",
+                tree->insert);
         return;
     }
-    printf("mps_rbtree_insert before tree->insert\n");
     insert_value = insert_values[tree->insert];
     insert_value(pool, mps_rbtree_node(pool, *root), node,
                  mps_rbtree_node(pool, sentinel));
-    printf("mps_rbtree_insert after tree->insert\n");
 
     /* re-balance tree */
 

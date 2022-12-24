@@ -264,7 +264,7 @@ mps_slab_create(mps_slab_pool_t **pool, const char *shm_name, size_t shm_size,
     }
 
     if (err && munmap(addr, shm_size) == -1) {
-        fprintf(stderr, "mps_slab_create: munmap: err=%s\n", strerror(errno));
+        TSError("mps_slab_create: munmap: err=%s\n", strerror(errno));
     }
 
 close:
@@ -299,7 +299,7 @@ mps_slab_open(mps_slab_pool_t **pool, const char *shm_name, size_t shm_size,
     if (close(fd) == -1) {
         err = errno;
         if (munmap(addr, shm_size) == -1) {
-            fprintf(stderr, "mps_slab_open: munmap: err=%s\n", strerror(errno));
+            TSError("mps_slab_open: munmap: err=%s", strerror(errno));
         }
         return err;
     }
@@ -319,14 +319,14 @@ mps_slab_open_or_create(const char *shm_name, size_t shm_size,
 
     rc = pthread_once(&mps_slab_initialized, mps_slab_init_once);
     if (rc != 0) {
-        fprintf(stderr, "mps_slab_open_or_create init sizes err=%d\n", rc);
+        TSError("mps_slab_open_or_create init sizes err=%s", strerror(rc));
         return NULL;
     }
 
     err = mps_slab_open(&pool, shm_name, shm_size, mode);
     if (err) {
         if (err != ENOENT && err != EACCES) {
-            fprintf(stderr, "mps_slab_open_or_create: mps_slab_open#1: err=%s",
+            TSError("mps_slab_open_or_create: mps_slab_open#1: err=%s",
                     strerror(err));
             return NULL;
         }
@@ -334,8 +334,7 @@ mps_slab_open_or_create(const char *shm_name, size_t shm_size,
         err = mps_slab_create(&pool, shm_name, shm_size, mode, on_init);
         if (err) {
             if (err != EEXIST) {
-                fprintf(stderr,
-                        "mps_slab_open_or_create: mps_slab_create: err=%s",
+                TSError("mps_slab_open_or_create: mps_slab_create: err=%s",
                         strerror(err));
                 return NULL;
             }
@@ -343,25 +342,28 @@ mps_slab_open_or_create(const char *shm_name, size_t shm_size,
             sleep_time.tv_sec = 0;
             sleep_time.tv_nsec = 10 * 1000 * 1000; // 10ms
             if (nanosleep(&sleep_time, NULL) == -1) {
-                fprintf(stderr, "mps_slab_open_or_create: nanosleep: err=%s",
-                        strerror(errno));
+                TSWarning("mps_slab_open_or_create: nanosleep: err=%s",
+                          strerror(errno));
                 return NULL;
             }
 
             err = mps_slab_open(&pool, shm_name, shm_size, mode);
             if (err) {
-                fprintf(stderr,
-                        "mps_slab_open_or_create: mps_slab_open#2: err=%s",
+                TSError("mps_slab_open_or_create: mps_slab_open#2: err=%s",
                         strerror(err));
                 return NULL;
+
             } else {
-                TSDebug(MPS_LOG_TAG, "tid=%" PRId64 ", mps_slab_open_or_create second open ok name=%s", pthread_self(), shm_name);
+                TSStatus("mps_slab_open_or_create second open ok name=%s",
+                         shm_name);
             }
+
         } else {
-            TSDebug(MPS_LOG_TAG, "tid=%" PRId64 ", mps_slab_open_or_create create ok name=%s", pthread_self(), shm_name);
+            TSStatus("mps_slab_open_or_create create ok name=%s", shm_name);
         }
+
     } else {
-        TSDebug(MPS_LOG_TAG, "tid=%" PRId64 ", mps_slab_open_or_create first open ok name=%s", pthread_self(), shm_name);
+        TSStatus("mps_slab_open_or_create first open ok name=%s", shm_name);
     }
     return pool;
 }

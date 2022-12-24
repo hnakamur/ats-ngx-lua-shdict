@@ -1,9 +1,17 @@
 #include "mps_shdict.h"
 #include "mps_log.h"
 
-#       define dd(...) fprintf(stderr, "lua *** %s: ", __func__);            \
+#ifdef DDEBUG
+
+# define dd(...) fprintf(stderr, "lua *** %s: ", __func__);            \
             fprintf(stderr, __VA_ARGS__);                                    \
             fprintf(stderr, " at %s line %d.\n", __FILE__, __LINE__)
+
+#else
+
+# define dd(...)
+
+#endif
 
 static int mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_tree_t *tree,
     ngx_uint_t n);
@@ -60,7 +68,6 @@ mps_shdict_rbtree_insert_value(mps_slab_pool_t *pool,
     mps_ptroff_t        *p, s;
     mps_shdict_node_t   *sdn, *sdnt;
 
-    printf("mps_shdict_rbtree_insert_value start\n");
     s = mps_offset(pool, sentinel);
 
     for ( ;; ) {
@@ -101,10 +108,10 @@ mps_shdict_on_init(mps_slab_pool_t *pool)
 {
     mps_shdict_tree_t *dict;
 
-    TSNote("mps_shdict_on_init start");
+    TSStatus("mps_shdict_on_init start");
     dict = mps_slab_alloc(pool, sizeof(mps_shdict_tree_t));
     if (!dict) {
-        fprintf(stderr, "mps_shdict_on_init: mps_slab_alloc failed\n");
+        TSError("mps_shdict_on_init: mps_slab_alloc failed");
         return;
     }
 
@@ -112,7 +119,7 @@ mps_shdict_on_init(mps_slab_pool_t *pool)
     mps_rbtree_init(pool, &dict->rbtree, &dict->sentinel,
         MPS_RBTREE_INSERT_TYPE_ID_LUADICT);
     mps_queue_init(pool, &dict->lru_queue);
-    TSNote("mps_shdict_on_init exit");
+    TSStatus("mps_shdict_on_init exit");
 }
 
 mps_err_t
@@ -129,7 +136,8 @@ mps_shdict_open_or_create(mps_shdict_t *dict, const char *dict_name,
     }
 
     shm_name[0] = '/';
-    p = ngx_copy(&shm_name[1], dict_name, dict_name_len);
+    p = (char *) ngx_copy((u_char *) &shm_name[1], (u_char *) dict_name,
+                          dict_name_len);
     *p = '\0';
 
     pool = mps_slab_open_or_create(shm_name, shm_size, mode,
