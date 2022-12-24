@@ -65,10 +65,14 @@ mps_shdict_init_dicts_lock()
 static mps_shdict_t *
 find_dict_by_name(const char *dict_name)
 {
-    int i;
+    size_t  dict_name_len;
+    int     i;
 
+    dict_name_len = strlen(dict_name);
     for (i = 0; i < dicts_count; i++) {
-        if (!strcmp(dicts[i].name, dict_name)) {
+        if (!ngx_memn2cmp(dicts[i].name.data, (const u_char *) dict_name,
+                          dicts[i].name.len, dict_name_len))
+        {
             return &dicts[i];
         }
     }
@@ -191,7 +195,7 @@ mps_shdict_open_or_create(const char *dict_name, size_t shm_size, mode_t mode)
 {
     int               rc;
     mps_shdict_t     *dict, *new_dicts;
-    const char       *dict_name_copy;
+    char             *dict_name_copy;
     size_t            dict_name_len;
     char              shm_name[NAME_MAX], *p;
     mps_slab_pool_t  *pool;
@@ -246,7 +250,8 @@ mps_shdict_open_or_create(const char *dict_name, size_t shm_size, mode_t mode)
     dicts_count++;
 
     dict->pool = pool;
-    dict->name = dict_name_copy;
+    dict->name.len = dict_name_len;
+    dict->name.data = (u_char *) dict_name_copy;
 
     pthread_mutex_unlock(&dicts_lock);
 
@@ -503,9 +508,9 @@ replace:
         {
 
             TSDebug(MPS_LOG_TAG,
-                    "lua shared tree set in dict \"%s\": "
+                    "lua shared tree set in dict \"%*s\": "
                     "found old entry and value size matched, reusing it",
-                    dict->name);
+                    (int) dict->name.len, dict->name.data);
 
             mps_queue_remove(pool, &sd->queue);
             mps_queue_insert_head(pool, &tree->lru_queue, &sd->queue);
@@ -531,9 +536,9 @@ replace:
         }
 
         TSDebug(MPS_LOG_TAG,
-                "lua shared dict set in dict \"%s\": "
+                "lua shared dict set in dict \"%*s\": "
                 "found old entry but value size NOT matched, removing it first",
-                dict->name);
+                (int) dict->name.len, dict->name.data);
 
 remove:
 
@@ -573,8 +578,8 @@ insert:
     }
 
     TSDebug(MPS_LOG_TAG,
-            "lua shared dict set in dict \"%s\": creating a new entry",
-            dict->name);
+            "lua shared dict set in dict \"%*s\": creating a new entry",
+            (int) dict->name.len, dict->name.data);
 
     n = offsetof(mps_rbtree_node_t, color)
         + offsetof(mps_shdict_node_t, data)
@@ -670,8 +675,9 @@ mps_shdict_get(mps_shdict_t *dict, const u_char *key,
         if (value.len != sizeof(double)) {
             mps_slab_unlock(pool);
             TSError("bad lua number value size found for key %*s "
-                    "in shared_dict %s: %lu", (int) key_len, key,
-                    dict->name, value.len);
+                    "in dict \"%*s\": %lu",
+                    (int) key_len, key,
+                    (int) dict->name.len, dict->name.data, value.len);
             return NGX_ERROR;
         }
 
@@ -684,8 +690,9 @@ mps_shdict_get(mps_shdict_t *dict, const u_char *key,
         if (value.len != sizeof(u_char)) {
             mps_slab_unlock(pool);
             TSError("bad lua boolean value size found for key %*s "
-                    "in shared_dict %s: %lu",
-                    (int) key_len, key, dict->name, value.len);
+                    "in dict \"%*s\": %lu",
+                    (int) key_len, key,
+                    (int) dict->name.len, dict->name.data, value.len);
             return NGX_ERROR;
         }
 
@@ -702,9 +709,9 @@ mps_shdict_get(mps_shdict_t *dict, const u_char *key,
     default:
 
         mps_slab_unlock(pool);
-        TSError("bad value type found for key %*s in "
-                "shared_dict %s: %d", (int) key_len, key, dict->name,
-                *value_type);
+        TSError("bad value type found for key %*s in dict \"%*s\": %d",
+                (int) key_len, key,
+                (int) dict->name.len, dict->name.data, *value_type);
         return NGX_ERROR;
     }
 
@@ -782,9 +789,9 @@ mps_shdict_incr(mps_shdict_t *dict, const u_char *key,
                 && sd->value_type != SHDICT_TLIST)
             {
                 TSDebug(MPS_LOG_TAG,
-                        "lua shared dict incr in dict \"%s\": "
+                        "lua shared dict incr in dict \"%*s\": "
                         "found old entry and value size matched, reusing it",
-                        dict->name);
+                        (int) dict->name.len, dict->name.data);
 
                 mps_queue_remove(pool, &sd->queue);
                 mps_queue_insert_head(pool, &tree->lru_queue, &sd->queue);
@@ -829,9 +836,9 @@ mps_shdict_incr(mps_shdict_t *dict, const u_char *key,
 remove:
 
     TSDebug(MPS_LOG_TAG,
-            "lua shared dict incr in dict \"%s\": "
+            "lua shared dict incr in dict \"%*s\": "
             "found old entry but value size NOT matched, removing it first",
-            dict->name);
+            (int) dict->name.len, dict->name.data);
 
     if (sd->value_type == SHDICT_TLIST) {
         queue = mps_shdict_get_list_head(sd, key_len);
@@ -859,8 +866,8 @@ remove:
 insert:
 
     TSDebug(MPS_LOG_TAG,
-            "lua shared dict incr in dict \"%s\": creating a new entry",
-            dict->name);
+            "lua shared dict incr in dict \"%*s\": creating a new entry",
+            (int) dict->name.len, dict->name.data);
 
     n = offsetof(mps_rbtree_node_t, color)
         + offsetof(mps_shdict_node_t, data)
@@ -872,9 +879,10 @@ insert:
     if (node == NULL) {
 
     TSDebug(MPS_LOG_TAG,
-            "lua shared dict incr in dict \"%s\": overriding non-expired items "
+            "lua shared dict incr in dict \"%*s\": overriding non-expired items "
             "due to memory shortage for entry \"%*s\"",
-            dict->name, (int) key_len, key);
+            (int) dict->name.len, dict->name.data,
+            (int) key_len, key);
 
         for (i = 0; i < 30; i++) {
             if (mps_shdict_expire(pool, tree, 0) == 0) {

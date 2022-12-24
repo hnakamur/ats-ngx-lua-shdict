@@ -50,7 +50,7 @@ typedef struct {
 
 typedef struct {
     mps_slab_pool_t   *pool;
-    const char        *name;
+    ngx_str_t          name;
 } mps_shdict_t;
 
 

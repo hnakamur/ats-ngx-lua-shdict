@@ -104,10 +104,14 @@ ffi.cdef[[
         unsigned          log_nomem:1;
     } mps_slab_pool_t;    
 
-    
+    typedef struct {
+        size_t      len;
+        u_char     *data;
+    } ngx_str_t;
+        
     typedef struct {
         mps_slab_pool_t  *pool;
-        const char       *name;
+        ngx_str_t         name;
     } mps_shdict_t;
 
     mps_shdict_t *mps_shdict_open_or_create(const char *dict_name,
