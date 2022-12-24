@@ -222,7 +222,8 @@ mps_shdict_open_or_create(const char *dict_name, size_t shm_size, mode_t mode)
     *p = '\0';
 
     pool = mps_slab_open_or_create(shm_name, shm_size, mode,
-        mps_shdict_on_init);
+                                   mps_shdict_on_init);
+    TSStatus("mps_shdict_open_or_create name=%s, pool=%p", dict_name, pool);
     if (pool == NULL) {
         pthread_mutex_unlock(&dicts_lock);
         return NULL;
@@ -501,11 +502,10 @@ replace:
             && sd->value_type != SHDICT_TLIST)
         {
 
-#if 0
-            ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ctx->log, 0,
-                           "lua shared tree set: found old entry and value "
-                           "size matched, reusing it");
-#endif
+            TSDebug(MPS_LOG_TAG,
+                    "lua shared tree set in dict \"%s\": "
+                    "found old entry and value size matched, reusing it",
+                    dict->name);
 
             mps_queue_remove(pool, &sd->queue);
             mps_queue_insert_head(pool, &tree->lru_queue, &sd->queue);
@@ -530,11 +530,10 @@ replace:
             return NGX_OK;
         }
 
-#if 0
-        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ctx->log, 0,
-                       "lua shared dict set: found old entry but value size "
-                       "NOT matched, removing it first");
-#endif
+        TSDebug(MPS_LOG_TAG,
+                "lua shared dict set in dict \"%s\": "
+                "found old entry but value size NOT matched, removing it first",
+                dict->name);
 
 remove:
 
@@ -573,10 +572,9 @@ insert:
         return NGX_OK;
     }
 
-#if 0
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ctx->log, 0,
-                   "lua shared dict set: creating a new entry");
-#endif
+    TSDebug(MPS_LOG_TAG,
+            "lua shared dict set in dict \"%s\": creating a new entry",
+            dict->name);
 
     n = offsetof(mps_rbtree_node_t, color)
         + offsetof(mps_shdict_node_t, data)
@@ -671,12 +669,9 @@ mps_shdict_get(mps_shdict_t *dict, const u_char *key,
 
         if (value.len != sizeof(double)) {
             mps_slab_unlock(pool);
-#if 0
-            ngx_log_error(NGX_LOG_ERR, ngx_cycle->log, 0,
-                          "bad lua number value size found for key %*s "
-                          "in shared_dict %V: %z", key_len, key,
-                          &name, value.len);
-#endif
+            TSError("bad lua number value size found for key %*s "
+                    "in shared_dict %s: %lu", (int) key_len, key,
+                    dict->name, value.len);
             return NGX_ERROR;
         }
 
@@ -688,12 +683,9 @@ mps_shdict_get(mps_shdict_t *dict, const u_char *key,
 
         if (value.len != sizeof(u_char)) {
             mps_slab_unlock(pool);
-#if 0
-            ngx_log_error(NGX_LOG_ERR, ngx_cycle->log, 0,
-                          "bad lua boolean value size found for key %*s "
-                          "in shared_dict %V: %z", key_len, key, &name,
-                          value.len);
-#endif
+            TSError("bad lua boolean value size found for key %*s "
+                    "in shared_dict %s: %lu",
+                    (int) key_len, key, dict->name, value.len);
             return NGX_ERROR;
         }
 
@@ -710,12 +702,9 @@ mps_shdict_get(mps_shdict_t *dict, const u_char *key,
     default:
 
         mps_slab_unlock(pool);
-#if 0
-        ngx_log_error(NGX_LOG_ERR, ngx_cycle->log, 0,
-                      "bad value type found for key %*s in "
-                      "shared_dict %V: %d", key_len, key, &name,
-                      *value_type);
-#endif
+        TSError("bad value type found for key %*s in "
+                "shared_dict %s: %d", (int) key_len, key, dict->name,
+                *value_type);
         return NGX_ERROR;
     }
 
@@ -792,11 +781,10 @@ mps_shdict_incr(mps_shdict_t *dict, const u_char *key,
             if ((size_t) sd->value_len == sizeof(double)
                 && sd->value_type != SHDICT_TLIST)
             {
-#if 0
-                ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ctx->log, 0,
-                               "lua shared dict incr: found old entry and "
-                               "value size matched, reusing it");
-#endif
+                TSDebug(MPS_LOG_TAG,
+                        "lua shared dict incr in dict \"%s\": "
+                        "found old entry and value size matched, reusing it",
+                        dict->name);
 
                 mps_queue_remove(pool, &sd->queue);
                 mps_queue_insert_head(pool, &tree->lru_queue, &sd->queue);
@@ -840,11 +828,10 @@ mps_shdict_incr(mps_shdict_t *dict, const u_char *key,
 
 remove:
 
-#if 0
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ctx->log, 0,
-                   "lua shared dict incr: found old entry but value size "
-                   "NOT matched, removing it first");
-#endif
+    TSDebug(MPS_LOG_TAG,
+            "lua shared dict incr in dict \"%s\": "
+            "found old entry but value size NOT matched, removing it first",
+            dict->name);
 
     if (sd->value_type == SHDICT_TLIST) {
         queue = mps_shdict_get_list_head(sd, key_len);
@@ -871,10 +858,9 @@ remove:
 
 insert:
 
-#if 0
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ctx->log, 0,
-                   "lua shared dict incr: creating a new entry");
-#endif
+    TSDebug(MPS_LOG_TAG,
+            "lua shared dict incr in dict \"%s\": creating a new entry",
+            dict->name);
 
     n = offsetof(mps_rbtree_node_t, color)
         + offsetof(mps_shdict_node_t, data)
@@ -885,12 +871,10 @@ insert:
 
     if (node == NULL) {
 
-#if 0
-        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, ctx->log, 0,
-                       "lua shared dict incr: overriding non-expired items "
-                       "due to memory shortage for entry \"%*s\"", key_len,
-                       key);
-#endif
+    TSDebug(MPS_LOG_TAG,
+            "lua shared dict incr in dict \"%s\": overriding non-expired items "
+            "due to memory shortage for entry \"%*s\"",
+            dict->name, (int) key_len, key);
 
         for (i = 0; i < 30; i++) {
             if (mps_shdict_expire(pool, tree, 0) == 0) {

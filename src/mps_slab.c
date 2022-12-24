@@ -78,8 +78,6 @@ static mps_slab_page_t *mps_slab_alloc_pages(mps_slab_pool_t *pool,
     ngx_uint_t pages);
 static void mps_slab_free_pages(mps_slab_pool_t *pool, mps_slab_page_t *page,
     ngx_uint_t pages);
-static void mps_slab_error(mps_slab_pool_t *pool, ngx_uint_t level,
-    char *text);
 
 
 ngx_uint_t  mps_pagesize;
@@ -402,10 +400,9 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
 
     if (size > mps_slab_max_size) {
 
-#if 0
-        ngx_log_debug1(NGX_LOG_DEBUG_ALLOC, ngx_cycle->log, 0,
-                       "slab alloc: %uz", size);
-#endif
+        TSDebug(MPS_LOG_TAG,
+                "mps_slab_alloc_locked: pool=%p, alloc: size=%lu",
+                pool, size);
 
         page = mps_slab_alloc_pages(pool, (size >> mps_pagesize_shift)
                                           + ((size % mps_pagesize) ? 1 : 0));
@@ -431,10 +428,9 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
 
     mps_pool_stats(pool)[slot].reqs++;
 
-#if 0
-    ngx_log_debug2(NGX_LOG_DEBUG_ALLOC, ngx_cycle->log, 0,
-                   "slab alloc: %uz slot: %ui", size, slot);
-#endif
+    TSDebug(MPS_LOG_TAG,
+            "mps_slab_alloc_locked: pool=%p, alloc: size=%lu, slot=%lu",
+            pool, size, slot);
 
 
     slots = mps_slab_slots(pool);
@@ -539,7 +535,7 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
             }
         }
 
-        mps_slab_error(pool, NGX_LOG_ALERT, "mps_slab_alloc(): page is busy");
+        TSAlert("mps_slab_alloc_locked: page is busy: pool=%p", pool);
         ngx_debug_point();
     }
 
@@ -623,10 +619,7 @@ mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
     mps_pool_stats(pool)[slot].fails++;
 
 done:
-#if 0
-    ngx_log_debug1(NGX_LOG_DEBUG_ALLOC, ngx_cycle->log, 0,
-                   "slab alloc: %p", (void *) p);
-#endif
+    TSDebug(MPS_LOG_TAG, "mps_slab_alloc_locked, return %p", (void *) p);
 
 
     return (void *) p;
@@ -683,13 +676,13 @@ mps_slab_free_locked(mps_slab_pool_t *pool, void *p)
     mps_ptroff_t      p_off;
 
 #if 0
-    ngx_log_debug1(NGX_LOG_DEBUG_ALLOC, ngx_cycle->log, 0, "slab free: %p", p);
+    TSDebug(MPS_LOG_TAG, "mps_slab_free_locked: pool=%p", pool);
 #endif
 
 
     p_off = mps_offset(pool, p);
     if (p_off < pool->start || p_off > pool->end) {
-        mps_slab_error(pool, NGX_LOG_ALERT, "mps_slab_free(): outside of pool");
+        TSAlert("mps_slab_free_locked: pool=%p: outside of pool", pool);
         goto fail;
     }
 
@@ -848,14 +841,14 @@ mps_slab_free_locked(mps_slab_pool_t *pool, void *p)
         }
 
         if (!(slab & MPS_SLAB_PAGE_START)) {
-            mps_slab_error(pool, NGX_LOG_ALERT,
-                           "mps_slab_free(): page is already free");
+            TSAlert("mps_slab_free_locked: pool=%p: page is already free",
+                pool);
             goto fail;
         }
 
         if (slab == MPS_SLAB_PAGE_BUSY) {
-            mps_slab_error(pool, NGX_LOG_ALERT,
-                           "mps_slab_free(): pointer to wrong page");
+            TSAlert("mps_slab_free_locked: pool=%p: pointer to wrong page",
+                pool);
             goto fail;
         }
 
@@ -882,15 +875,13 @@ done:
 
 wrong_chunk:
 
-    mps_slab_error(pool, NGX_LOG_ALERT,
-                   "mps_slab_free(): pointer to wrong chunk");
+    TSAlert("mps_slab_free_locked: pool=%p: pointer to wrong chunk", pool);
 
     goto fail;
 
 chunk_already_free:
 
-    mps_slab_error(pool, NGX_LOG_ALERT,
-                   "mps_slab_free(): chunk is already free");
+    TSAlert("mps_slab_free_locked: pool=%p: chunk is already free", pool);
 
 fail:
 
@@ -948,8 +939,7 @@ mps_slab_alloc_pages(mps_slab_pool_t *pool, ngx_uint_t pages)
         }
     }
 
-    mps_slab_error(pool, NGX_LOG_CRIT,
-                    "mps_slab_alloc() failed: no memory");
+    TSFatal("mps_slab_free_locked: pool=%p: no memory", pool);
 
     return NULL;
 }
@@ -1036,14 +1026,4 @@ mps_slab_free_pages(mps_slab_pool_t *pool, mps_slab_page_t *page,
     next->prev = mps_offset(pool, page);
 
     pool->free.next = mps_offset(pool, page);
-}
-
-
-static void
-mps_slab_error(mps_slab_pool_t *pool, ngx_uint_t level, char *text)
-{
-#if 0
-    ngx_log_error(level, ngx_cycle->log, 0, "%s%s", text, pool->log_ctx);
-#endif
-
 }
