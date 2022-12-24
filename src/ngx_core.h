@@ -44,15 +44,16 @@ typedef void (*ngx_connection_handler_pt)(ngx_connection_t *c);
 
 #include <pthread.h>
 
-#include <ngx_atomic.h>
-#include <ngx_errno.h>
-#include <ngx_rbtree.h>
 #include <ngx_string.h>
-#include <ngx_log.h>
+#include <ngx_murmurhash.h>
+
+#include <ngx_atomic.h>
 #include <ngx_queue.h>
+#include <ngx_errno.h>
+#include <ngx_log.h>
+#include <ngx_rbtree.h>
 #include <ngx_array.h>
 #include <ngx_list.h>
-#include <ngx_murmurhash.h>
 #include <ngx_cycle.h>
 
 #define ngx_debug_point()
