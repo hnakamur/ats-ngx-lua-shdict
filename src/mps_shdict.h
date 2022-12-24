@@ -54,8 +54,9 @@ typedef struct {
 } mps_shdict_t;
 
 
-mps_err_t mps_shdict_open_or_create(mps_shdict_t *dict, const char *shm_name,
-    size_t shm_size, mode_t mode);
+mps_shdict_t *
+mps_shdict_open_or_create(const char *dict_name, size_t shm_size, mode_t mode);
+
 
 #define mps_shdict_tree(pool)                                                 \
     ((mps_shdict_tree_t *) mps_ptr((pool), ((pool)->data)))

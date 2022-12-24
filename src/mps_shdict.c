@@ -13,6 +13,70 @@
 
 #endif
 
+
+static pthread_once_t   dicts_lock_initialized = PTHREAD_ONCE_INIT;
+static pthread_mutex_t  dicts_lock;
+static int              dicts_count = 0;
+static mps_shdict_t    *dicts = NULL;
+
+static void
+mps_shdict_init_dicts_lock()
+{
+    pthread_mutexattr_t attr;
+    int                 rc;
+
+    rc = pthread_mutexattr_init(&attr);
+    if (rc != 0) {
+        TSEmergency(
+            "mps_shdict_init_dicts_lock: pthread_mutexattr_init: err=%s",
+            strerror(rc));
+    }
+
+    rc = pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST);
+    if (rc != 0) {
+        TSEmergency(
+            "mps_shdict_init_dicts_lock: pthread_mutexattr_setrobust: err=%s",
+            strerror(rc));
+    }
+
+    rc = pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
+    if (rc != 0) {
+        TSEmergency(
+            "mps_shdict_init_dicts_lock: pthread_mutexattr_setpshared: err=%s",
+            strerror(rc));
+    }
+
+    rc = pthread_mutex_init(&dicts_lock, &attr);
+    if (rc != 0) {
+        TSEmergency(
+            "mps_shdict_init_dicts_lock: pthread_mutex_init: err=%s",
+            strerror(rc));
+    }
+
+    rc = pthread_mutexattr_destroy(&attr);
+    if (rc != 0) {
+        TSEmergency(
+            "mps_shdict_init_dicts_lock: pthread_mutexattr_destroy: err=%s",
+            strerror(rc));
+    }
+}
+
+
+static mps_shdict_t *
+find_dict_by_name(const char *dict_name)
+{
+    int i;
+
+    for (i = 0; i < dicts_count; i++) {
+        if (!strcmp(dicts[i].name, dict_name)) {
+            return &dicts[i];
+        }
+    }
+
+    return NULL;
+}
+
+
 static int mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_tree_t *tree,
     ngx_uint_t n);
 
@@ -122,17 +186,34 @@ mps_shdict_on_init(mps_slab_pool_t *pool)
     TSStatus("mps_shdict_on_init exit");
 }
 
-mps_err_t
-mps_shdict_open_or_create(mps_shdict_t *dict, const char *dict_name,
-    size_t shm_size, mode_t mode)
+mps_shdict_t *
+mps_shdict_open_or_create(const char *dict_name, size_t shm_size, mode_t mode)
 {
+    int               rc;
+    mps_shdict_t     *dict, *new_dicts;
+    const char       *dict_name_copy;
     size_t            dict_name_len;
     char              shm_name[NAME_MAX], *p;
     mps_slab_pool_t  *pool;
 
+    rc = pthread_once(&dicts_lock_initialized, mps_shdict_init_dicts_lock);
+    if (rc != 0) {
+        TSEmergency(
+            "mps_shdict_open_or_create: mps_shdict_init_dicts_lock: err=%s",
+            strerror(rc));
+    }
+
     dict_name_len = strlen(dict_name);
     if (dict_name_len + 2 > NAME_MAX) {
-        return -EINVAL;
+        return NULL;
+    }
+
+    pthread_mutex_lock(&dicts_lock);
+
+    dict = find_dict_by_name(dict_name);
+    if (dict) {
+        pthread_mutex_unlock(&dicts_lock);
+        return dict;
     }
 
     shm_name[0] = '/';
@@ -143,13 +224,32 @@ mps_shdict_open_or_create(mps_shdict_t *dict, const char *dict_name,
     pool = mps_slab_open_or_create(shm_name, shm_size, mode,
         mps_shdict_on_init);
     if (pool == NULL) {
-        return -ENOMEM;
+        pthread_mutex_unlock(&dicts_lock);
+        return NULL;
     }
 
-    dict->pool = pool;
-    dict->name = dict_name;
+    dict_name_copy = strdup(dict_name);
+    if (dict_name_copy == NULL) {
+        pthread_mutex_unlock(&dicts_lock);
+        return NULL;
+    }
 
-    return 0;
+    new_dicts = realloc(dicts, sizeof(mps_shdict_t) * (dicts_count + 1));
+    if (new_dicts == NULL) {
+        pthread_mutex_unlock(&dicts_lock);
+        return NULL;
+    }
+
+    dicts = new_dicts;
+    dict = &dicts[dicts_count];
+    dicts_count++;
+
+    dict->pool = pool;
+    dict->name = dict_name_copy;
+
+    pthread_mutex_unlock(&dicts_lock);
+
+    return dict;
 }
 
 static ngx_int_t
