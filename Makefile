@@ -1,7 +1,7 @@
 INCS = -I src -I/usr/include/luajit-2.1
 
 CC =	cc
-CFLAGS = -fPIC $(INCS) -pipe -O -W -Wall -Wpointer-arith -Wno-unused-parameter -Werror -g
+CFLAGS = -fPIC $(INCS) -pipe -O2 -W -Wall -Wpointer-arith -Wno-unused-parameter -Werror -g
 LINK =	$(CC)
 
 NGX_CFLAGS = -DMPS_NGX $(CFLAGS)
