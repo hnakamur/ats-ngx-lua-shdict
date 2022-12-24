@@ -116,19 +116,30 @@ mps_shdict_on_init(mps_slab_pool_t *pool)
 }
 
 mps_err_t
-mps_shdict_open_or_create(mps_shdict_t *dict, const char *shm_name,
+mps_shdict_open_or_create(mps_shdict_t *dict, const char *dict_name,
     size_t shm_size, mode_t mode)
 {
-    mps_slab_pool_t *pool;
+    size_t            dict_name_len;
+    char              shm_name[NAME_MAX], *p;
+    mps_slab_pool_t  *pool;
+
+    dict_name_len = strlen(dict_name);
+    if (dict_name_len + 2 > NAME_MAX) {
+        return -EINVAL;
+    }
+
+    shm_name[0] = '/';
+    p = ngx_copy(&shm_name[1], dict_name, dict_name_len);
+    *p = '\0';
 
     pool = mps_slab_open_or_create(shm_name, shm_size, mode,
         mps_shdict_on_init);
     if (pool == NULL) {
-        return -1;
+        return -ENOMEM;
     }
 
     dict->pool = pool;
-    dict->name = shm_name;
+    dict->name = dict_name;
 
     return 0;
 }
