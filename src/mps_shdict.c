@@ -278,7 +278,7 @@ mps_shdict_store(mps_slab_pool_t *pool, int op, const u_char *key,
 
     *forcible = 0;
 
-    hash = ngx_crc32_short(key, key_len);
+    hash = ngx_murmur_hash2(key, key_len);
 
     switch (value_type) {
 
@@ -491,7 +491,7 @@ mps_shdict_get(mps_slab_pool_t *pool, const u_char *key,
     mps_shdict_node_t  *sd;
     ngx_str_t           value;
 
-    hash = ngx_crc32_short(key, key_len);
+    hash = ngx_murmur_hash2(key, key_len);
 
     mps_slab_lock(pool);
 
@@ -626,7 +626,7 @@ mps_shdict_incr(mps_slab_pool_t *pool, const u_char *key,
 
     *forcible = 0;
 
-    hash = ngx_crc32_short(key, key_len);
+    hash = ngx_murmur_hash2(key, key_len);
 
     // dd("looking up key %.*s in shared dict %.*s", (int) key_len, key,
     //    (int) ctx->name.len, ctx->name.data);
@@ -895,7 +895,7 @@ mps_shdict_get_ttl(mps_slab_pool_t *pool, const u_char *key, size_t key_len)
     ngx_int_t           rc;
     mps_shdict_node_t  *sd;
 
-    hash = ngx_crc32_short(key, key_len);
+    hash = ngx_murmur_hash2(key, key_len);
 
     mps_slab_lock(pool);
 
@@ -936,7 +936,7 @@ mps_shdict_set_expire(mps_slab_pool_t *pool, const u_char *key, size_t key_len,
         now = mps_clock_time_ms();
     }
 
-    hash = ngx_crc32_short(key, key_len);
+    hash = ngx_murmur_hash2(key, key_len);
 
     mps_slab_lock(pool);
 

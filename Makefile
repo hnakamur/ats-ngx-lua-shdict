@@ -18,21 +18,20 @@ MPS_DEPS = src/mps_core.h \
            src/ngx_auto_headers.h \
            src/ngx_config.h \
            src/ngx_core.h \
-           src/ngx_crc32.h \
            src/ngx_cycle.h \
            src/ngx_errno.h \
            src/ngx_linux_config.h \
            src/ngx_log.h \
+           src/ngx_murmurhash.h \
            src/ngx_queue.h \
            src/ngx_string.h \
            src/tslog.h
 
-MPS_OBJS = objs/mps_rbtree.o \
+MPS_OBJS = objs/ngx_murmurhash.o \
+           objs/mps_rbtree.o \
            objs/mps_shdict.o \
            objs/mps_slab.o \
-           objs/ngx_crc32.o \
-           objs/ngx_string.o \
-           objs/ngx_global_vars.o
+           objs/ngx_string.o
 
 MPS_NGX_OBJS = objs/ngx/mps_rbtree.o \
                objs/ngx/mps_shdict.o \
@@ -64,6 +63,14 @@ objs/libmps_ngx_shdict.so: $(MPS_NGX_OBJS)
 
 # build MPS_OBJS
 
+objs/ngx_murmurhash.o:	src/ngx_murmurhash.c $(MPS_DEPS)
+	@mkdir -p objs
+	$(CC) -c $(CFLAGS) -o $@ $<
+
+objs/mps_rbtree.o:	src/mps_rbtree.c $(MPS_DEPS)	
+	@mkdir -p objs
+	$(CC) -c $(CFLAGS) -o $@ $<
+
 objs/mps_shdict.o:	src/mps_shdict.c $(MPS_DEPS)
 	@mkdir -p objs
 	$(CC) -c $(CFLAGS) -o $@ $<
@@ -72,19 +79,7 @@ objs/mps_slab.o:	src/mps_slab.c $(MPS_DEPS)
 		@mkdir -p objs
 	$(CC) -c $(CFLAGS) -o $@ $<
 
-objs/mps_rbtree.o:	src/mps_rbtree.c $(MPS_DEPS)	
-	@mkdir -p objs
-	$(CC) -c $(CFLAGS) -o $@ $<
-
-objs/ngx_crc32.o:	src/ngx_crc32.c $(MPS_DEPS)
-	@mkdir -p objs
-	$(CC) -c $(CFLAGS) -o $@ $<
-
 objs/ngx_string.o:	src/ngx_string.c $(MPS_DEPS)
-	@mkdir -p objs
-	$(CC) -c $(CFLAGS) -o $@ $<
-
-objs/ngx_global_vars.o:	src/ngx_global_vars.c $(MPS_DEPS)	
 	@mkdir -p objs
 	$(CC) -c $(CFLAGS) -o $@ $<
 

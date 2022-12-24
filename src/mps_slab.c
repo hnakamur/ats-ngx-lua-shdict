@@ -113,10 +113,6 @@ static void
 mps_slab_init_once()
 {
     mps_slab_sizes_init(getpagesize());
-
-    if (ngx_crc32_table_init() != NGX_OK) {
-        TSEmergency("ngx_crc32_table_init failed");
-    }
 }
 
 

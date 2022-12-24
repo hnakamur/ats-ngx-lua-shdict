@@ -52,7 +52,7 @@ typedef void (*ngx_connection_handler_pt)(ngx_connection_t *c);
 #include <ngx_queue.h>
 #include <ngx_array.h>
 #include <ngx_list.h>
-#include <ngx_crc32.h>
+#include <ngx_murmurhash.h>
 #include <ngx_cycle.h>
 
 #define ngx_debug_point()
