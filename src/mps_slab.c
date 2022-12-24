@@ -223,10 +223,6 @@ mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
     last = mps_slab_page(pool, pages) + pages;
     pool->last = mps_offset(pool, last);
     pool->pfree = pages;
-
-    pool->log_nomem = 1;
-    pool->log_ctx = &pool->zero;
-    pool->zero = '\0';
 }
 
 static mps_err_t
@@ -952,10 +948,8 @@ mps_slab_alloc_pages(mps_slab_pool_t *pool, ngx_uint_t pages)
         }
     }
 
-    if (pool->log_nomem) {
-        mps_slab_error(pool, NGX_LOG_CRIT,
-                       "mps_slab_alloc() failed: no memory");
-    }
+    mps_slab_error(pool, NGX_LOG_CRIT,
+                    "mps_slab_alloc() failed: no memory");
 
     return NULL;
 }
