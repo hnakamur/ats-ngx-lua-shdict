@@ -5,7 +5,7 @@
             fprintf(stderr, __VA_ARGS__);                                    \
             fprintf(stderr, " at %s line %d.\n", __FILE__, __LINE__)
 
-static int mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_t *dict,
+static int mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_tree_t *dict,
     ngx_uint_t n);
 
 
@@ -99,10 +99,10 @@ mps_shdict_rbtree_insert_value(mps_slab_pool_t *pool,
 static void
 mps_shdict_on_init(mps_slab_pool_t *pool)
 {
-    mps_shdict_t *dict;
+    mps_shdict_tree_t *dict;
 
     TSNote("mps_shdict_on_init start");
-    dict = mps_slab_alloc(pool, sizeof(mps_shdict_t));
+    dict = mps_slab_alloc(pool, sizeof(mps_shdict_tree_t));
     if (!dict) {
         fprintf(stderr, "mps_shdict_on_init: mps_slab_alloc failed\n");
         return;
@@ -126,14 +126,14 @@ static ngx_int_t
 mps_shdict_lookup(mps_slab_pool_t *pool, ngx_uint_t hash,
     const u_char *kdata, size_t klen, mps_shdict_node_t **sdp)
 {
-    mps_shdict_t       *dict;
+    mps_shdict_tree_t  *dict;
     ngx_int_t           rc;
     uint64_t            now;
     int64_t             ms;
     mps_rbtree_node_t  *node, *sentinel;
     mps_shdict_node_t  *sd;
 
-    dict = mps_shdict(pool);
+    dict = mps_shdict_tree(pool);
 
     node = mps_rbtree_node(pool, dict->rbtree.root);
     sentinel = mps_rbtree_node(pool, dict->rbtree.sentinel);
@@ -189,7 +189,7 @@ mps_shdict_lookup(mps_slab_pool_t *pool, ngx_uint_t hash,
 
 
 static int
-mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_t *dict, ngx_uint_t n)
+mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_tree_t *dict, ngx_uint_t n)
 {
     uint64_t                 now;
     mps_queue_t             *q, *list_queue, *lq;
@@ -265,7 +265,7 @@ mps_shdict_store(mps_slab_pool_t *pool, int op, const u_char *key,
     size_t str_value_len, double num_value, long exptime, int user_flags,
     char **errmsg, int *forcible)
 {
-    mps_shdict_t       *dict;
+    mps_shdict_tree_t  *dict;
     int                 n;
     uint32_t            hash;
     ngx_int_t           rc;
@@ -274,7 +274,7 @@ mps_shdict_store(mps_slab_pool_t *pool, int op, const u_char *key,
     mps_shdict_node_t  *sd;
     u_char              c, *p;
 
-    dict = mps_shdict(pool);
+    dict = mps_shdict_tree(pool);
 
     *forcible = 0;
 
@@ -611,7 +611,7 @@ mps_shdict_incr(mps_slab_pool_t *pool, const u_char *key,
     uint32_t            hash;
     ngx_int_t           rc;
     uint64_t            now = 0;
-    mps_shdict_t       *dict;
+    mps_shdict_tree_t  *dict;
     mps_shdict_node_t  *sd;
     double              num;
     mps_rbtree_node_t  *node;
@@ -622,7 +622,7 @@ mps_shdict_incr(mps_slab_pool_t *pool, const u_char *key,
         now = mps_clock_time_ms();
     }
 
-    dict = mps_shdict(pool);
+    dict = mps_shdict_tree(pool);
 
     *forcible = 0;
 
@@ -818,10 +818,10 @@ int
 mps_shdict_flush_all(mps_slab_pool_t *pool)
 {
     mps_queue_t        *q;
-    mps_shdict_t       *dict;
+    mps_shdict_tree_t  *dict;
     mps_shdict_node_t  *sd;
 
-    dict = mps_shdict(pool);
+    dict = mps_shdict_tree(pool);
 
     mps_slab_lock(pool);
 
@@ -847,10 +847,10 @@ mps_shdict_peek(mps_slab_pool_t *pool, ngx_uint_t hash,
 {
     ngx_int_t           rc;
     mps_rbtree_node_t  *node, *sentinel;
-    mps_shdict_t       *dict;
+    mps_shdict_tree_t  *dict;
     mps_shdict_node_t  *sd;
 
-    dict = mps_shdict(pool);
+    dict = mps_shdict_tree(pool);
     node = mps_rbtree_node(pool, dict->rbtree.root);
     sentinel = mps_rbtree_node(pool, dict->rbtree.sentinel);
 

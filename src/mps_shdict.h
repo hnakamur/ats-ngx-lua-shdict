@@ -45,13 +45,13 @@ typedef struct {
     mps_rbtree_t                  rbtree;
     mps_rbtree_node_t             sentinel;
     mps_queue_t                   lru_queue;
-} mps_shdict_t;
+} mps_shdict_tree_t;
 
 
 mps_slab_pool_t *
 mps_shdict_open_or_create(const char *shm_name, size_t shm_size, mode_t mode);
 
-#define mps_shdict(pool)                                                     \
-    ((mps_shdict_t *) mps_ptr((pool), ((pool)->data)))
+#define mps_shdict_tree(pool)                                                 \
+    ((mps_shdict_tree_t *) mps_ptr((pool), ((pool)->data)))
 
 #endif /* _MPS_SHDICT_H_INCLUDED_ */
