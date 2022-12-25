@@ -6,10 +6,12 @@
 #if MPS_NGX
 
 #include "tslog_ngx.h"
+#define LogLenStr "%*s"
 
 #else
 
 #include "tslog.h"
+#define LogLenStr "%.*s"
 
 #endif
 

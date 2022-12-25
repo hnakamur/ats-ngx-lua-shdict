@@ -508,7 +508,7 @@ replace:
         {
 
             TSDebug(MPS_LOG_TAG,
-                    "lua shared tree set in dict \"%*s\": "
+                    "lua shared tree set in dict \"" LogLenStr "\": "
                     "found old entry and value size matched, reusing it",
                     (int) dict->name.len, dict->name.data);
 
@@ -536,7 +536,7 @@ replace:
         }
 
         TSDebug(MPS_LOG_TAG,
-                "lua shared dict set in dict \"%*s\": "
+                "lua shared dict set in dict \"" LogLenStr "\": "
                 "found old entry but value size NOT matched, removing it first",
                 (int) dict->name.len, dict->name.data);
 
@@ -578,7 +578,7 @@ insert:
     }
 
     TSDebug(MPS_LOG_TAG,
-            "lua shared dict set in dict \"%*s\": creating a new entry",
+            "lua shared dict set in dict \"" LogLenStr "\": creating a new entry",
             (int) dict->name.len, dict->name.data);
 
     n = offsetof(mps_rbtree_node_t, color)
@@ -674,8 +674,8 @@ mps_shdict_get(mps_shdict_t *dict, const u_char *key,
 
         if (value.len != sizeof(double)) {
             mps_slab_unlock(pool);
-            TSError("bad lua number value size found for key %*s "
-                    "in dict \"%*s\": %lu",
+            TSError("bad lua number value size found for key " LogLenStr " "
+                    "in dict \"" LogLenStr "\": %lu",
                     (int) key_len, key,
                     (int) dict->name.len, dict->name.data, value.len);
             return NGX_ERROR;
@@ -689,8 +689,8 @@ mps_shdict_get(mps_shdict_t *dict, const u_char *key,
 
         if (value.len != sizeof(u_char)) {
             mps_slab_unlock(pool);
-            TSError("bad lua boolean value size found for key %*s "
-                    "in dict \"%*s\": %lu",
+            TSError("bad lua boolean value size found for key " LogLenStr " "
+                    "in dict \"" LogLenStr "\": %lu",
                     (int) key_len, key,
                     (int) dict->name.len, dict->name.data, value.len);
             return NGX_ERROR;
@@ -709,7 +709,7 @@ mps_shdict_get(mps_shdict_t *dict, const u_char *key,
     default:
 
         mps_slab_unlock(pool);
-        TSError("bad value type found for key %*s in dict \"%*s\": %d",
+        TSError("bad value type found for key " LogLenStr " in dict \"" LogLenStr "\": %d",
                 (int) key_len, key,
                 (int) dict->name.len, dict->name.data, *value_type);
         return NGX_ERROR;
@@ -789,7 +789,7 @@ mps_shdict_incr(mps_shdict_t *dict, const u_char *key,
                 && sd->value_type != SHDICT_TLIST)
             {
                 TSDebug(MPS_LOG_TAG,
-                        "lua shared dict incr in dict \"%*s\": "
+                        "lua shared dict incr in dict \"" LogLenStr "\": "
                         "found old entry and value size matched, reusing it",
                         (int) dict->name.len, dict->name.data);
 
@@ -836,7 +836,7 @@ mps_shdict_incr(mps_shdict_t *dict, const u_char *key,
 remove:
 
     TSDebug(MPS_LOG_TAG,
-            "lua shared dict incr in dict \"%*s\": "
+            "lua shared dict incr in dict \"" LogLenStr "\": "
             "found old entry but value size NOT matched, removing it first",
             (int) dict->name.len, dict->name.data);
 
@@ -866,7 +866,7 @@ remove:
 insert:
 
     TSDebug(MPS_LOG_TAG,
-            "lua shared dict incr in dict \"%*s\": creating a new entry",
+            "lua shared dict incr in dict \"" LogLenStr "\": creating a new entry",
             (int) dict->name.len, dict->name.data);
 
     n = offsetof(mps_rbtree_node_t, color)
@@ -879,8 +879,8 @@ insert:
     if (node == NULL) {
 
     TSDebug(MPS_LOG_TAG,
-            "lua shared dict incr in dict \"%*s\": overriding non-expired items "
-            "due to memory shortage for entry \"%*s\"",
+            "lua shared dict incr in dict \"" LogLenStr "\": overriding non-expired items "
+            "due to memory shortage for entry \"" LogLenStr "\"",
             (int) dict->name.len, dict->name.data,
             (int) key_len, key);
 
