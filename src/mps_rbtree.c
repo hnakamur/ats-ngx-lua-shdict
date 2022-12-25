@@ -28,6 +28,19 @@ static mps_rbtree_insert_pt insert_values[MPS_RBTREE_INSERT_TYPE_ID_COUNT] = {
     mps_shdict_rbtree_insert_value,
 };
 
+void mps_rbtree_init(mps_slab_pool_t *pool, mps_rbtree_t *tree,
+    mps_rbtree_node_t *sentinel, mps_rbtree_insert_type_id_t insert_type_id)
+{
+    if (insert_type_id >= MPS_RBTREE_INSERT_TYPE_ID_COUNT) {
+        TSEmergency("mps_rbtree_insert invalid tree insert type: %ld\n",
+                    insert_type_id);
+        return;
+    }
+    mps_rbtree_sentinel_init(sentinel);
+    tree->root = mps_offset(pool, sentinel);
+    tree->sentinel = mps_offset(pool, sentinel);
+    tree->insert = insert_type_id;
+}
 
 void
 mps_rbtree_insert(mps_slab_pool_t *pool, mps_rbtree_t *tree,

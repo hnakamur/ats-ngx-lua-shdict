@@ -54,16 +54,12 @@ struct mps_rbtree_s {
 
 #define mps_rbtree(pool, off)  ((mps_rbtree_t *) mps_ptr(pool, off))
 
-#define mps_rbtree_init(pool, tree, s, i)                                     \
-    mps_rbtree_sentinel_init(s);                                              \
-    (tree)->root = mps_offset((pool), (s));                                   \
-    (tree)->sentinel = mps_offset((pool), (s));                               \
-    (tree)->insert = i
-
 #define mps_rbtree_data(node, type, link)                                     \
     (type *) ((u_char *) (node) - offsetof(type, link))
 
 
+void mps_rbtree_init(mps_slab_pool_t *pool, mps_rbtree_t *tree,
+    mps_rbtree_node_t *sentinel, mps_rbtree_insert_type_id_t insert_type_id);
 void mps_rbtree_insert(mps_slab_pool_t *pool, mps_rbtree_t *tree,
     mps_rbtree_node_t *node);
 void mps_rbtree_delete(mps_slab_pool_t *pool, mps_rbtree_t *tree,
