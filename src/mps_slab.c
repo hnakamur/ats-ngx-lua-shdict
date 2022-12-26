@@ -364,6 +364,15 @@ mps_slab_open_or_create(const char *shm_name, size_t shm_size,
 
 
 void
+mps_slab_close(mps_slab_pool_t *pool, size_t shm_size)
+{
+    if (munmap(pool, shm_size) == -1) {
+        TSError("mps_slab_close: munmap: err=%s", strerror(errno));
+    }
+}
+
+
+void
 mps_slab_lock(mps_slab_pool_t *pool)
 {
     pthread_mutex_lock(&pool->mutex);

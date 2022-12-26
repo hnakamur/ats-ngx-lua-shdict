@@ -51,11 +51,38 @@ typedef struct {
 typedef struct {
     mps_slab_pool_t   *pool;
     ngx_str_t          name;
+    size_t             size;
 } mps_shdict_t;
 
 
-mps_shdict_t *
-mps_shdict_open_or_create(const char *dict_name, size_t shm_size, mode_t mode);
+mps_shdict_t *mps_shdict_open_or_create(const char *dict_name, size_t shm_size,
+    mode_t mode);
+void mps_shdict_close(mps_shdict_t *dict);
+
+int mps_shdict_store(mps_shdict_t *dict, int op, const u_char *key,
+    size_t key_len, int value_type, const u_char *str_value_buf,
+    size_t str_value_len, double num_value, long exptime, int user_flags,
+    char **errmsg, int *forcible);
+
+int mps_shdict_get(mps_shdict_t *dict, const u_char *key,
+    size_t key_len, int *value_type, u_char **str_value_buf,
+    size_t *str_value_len, double *num_value, int *user_flags,
+    int get_stale, int *is_stale, char **err);
+
+int mps_shdict_incr(mps_shdict_t *dict, const u_char *key,
+    size_t key_len, double *value, char **err, int has_init, double init,
+    long init_ttl, int *forcible);
+
+int mps_shdict_flush_all(mps_shdict_t *dict);
+
+long mps_shdict_get_ttl(mps_shdict_t *dict, const u_char *key, size_t key_len);
+
+int mps_shdict_set_expire(mps_shdict_t *dict, const u_char *key, size_t key_len,
+    long exptime);
+
+size_t mps_shdict_capacity(mps_shdict_t *dict);
+
+size_t mps_shdict_free_space(mps_shdict_t *dict);
 
 
 #define mps_shdict_tree(pool)                                                 \

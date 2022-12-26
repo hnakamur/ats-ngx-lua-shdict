@@ -81,6 +81,21 @@ find_dict_by_name(const char *dict_name)
 }
 
 
+static int
+index_of_dict(mps_shdict_t *dict)
+{
+    int     i;
+
+    for (i = 0; i < dicts_count; i++) {
+        if (&dicts[i] == dict) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+
 static int mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_tree_t *tree,
     ngx_uint_t n);
 
@@ -252,10 +267,57 @@ mps_shdict_open_or_create(const char *dict_name, size_t shm_size, mode_t mode)
     dict->pool = pool;
     dict->name.len = dict_name_len;
     dict->name.data = (u_char *) dict_name_copy;
+    dict->size = shm_size;
 
     pthread_mutex_unlock(&dicts_lock);
 
     return dict;
+}
+
+
+void
+mps_shdict_close(mps_shdict_t *dict)
+{
+    int            rc, i;
+    mps_shdict_t  *new_dicts;
+
+    rc = pthread_once(&dicts_lock_initialized, mps_shdict_init_dicts_lock);
+    if (rc != 0) {
+        TSEmergency(
+            "mps_shdict_close: mps_shdict_init_dicts_lock: err=%s",
+            strerror(rc));
+    }
+
+    pthread_mutex_lock(&dicts_lock);
+
+    i = index_of_dict(dict);
+    if (i == -1) {
+        pthread_mutex_unlock(&dicts_lock);
+        return;
+    }
+
+    mps_slab_close(dict->pool, dict->size);
+
+    dicts[i] = dicts[dicts_count - 1];
+
+    if (dicts_count == 1) {
+        free(dicts);
+        new_dicts = NULL;
+
+    } else {
+        new_dicts = realloc(dicts, sizeof(mps_shdict_t) * (dicts_count - 1));
+        if (new_dicts == NULL) {
+            TSError("mps_shdict_close: realloc failed: err=%s", strerror(rc));
+            pthread_mutex_unlock(&dicts_lock);
+            return;
+        }
+    }
+
+    dicts = new_dicts;
+    dicts_count--;
+    free(dict->name.data);
+
+    pthread_mutex_unlock(&dicts_lock);
 }
 
 static ngx_int_t
