@@ -1,14 +1,19 @@
-INCS = -I src -I/usr/include/luajit-2.1
 
-CC =	cc
-CFLAGS = -fPIC $(INCS) -pipe -W -Wall -Wpointer-arith -Wno-unused-parameter -Werror -g
-LINK =	$(CC)
+CC =	   clang
+LINK =	   $(CC)
+COV =      llvm-cov
+PROFDATA = llvm-profdata
 
-ATS_CFLAGS = -DMPS_ATS -O2 $(CFLAGS)
+INCS = -Isrc -I/usr/include/luajit-2.1
+WARNING_FLAGS = -Wall -Wno-unused-value -Wno-unused-function -Wno-nullability-completeness -Wno-expansion-to-defined -Werror=implicit-function-declaration -Werror=incompatible-pointer-types
+COMMON_CFLAGS = $(INCS) -pipe $(WARNING_FLAGS)
+COV_FLAGS = -fprofile-instr-generate -fcoverage-mapping
 
-NGX_CFLAGS = -DMPS_NGX -O2 $(CFLAGS)
+ATS_CFLAGS = -DMPS_ATS -O2 -fPIC $(COMMON_CFLAGS)
 
-TEST_CFLAGS = -DMPS_LOG_STDERR -O0 $(CFLAGS) -Itest/unity
+NGX_CFLAGS = -DMPS_NGX -O2 -fPIC $(COMMON_CFLAGS)
+
+TEST_CFLAGS = -DMPS_LOG_STDERR -O0 -g3 -Itest/unity $(COV_FLAGS) $(COMMON_CFLAGS)
 
 MPS_DEPS = src/mps_core.h \
            src/mps_log.h \
@@ -33,6 +38,13 @@ MPS_DEPS = src/mps_core.h \
            src/tslog_ngx.h \
            src/tslog_stderr.h
 
+SRCS = src/mps_rbtree.c \
+       src/mps_shdict.c \
+       src/mps_slab.c \
+       src/ngx_murmurhash.c \
+       src/ngx_string.c \
+       src/tslog_stderr.c
+
 UNITY_DEPS = test/unity/unity.h \
              test/unity/unity_internals.h
 
@@ -55,8 +67,7 @@ MPS_TEST_OBJS = objs/test/ngx_murmurhash.o \
 				objs/test/unity.o
 
 SHLIBS = objs/libmps_ats_shdict.so \
-         objs/libmps_ngx_shdict.so \
-         objs/libmps_test_shdict.so
+         objs/libmps_ngx_shdict.so
 
 build: $(SHLIBS)
 
@@ -69,6 +80,11 @@ example: objs/libmps_test_shdict.so
 
 test: objs/shdict_test
 	objs/shdict_test
+
+cov: objs/shdict_test
+	LLVM_PROFILE_FILE=objs/shdict_test.profraw objs/shdict_test
+	$(PROFDATA) merge -sparse objs/shdict_test.profraw -o objs/shdict_test.profdata
+	$(COV) show objs/shdict_test -instr-profile=objs/shdict_test.profdata $(SRCS)
 
 objs/shdict_test: test/main.c $(MPS_TEST_OBJS)
 	$(CC) -o $@ $(TEST_CFLAGS) $^
