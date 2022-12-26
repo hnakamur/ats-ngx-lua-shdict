@@ -889,7 +889,7 @@ static mps_slab_page_t *mps_slab_alloc_pages(mps_slab_pool_t *pool,
         if (page->slab >= pages) {
 
             if (page->slab > pages) {
-                page[page->slab - 1].prev = (uintptr_t)&page[pages];
+                page[page->slab - 1].prev = mps_offset(pool, &page[pages]);
 
                 page[pages].slab = page->slab - pages;
                 page[pages].next = page->next;
