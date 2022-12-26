@@ -13,7 +13,10 @@ ATS_CFLAGS = -DMPS_ATS -O2 -fPIC $(COMMON_CFLAGS)
 
 NGX_CFLAGS = -DMPS_NGX -O2 -fPIC $(COMMON_CFLAGS)
 
-TEST_CFLAGS = -DMPS_LOG_NOP -DUNITY_INCLUDE_DOUBLE -O0 -g3 -Itest/unity $(COV_FLAGS) $(COMMON_CFLAGS)
+#TEST_LOG_FLAG = -DMPS_LOG_NOP
+TEST_LOG_FLAG = -DMPS_LOG_STDERR -DDDEBUG
+
+TEST_CFLAGS = $(TEST_LOG_FLAG) -DUNITY_INCLUDE_DOUBLE -O0 -g3 -Itest/unity $(COV_FLAGS) $(COMMON_CFLAGS)
 
 MPS_DEPS = src/mps_core.h \
            src/mps_log.h \
@@ -42,8 +45,7 @@ SRCS = src/mps_rbtree.c \
        src/mps_shdict.c \
        src/mps_slab.c \
        src/ngx_murmurhash.c \
-       src/ngx_string.c \
-       src/tslog_stderr.c
+       src/ngx_string.c
 
 UNITY_DEPS = test/unity/unity.h \
              test/unity/unity_internals.h

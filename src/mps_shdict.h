@@ -50,15 +50,40 @@ typedef struct {
     size_t size;
 } mps_shdict_t;
 
+/* value type */
+enum {
+    MPS_SHDICT_TNIL = 0,     /* same as LUA_TNIL */
+    MPS_SHDICT_TBOOLEAN = 1, /* same as LUA_TBOOLEAN */
+    MPS_SHDICT_TNUMBER = 3,  /* same as LUA_TNUMBER */
+    MPS_SHDICT_TSTRING = 4,  /* same as LUA_TSTRING */
+    MPS_SHDICT_TLIST = 5,
+};
+
 mps_shdict_t *mps_shdict_open_or_create(const char *dict_name, size_t shm_size,
                                         mode_t mode);
 void mps_shdict_close(mps_shdict_t *dict);
 
-int mps_shdict_store(mps_shdict_t *dict, int op, const u_char *key,
-                     size_t key_len, int value_type,
-                     const u_char *str_value_buf, size_t str_value_len,
-                     double num_value, long exptime, int user_flags,
-                     char **errmsg, int *forcible);
+int mps_shdict_set(mps_shdict_t *dict, const u_char *key, size_t key_len,
+                   int value_type, const u_char *str_value_buf,
+                   size_t str_value_len, double num_value, long exptime,
+                   int user_flags, char **errmsg, int *forcible);
+int mps_shdict_safe_set(mps_shdict_t *dict, const u_char *key, size_t key_len,
+                        int value_type, const u_char *str_value_buf,
+                        size_t str_value_len, double num_value, long exptime,
+                        int user_flags, char **errmsg, int *forcible);
+int mps_shdict_add(mps_shdict_t *dict, const u_char *key, size_t key_len,
+                   int value_type, const u_char *str_value_buf,
+                   size_t str_value_len, double num_value, long exptime,
+                   int user_flags, char **errmsg, int *forcible);
+int mps_shdict_safe_add(mps_shdict_t *dict, const u_char *key, size_t key_len,
+                        int value_type, const u_char *str_value_buf,
+                        size_t str_value_len, double num_value, long exptime,
+                        int user_flags, char **errmsg, int *forcible);
+int mps_shdict_replace(mps_shdict_t *dict, const u_char *key, size_t key_len,
+                       int value_type, const u_char *str_value_buf,
+                       size_t str_value_len, double num_value, long exptime,
+                       int user_flags, char **errmsg, int *forcible);
+int mps_shdict_delete(mps_shdict_t *dict, const u_char *key, size_t key_len);
 
 int mps_shdict_get(mps_shdict_t *dict, const u_char *key, size_t key_len,
                    int *value_type, u_char **str_value_buf,

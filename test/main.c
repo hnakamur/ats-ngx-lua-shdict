@@ -4,6 +4,7 @@
 #define DICT_SIZE (4096 * 3)
 #define DICT_NAME "test_dict1"
 #define SHM_PATH "/dev/shm/" DICT_NAME
+#define VALUE_BUF_SIZE 4096
 
 static void verify_shm_not_exist(const char *pathname)
 {
@@ -87,11 +88,56 @@ void test_incr(void)
     mps_shdict_close(dict);
 }
 
-// not needed when using generate_test_runner.rb
+void test_boolean(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const u_char *key = (const u_char *)"key1234";
+    size_t key_len = strlen((const char *)key), str_value_len = VALUE_BUF_SIZE;
+    int value_type = MPS_SHDICT_TBOOLEAN, user_flags = 0xbeaf, get_stale = 0,
+        is_stale = 0, forcible = 0;
+    u_char str_value_buf[1], *str_value_ptr = str_value_buf;
+    double num_value = 1;
+    char *err = NULL;
+    long exptime = 0;
+
+    int rc = mps_shdict_set(dict, key, key_len, value_type, str_value_ptr,
+                            str_value_len, num_value, exptime, user_flags, &err,
+                            &forcible);
+    TEST_ASSERT_EQUAL_INT(0, rc);
+
+    user_flags = 0;
+    str_value_len = 1;
+    rc = mps_shdict_get(dict, key, key_len, &value_type, &str_value_ptr,
+                        &str_value_len, &num_value, &user_flags, get_stale,
+                        &is_stale, &err);
+    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_UINT64(1, str_value_len);
+    TEST_ASSERT_EQUAL_UINT8(1, str_value_ptr[0]);
+    TEST_ASSERT_EQUAL_INT(0xbeaf, user_flags);
+
+    rc = mps_shdict_delete(dict, key, key_len);
+    TEST_ASSERT_EQUAL_INT(0, rc);
+
+    value_type = -1;
+    rc = mps_shdict_get(dict, key, key_len, &value_type, &str_value_ptr,
+                        &str_value_len, &num_value, &user_flags, get_stale,
+                        &is_stale, &err);
+    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(MPS_SHDICT_TNIL, value_type);
+
+    /* It is OK to call delete for non existing key. */
+    rc = mps_shdict_delete(dict, key, key_len);
+    TEST_ASSERT_EQUAL_INT(0, rc);
+
+    mps_shdict_close(dict);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
     RUN_TEST(test_incr);
+    RUN_TEST(test_boolean);
     RUN_TEST(test_capacity);
     RUN_TEST(test_free_space);
     return UNITY_END();
