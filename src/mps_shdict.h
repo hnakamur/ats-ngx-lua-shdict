@@ -63,26 +63,40 @@ mps_shdict_t *mps_shdict_open_or_create(const char *dict_name, size_t shm_size,
                                         mode_t mode);
 void mps_shdict_close(mps_shdict_t *dict);
 
+/* Unconditionally set the value. */
 int mps_shdict_set(mps_shdict_t *dict, const u_char *key, size_t key_len,
                    int value_type, const u_char *str_value_buf,
                    size_t str_value_len, double num_value, long exptime,
                    int user_flags, char **errmsg, int *forcible);
+
+/* Set the value, but never overrides an unexpired value. */
 int mps_shdict_safe_set(mps_shdict_t *dict, const u_char *key, size_t key_len,
                         int value_type, const u_char *str_value_buf,
                         size_t str_value_len, double num_value, long exptime,
                         int user_flags, char **errmsg, int *forcible);
+
+/* Set the value only when the key does not exist. This overrides an expired
+ * value. */
 int mps_shdict_add(mps_shdict_t *dict, const u_char *key, size_t key_len,
                    int value_type, const u_char *str_value_buf,
                    size_t str_value_len, double num_value, long exptime,
                    int user_flags, char **errmsg, int *forcible);
+
+/* Set the value only when the key does not exist. This does not override an
+ * expired value. */
 int mps_shdict_safe_add(mps_shdict_t *dict, const u_char *key, size_t key_len,
                         int value_type, const u_char *str_value_buf,
                         size_t str_value_len, double num_value, long exptime,
                         int user_flags, char **errmsg, int *forcible);
+
+/* Replace the value only when the key exists. */
 int mps_shdict_replace(mps_shdict_t *dict, const u_char *key, size_t key_len,
                        int value_type, const u_char *str_value_buf,
                        size_t str_value_len, double num_value, long exptime,
                        int user_flags, char **errmsg, int *forcible);
+
+/* Unconditionally delete the value. Deleting a non existing key does not cause
+ * an error. */
 int mps_shdict_delete(mps_shdict_t *dict, const u_char *key, size_t key_len);
 
 int mps_shdict_get(mps_shdict_t *dict, const u_char *key, size_t key_len,
