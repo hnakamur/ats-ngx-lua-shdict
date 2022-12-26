@@ -50,13 +50,13 @@
 #define mps_slab_page_type(page) ((page)->prev & MPS_SLAB_PAGE_MASK)
 
 #define mps_slab_page_prev(pool, page)                                         \
-    mps_slab_page(pool, (page)->prev & ~MPS_SLAB_PAGE_MASK)
+    mps_slab_page((pool), (page)->prev & ~MPS_SLAB_PAGE_MASK)
 
-#define mps_slab_page_next(pool, page) mps_slab_page(pool, (page)->next)
+#define mps_slab_page_next(pool, page) mps_slab_page((pool), (page)->next)
 
 #define mps_slab_page_addr(pool, page)                                         \
-    (((mps_offset(pool, page) - pool->pages) << mps_pagesize_shift) +          \
-     (uintptr_t)mps_ptr(pool, pool->start))
+    (((mps_offset((pool), (page)) - (pool)->pages) << mps_pagesize_shift) +    \
+     (uintptr_t)mps_ptr((pool), (pool)->start))
 
 #if (NGX_DEBUG_MALLOC)
 
