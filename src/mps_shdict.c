@@ -3,27 +3,26 @@
 
 #ifdef DDEBUG
 
-# define dd(...) fprintf(stderr, "lua *** %s: ", __func__);            \
-            fprintf(stderr, __VA_ARGS__);                                    \
-            fprintf(stderr, " at %s line %d.\n", __FILE__, __LINE__)
+#define dd(...)                                                                \
+    fprintf(stderr, "lua *** %s: ", __func__);                                 \
+    fprintf(stderr, __VA_ARGS__);                                              \
+    fprintf(stderr, " at %s line %d.\n", __FILE__, __LINE__)
 
 #else
 
-# define dd(...)
+#define dd(...)
 
 #endif
 
+static pthread_once_t dicts_lock_initialized = PTHREAD_ONCE_INIT;
+static pthread_mutex_t dicts_lock;
+static int dicts_count = 0;
+static mps_shdict_t *dicts = NULL;
 
-static pthread_once_t   dicts_lock_initialized = PTHREAD_ONCE_INIT;
-static pthread_mutex_t  dicts_lock;
-static int              dicts_count = 0;
-static mps_shdict_t    *dicts = NULL;
-
-static void
-mps_shdict_init_dicts_lock()
+static void mps_shdict_init_dicts_lock()
 {
     pthread_mutexattr_t attr;
-    int                 rc;
+    int rc;
 
     rc = pthread_mutexattr_init(&attr);
     if (rc != 0) {
@@ -48,9 +47,8 @@ mps_shdict_init_dicts_lock()
 
     rc = pthread_mutex_init(&dicts_lock, &attr);
     if (rc != 0) {
-        TSEmergency(
-            "mps_shdict_init_dicts_lock: pthread_mutex_init: err=%s",
-            strerror(rc));
+        TSEmergency("mps_shdict_init_dicts_lock: pthread_mutex_init: err=%s",
+                    strerror(rc));
     }
 
     rc = pthread_mutexattr_destroy(&attr);
@@ -61,18 +59,15 @@ mps_shdict_init_dicts_lock()
     }
 }
 
-
-static mps_shdict_t *
-find_dict_by_name(const char *dict_name)
+static mps_shdict_t *find_dict_by_name(const char *dict_name)
 {
-    size_t  dict_name_len;
-    int     i;
+    size_t dict_name_len;
+    int i;
 
     dict_name_len = strlen(dict_name);
     for (i = 0; i < dicts_count; i++) {
-        if (!ngx_memn2cmp(dicts[i].name.data, (const u_char *) dict_name,
-                          dicts[i].name.len, dict_name_len))
-        {
+        if (!ngx_memn2cmp(dicts[i].name.data, (const u_char *)dict_name,
+                          dicts[i].name.len, dict_name_len)) {
             return &dicts[i];
         }
     }
@@ -80,11 +75,9 @@ find_dict_by_name(const char *dict_name)
     return NULL;
 }
 
-
-static int
-index_of_dict(mps_shdict_t *dict)
+static int index_of_dict(mps_shdict_t *dict)
 {
-    int     i;
+    int i;
 
     for (i = 0; i < dicts_count; i++) {
         if (&dicts[i] == dict) {
@@ -95,34 +88,27 @@ index_of_dict(mps_shdict_t *dict)
     return -1;
 }
 
-
 static int mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_tree_t *tree,
-    ngx_uint_t n);
+                             ngx_uint_t n);
 
-
-#define NGX_HTTP_LUA_SHDICT_ADD         0x0001
-#define NGX_HTTP_LUA_SHDICT_REPLACE     0x0002
-#define NGX_HTTP_LUA_SHDICT_SAFE_STORE  0x0004
-
+#define NGX_HTTP_LUA_SHDICT_ADD 0x0001
+#define NGX_HTTP_LUA_SHDICT_REPLACE 0x0002
+#define NGX_HTTP_LUA_SHDICT_SAFE_STORE 0x0004
 
 enum {
-    SHDICT_TNIL = 0,        /* same as LUA_TNIL */
-    SHDICT_TBOOLEAN = 1,    /* same as LUA_TBOOLEAN */
-    SHDICT_TNUMBER = 3,     /* same as LUA_TNUMBER */
-    SHDICT_TSTRING = 4,     /* same as LUA_TSTRING */
+    SHDICT_TNIL = 0,     /* same as LUA_TNIL */
+    SHDICT_TBOOLEAN = 1, /* same as LUA_TBOOLEAN */
+    SHDICT_TNUMBER = 3,  /* same as LUA_TNUMBER */
+    SHDICT_TSTRING = 4,  /* same as LUA_TSTRING */
     SHDICT_TLIST = 5,
 };
 
-
-static inline uint64_t
-msec_from_timespec(const struct timespec *ts)
+static inline uint64_t msec_from_timespec(const struct timespec *ts)
 {
-    return (uint64_t) ts->tv_sec * 1000 + (uint64_t) ts->tv_nsec / 1000000;
+    return (uint64_t)ts->tv_sec * 1000 + (uint64_t)ts->tv_nsec / 1000000;
 }
 
-
-static inline uint64_t
-mps_clock_time_ms()
+static inline uint64_t mps_clock_time_ms()
 {
     struct timespec ts;
 
@@ -134,26 +120,24 @@ mps_clock_time_ms()
     return msec_from_timespec(&ts);
 }
 
-
-static ngx_inline mps_queue_t *
-mps_shdict_get_list_head(mps_shdict_node_t *sd, size_t len)
+static ngx_inline mps_queue_t *mps_shdict_get_list_head(mps_shdict_node_t *sd,
+                                                        size_t len)
 {
-    return (mps_queue_t *) ngx_align_ptr(((u_char *) &sd->data + len),
-                                         NGX_ALIGNMENT);
+    return (mps_queue_t *)ngx_align_ptr(((u_char *)&sd->data + len),
+                                        NGX_ALIGNMENT);
 }
 
-
-void
-mps_shdict_rbtree_insert_value(mps_slab_pool_t *pool,
-    mps_rbtree_node_t *temp, mps_rbtree_node_t *node,
-    mps_rbtree_node_t *sentinel)
+void mps_shdict_rbtree_insert_value(mps_slab_pool_t *pool,
+                                    mps_rbtree_node_t *temp,
+                                    mps_rbtree_node_t *node,
+                                    mps_rbtree_node_t *sentinel)
 {
-    mps_ptroff_t        *p, s;
-    mps_shdict_node_t   *sdn, *sdnt;
+    mps_ptroff_t *p, s;
+    mps_shdict_node_t *sdn, *sdnt;
 
     s = mps_offset(pool, sentinel);
 
-    for ( ;; ) {
+    for (;;) {
 
         if (node->key < temp->key) {
 
@@ -165,11 +149,13 @@ mps_shdict_rbtree_insert_value(mps_slab_pool_t *pool,
 
         } else { /* node->key == temp->key */
 
-            sdn = (mps_shdict_node_t *) &node->color;
-            sdnt = (mps_shdict_node_t *) &temp->color;
+            sdn = (mps_shdict_node_t *)&node->color;
+            sdnt = (mps_shdict_node_t *)&temp->color;
 
             p = ngx_memn2cmp(sdn->data, sdnt->data, sdn->key_len,
-                             sdnt->key_len) < 0 ? &temp->left : &temp->right;
+                             sdnt->key_len) < 0
+                    ? &temp->left
+                    : &temp->right;
         }
 
         if (*p == s) {
@@ -186,8 +172,7 @@ mps_shdict_rbtree_insert_value(mps_slab_pool_t *pool,
     ngx_rbt_red(node);
 }
 
-static void
-mps_shdict_on_init(mps_slab_pool_t *pool)
+static void mps_shdict_on_init(mps_slab_pool_t *pool)
 {
     mps_shdict_tree_t *dict;
 
@@ -200,20 +185,20 @@ mps_shdict_on_init(mps_slab_pool_t *pool)
 
     pool->data = mps_offset(pool, dict);
     mps_rbtree_init(pool, &dict->rbtree, &dict->sentinel,
-        MPS_RBTREE_INSERT_TYPE_ID_LUADICT);
+                    MPS_RBTREE_INSERT_TYPE_ID_LUADICT);
     mps_queue_init(pool, &dict->lru_queue);
     TSStatus("mps_shdict_on_init exit");
 }
 
-mps_shdict_t *
-mps_shdict_open_or_create(const char *dict_name, size_t shm_size, mode_t mode)
+mps_shdict_t *mps_shdict_open_or_create(const char *dict_name, size_t shm_size,
+                                        mode_t mode)
 {
-    int               rc;
-    mps_shdict_t     *dict, *new_dicts;
-    char             *dict_name_copy;
-    size_t            dict_name_len;
-    char              shm_name[NAME_MAX], *p;
-    mps_slab_pool_t  *pool;
+    int rc;
+    mps_shdict_t *dict, *new_dicts;
+    char *dict_name_copy;
+    size_t dict_name_len;
+    char shm_name[NAME_MAX], *p;
+    mps_slab_pool_t *pool;
 
     rc = pthread_once(&dicts_lock_initialized, mps_shdict_init_dicts_lock);
     if (rc != 0) {
@@ -236,12 +221,12 @@ mps_shdict_open_or_create(const char *dict_name, size_t shm_size, mode_t mode)
     }
 
     shm_name[0] = '/';
-    p = (char *) ngx_copy((u_char *) &shm_name[1], (u_char *) dict_name,
-                          dict_name_len);
+    p = (char *)ngx_copy((u_char *)&shm_name[1], (u_char *)dict_name,
+                         dict_name_len);
     *p = '\0';
 
-    pool = mps_slab_open_or_create(shm_name, shm_size, mode,
-                                   mps_shdict_on_init);
+    pool =
+        mps_slab_open_or_create(shm_name, shm_size, mode, mps_shdict_on_init);
     TSStatus("mps_shdict_open_or_create name=%s, pool=%p", dict_name, pool);
     if (pool == NULL) {
         pthread_mutex_unlock(&dicts_lock);
@@ -266,7 +251,7 @@ mps_shdict_open_or_create(const char *dict_name, size_t shm_size, mode_t mode)
 
     dict->pool = pool;
     dict->name.len = dict_name_len;
-    dict->name.data = (u_char *) dict_name_copy;
+    dict->name.data = (u_char *)dict_name_copy;
     dict->size = shm_size;
 
     pthread_mutex_unlock(&dicts_lock);
@@ -274,18 +259,15 @@ mps_shdict_open_or_create(const char *dict_name, size_t shm_size, mode_t mode)
     return dict;
 }
 
-
-void
-mps_shdict_close(mps_shdict_t *dict)
+void mps_shdict_close(mps_shdict_t *dict)
 {
-    int            rc, i;
-    mps_shdict_t  *new_dicts;
+    int rc, i;
+    mps_shdict_t *new_dicts;
 
     rc = pthread_once(&dicts_lock_initialized, mps_shdict_init_dicts_lock);
     if (rc != 0) {
-        TSEmergency(
-            "mps_shdict_close: mps_shdict_init_dicts_lock: err=%s",
-            strerror(rc));
+        TSEmergency("mps_shdict_close: mps_shdict_init_dicts_lock: err=%s",
+                    strerror(rc));
     }
 
     pthread_mutex_lock(&dicts_lock);
@@ -320,16 +302,16 @@ mps_shdict_close(mps_shdict_t *dict)
     pthread_mutex_unlock(&dicts_lock);
 }
 
-static ngx_int_t
-mps_shdict_lookup(mps_slab_pool_t *pool, ngx_uint_t hash,
-    const u_char *kdata, size_t klen, mps_shdict_node_t **sdp)
+static ngx_int_t mps_shdict_lookup(mps_slab_pool_t *pool, ngx_uint_t hash,
+                                   const u_char *kdata, size_t klen,
+                                   mps_shdict_node_t **sdp)
 {
-    mps_shdict_tree_t  *tree;
-    ngx_int_t           rc;
-    uint64_t            now;
-    int64_t             ms;
-    mps_rbtree_node_t  *node, *sentinel;
-    mps_shdict_node_t  *sd;
+    mps_shdict_tree_t *tree;
+    ngx_int_t rc;
+    uint64_t now;
+    int64_t ms;
+    mps_rbtree_node_t *node, *sentinel;
+    mps_shdict_node_t *sd;
 
     tree = mps_shdict_tree(pool);
 
@@ -350,9 +332,9 @@ mps_shdict_lookup(mps_slab_pool_t *pool, ngx_uint_t hash,
 
         /* hash == node->key */
 
-        sd = (mps_shdict_node_t *) &node->color;
+        sd = (mps_shdict_node_t *)&node->color;
 
-        rc = ngx_memn2cmp(kdata, sd->data, klen, (size_t) sd->key_len);
+        rc = ngx_memn2cmp(kdata, sd->data, klen, (size_t)sd->key_len);
 
         if (rc == 0) {
             mps_queue_remove(pool, &sd->queue);
@@ -360,13 +342,13 @@ mps_shdict_lookup(mps_slab_pool_t *pool, ngx_uint_t hash,
 
             *sdp = sd;
 
-            dd("node expires: %lld", (long long) sd->expires);
+            dd("node expires: %lld", (long long)sd->expires);
 
             if (sd->expires != 0) {
                 now = mps_clock_time_ms();
                 ms = sd->expires - now;
 
-                dd("time to live: %lld", (long long) ms);
+                dd("time to live: %lld", (long long)ms);
 
                 if (ms < 0) {
                     dd("node already expired");
@@ -385,17 +367,16 @@ mps_shdict_lookup(mps_slab_pool_t *pool, ngx_uint_t hash,
     return NGX_DECLINED;
 }
 
-
-static int
-mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_tree_t *tree, ngx_uint_t n)
+static int mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_tree_t *tree,
+                             ngx_uint_t n)
 {
-    uint64_t                 now;
-    mps_queue_t             *q, *list_queue, *lq;
-    int64_t                  ms;
-    mps_rbtree_node_t       *node;
-    mps_shdict_node_t       *sd;
-    int                      freed = 0;
-    mps_shdict_list_node_t  *lnode;
+    uint64_t now;
+    mps_queue_t *q, *list_queue, *lq;
+    int64_t ms;
+    mps_rbtree_node_t *node;
+    mps_shdict_node_t *sd;
+    int freed = 0;
+    mps_shdict_list_node_t *lnode;
 
     now = mps_clock_time_ms();
 
@@ -432,10 +413,8 @@ mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_tree_t *tree, ngx_uint_t n)
 
             for (lq = mps_queue_head(pool, list_queue);
                  lq != mps_queue_sentinel(pool, list_queue);
-                 lq = mps_queue_next(pool, lq))
-            {
-                lnode = mps_queue_data(lq, mps_shdict_list_node_t,
-                                       queue);
+                 lq = mps_queue_next(pool, lq)) {
+                lnode = mps_queue_data(lq, mps_shdict_list_node_t, queue);
 
                 mps_slab_free_locked(pool, lnode);
             }
@@ -443,8 +422,8 @@ mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_tree_t *tree, ngx_uint_t n)
 
         mps_queue_remove(pool, q);
 
-        node = (mps_rbtree_node_t *)
-                          ((u_char *) sd - offsetof(mps_rbtree_node_t, color));
+        node = (mps_rbtree_node_t *)((u_char *)sd -
+                                     offsetof(mps_rbtree_node_t, color));
 
         mps_rbtree_delete(pool, &tree->rbtree, node);
 
@@ -456,22 +435,21 @@ mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_tree_t *tree, ngx_uint_t n)
     return freed;
 }
 
-
-int
-mps_shdict_store(mps_shdict_t *dict, int op, const u_char *key,
-    size_t key_len, int value_type, const u_char *str_value_buf,
-    size_t str_value_len, double num_value, long exptime, int user_flags,
-    char **errmsg, int *forcible)
+int mps_shdict_store(mps_shdict_t *dict, int op, const u_char *key,
+                     size_t key_len, int value_type,
+                     const u_char *str_value_buf, size_t str_value_len,
+                     double num_value, long exptime, int user_flags,
+                     char **errmsg, int *forcible)
 {
-    mps_slab_pool_t    *pool;
-    mps_shdict_tree_t  *tree;
-    int                 n;
-    uint32_t            hash;
-    ngx_int_t           rc;
-    mps_queue_t        *queue, *q;
-    mps_rbtree_node_t  *node;
-    mps_shdict_node_t  *sd;
-    u_char              c, *p;
+    mps_slab_pool_t *pool;
+    mps_shdict_tree_t *tree;
+    int n;
+    uint32_t hash;
+    ngx_int_t rc;
+    mps_queue_t *queue, *q;
+    mps_rbtree_node_t *node;
+    mps_shdict_node_t *sd;
+    u_char c, *p;
 
     pool = dict->pool;
     tree = mps_shdict_tree(pool);
@@ -488,7 +466,7 @@ mps_shdict_store(mps_shdict_t *dict, int op, const u_char *key,
 
     case SHDICT_TNUMBER:
         dd("num value: %lf", num_value);
-        str_value_buf = (u_char *) &num_value;
+        str_value_buf = (u_char *)&num_value;
         str_value_len = sizeof(double);
         break;
 
@@ -499,7 +477,7 @@ mps_shdict_store(mps_shdict_t *dict, int op, const u_char *key,
         break;
 
     case LUA_TNIL:
-        if (op & (NGX_HTTP_LUA_SHDICT_ADD|NGX_HTTP_LUA_SHDICT_REPLACE)) {
+        if (op & (NGX_HTTP_LUA_SHDICT_ADD | NGX_HTTP_LUA_SHDICT_REPLACE)) {
             *errmsg = "attempt to add or replace nil values";
             return NGX_ERROR;
         }
@@ -520,7 +498,7 @@ mps_shdict_store(mps_shdict_t *dict, int op, const u_char *key,
 #endif
 
     rc = mps_shdict_lookup(pool, hash, key, key_len, &sd);
-    dd("lookup returns %d", (int) rc);
+    dd("lookup returns %d", (int)rc);
 
     if (op & NGX_HTTP_LUA_SHDICT_REPLACE) {
 
@@ -562,23 +540,21 @@ mps_shdict_store(mps_shdict_t *dict, int op, const u_char *key,
             goto remove;
         }
 
-replace:
+    replace:
 
-        if (str_value_buf
-            && str_value_len == (size_t) sd->value_len
-            && sd->value_type != SHDICT_TLIST)
-        {
+        if (str_value_buf && str_value_len == (size_t)sd->value_len &&
+            sd->value_type != SHDICT_TLIST) {
 
             TSDebug(MPS_LOG_TAG,
                     "lua shared tree set in dict \"" LogLenStr "\": "
                     "found old entry and value size matched, reusing it",
-                    (int) dict->name.len, dict->name.data);
+                    (int)dict->name.len, dict->name.data);
 
             mps_queue_remove(pool, &sd->queue);
             mps_queue_insert_head(pool, &tree->lru_queue, &sd->queue);
 
             if (exptime > 0) {
-                sd->expires = mps_clock_time_ms() + (uint64_t) exptime;
+                sd->expires = mps_clock_time_ms() + (uint64_t)exptime;
 
             } else {
                 sd->expires = 0;
@@ -588,7 +564,7 @@ replace:
 
             dd("setting value type to %d", value_type);
 
-            sd->value_type = (uint8_t) value_type;
+            sd->value_type = (uint8_t)value_type;
 
             ngx_memcpy(sd->data + key_len, str_value_buf, str_value_len);
 
@@ -600,20 +576,17 @@ replace:
         TSDebug(MPS_LOG_TAG,
                 "lua shared dict set in dict \"" LogLenStr "\": "
                 "found old entry but value size NOT matched, removing it first",
-                (int) dict->name.len, dict->name.data);
+                (int)dict->name.len, dict->name.data);
 
-remove:
+    remove:
 
         if (sd->value_type == SHDICT_TLIST) {
             queue = mps_shdict_get_list_head(sd, key_len);
 
             for (q = mps_queue_head(pool, queue);
                  q != mps_queue_sentinel(pool, queue);
-                 q = mps_queue_next(pool, q))
-            {
-                p = (u_char *) mps_queue_data(q,
-                                              mps_shdict_list_node_t,
-                                              queue);
+                 q = mps_queue_next(pool, q)) {
+                p = (u_char *)mps_queue_data(q, mps_shdict_list_node_t, queue);
 
                 mps_slab_free_locked(pool, p);
             }
@@ -621,13 +594,12 @@ remove:
 
         mps_queue_remove(pool, &sd->queue);
 
-        node = (mps_rbtree_node_t *)
-                   ((u_char *) sd - offsetof(mps_rbtree_node_t, color));
+        node = (mps_rbtree_node_t *)((u_char *)sd -
+                                     offsetof(mps_rbtree_node_t, color));
 
         mps_rbtree_delete(pool, &tree->rbtree, node);
 
         mps_slab_free_locked(pool, node);
-
     }
 
 insert:
@@ -640,13 +612,12 @@ insert:
     }
 
     TSDebug(MPS_LOG_TAG,
-            "lua shared dict set in dict \"" LogLenStr "\": creating a new entry",
-            (int) dict->name.len, dict->name.data);
+            "lua shared dict set in dict \"" LogLenStr
+            "\": creating a new entry",
+            (int)dict->name.len, dict->name.data);
 
-    n = offsetof(mps_rbtree_node_t, color)
-        + offsetof(mps_shdict_node_t, data)
-        + key_len
-        + str_value_len;
+    n = offsetof(mps_rbtree_node_t, color) + offsetof(mps_shdict_node_t, data) +
+        key_len + str_value_len;
 
     node = mps_slab_alloc_locked(pool, n);
 
@@ -655,14 +626,14 @@ insert:
         return NGX_ERROR;
     }
 
-    sd = (mps_shdict_node_t *) &node->color;
+    sd = (mps_shdict_node_t *)&node->color;
 
     node->key = hash;
-    sd->key_len = (u_short) key_len;
+    sd->key_len = (u_short)key_len;
 
     sd->user_flags = user_flags;
-    sd->value_len = (uint32_t) str_value_len;
-    sd->value_type = (uint8_t) value_type;
+    sd->value_len = (uint32_t)str_value_len;
+    sd->value_type = (uint8_t)value_type;
 
     p = ngx_copy(sd->data, key, key_len);
     ngx_memcpy(p, str_value_buf, str_value_len);
@@ -676,18 +647,16 @@ insert:
     return NGX_OK;
 }
 
-
-int
-mps_shdict_get(mps_shdict_t *dict, const u_char *key,
-    size_t key_len, int *value_type, u_char **str_value_buf,
-    size_t *str_value_len, double *num_value, int *user_flags,
-    int get_stale, int *is_stale, char **err)
+int mps_shdict_get(mps_shdict_t *dict, const u_char *key, size_t key_len,
+                   int *value_type, u_char **str_value_buf,
+                   size_t *str_value_len, double *num_value, int *user_flags,
+                   int get_stale, int *is_stale, char **err)
 {
-    mps_slab_pool_t    *pool;
-    uint32_t            hash;
-    ngx_int_t           rc;
-    mps_shdict_node_t  *sd;
-    ngx_str_t           value;
+    mps_slab_pool_t *pool;
+    uint32_t hash;
+    ngx_int_t rc;
+    mps_shdict_node_t *sd;
+    ngx_str_t value;
 
     hash = ngx_murmur_hash2(key, key_len);
 
@@ -705,12 +674,12 @@ mps_shdict_get(mps_shdict_t *dict, const u_char *key,
     *value_type = sd->value_type;
 
     dd("data: %p", sd->data);
-    dd("key len: %d", (int) sd->key_len);
+    dd("key len: %d", (int)sd->key_len);
 
     value.data = sd->data + sd->key_len;
-    value.len = (size_t) sd->value_len;
+    value.len = (size_t)sd->value_len;
 
-    if (*str_value_len < (size_t) value.len) {
+    if (*str_value_len < (size_t)value.len) {
         if (*value_type == SHDICT_TBOOLEAN) {
             mps_slab_unlock(pool);
             return NGX_ERROR;
@@ -738,8 +707,8 @@ mps_shdict_get(mps_shdict_t *dict, const u_char *key,
             mps_slab_unlock(pool);
             TSError("bad lua number value size found for key " LogLenStr " "
                     "in dict \"" LogLenStr "\": %lu",
-                    (int) key_len, key,
-                    (int) dict->name.len, dict->name.data, value.len);
+                    (int)key_len, key, (int)dict->name.len, dict->name.data,
+                    value.len);
             return NGX_ERROR;
         }
 
@@ -753,8 +722,8 @@ mps_shdict_get(mps_shdict_t *dict, const u_char *key,
             mps_slab_unlock(pool);
             TSError("bad lua boolean value size found for key " LogLenStr " "
                     "in dict \"" LogLenStr "\": %lu",
-                    (int) key_len, key,
-                    (int) dict->name.len, dict->name.data, value.len);
+                    (int)key_len, key, (int)dict->name.len, dict->name.data,
+                    value.len);
             return NGX_ERROR;
         }
 
@@ -771,9 +740,10 @@ mps_shdict_get(mps_shdict_t *dict, const u_char *key,
     default:
 
         mps_slab_unlock(pool);
-        TSError("bad value type found for key " LogLenStr " in dict \"" LogLenStr "\": %d",
-                (int) key_len, key,
-                (int) dict->name.len, dict->name.data, *value_type);
+        TSError("bad value type found for key " LogLenStr
+                " in dict \"" LogLenStr "\": %d",
+                (int)key_len, key, (int)dict->name.len, dict->name.data,
+                *value_type);
         return NGX_ERROR;
     }
 
@@ -793,23 +763,21 @@ mps_shdict_get(mps_shdict_t *dict, const u_char *key,
     return NGX_OK;
 }
 
-
-int
-mps_shdict_incr(mps_shdict_t *dict, const u_char *key,
-    size_t key_len, double *value, char **err, int has_init, double init,
-    long init_ttl, int *forcible)
+int mps_shdict_incr(mps_shdict_t *dict, const u_char *key, size_t key_len,
+                    double *value, char **err, int has_init, double init,
+                    long init_ttl, int *forcible)
 {
-    mps_slab_pool_t    *pool;
-    int                 i, n;
-    uint32_t            hash;
-    ngx_int_t           rc;
-    uint64_t            now = 0;
-    mps_shdict_tree_t  *tree;
-    mps_shdict_node_t  *sd;
-    double              num;
-    mps_rbtree_node_t  *node;
-    u_char             *p;
-    mps_queue_t        *queue, *q;
+    mps_slab_pool_t *pool;
+    int i, n;
+    uint32_t hash;
+    ngx_int_t rc;
+    uint64_t now = 0;
+    mps_shdict_tree_t *tree;
+    mps_shdict_node_t *sd;
+    double num;
+    mps_rbtree_node_t *node;
+    u_char *p;
+    mps_queue_t *queue, *q;
 
     if (init_ttl > 0) {
         now = mps_clock_time_ms();
@@ -831,7 +799,7 @@ mps_shdict_incr(mps_shdict_t *dict, const u_char *key,
 #endif
     rc = mps_shdict_lookup(pool, hash, key, key_len, &sd);
 
-    dd("shdict lookup returned %d", (int) rc);
+    dd("shdict lookup returned %d", (int)rc);
 
     if (rc == NGX_DECLINED || rc == NGX_DONE) {
         if (!has_init) {
@@ -847,13 +815,12 @@ mps_shdict_incr(mps_shdict_t *dict, const u_char *key,
 
             /* found an expired item */
 
-            if ((size_t) sd->value_len == sizeof(double)
-                && sd->value_type != SHDICT_TLIST)
-            {
+            if ((size_t)sd->value_len == sizeof(double) &&
+                sd->value_type != SHDICT_TLIST) {
                 TSDebug(MPS_LOG_TAG,
                         "lua shared dict incr in dict \"" LogLenStr "\": "
                         "found old entry and value size matched, reusing it",
-                        (int) dict->name.len, dict->name.data);
+                        (int)dict->name.len, dict->name.data);
 
                 mps_queue_remove(pool, &sd->queue);
                 mps_queue_insert_head(pool, &tree->lru_queue, &sd->queue);
@@ -881,14 +848,14 @@ mps_shdict_incr(mps_shdict_t *dict, const u_char *key,
     mps_queue_remove(pool, &sd->queue);
     mps_queue_insert_head(pool, &tree->lru_queue, &sd->queue);
 
-    dd("setting value type to %d", (int) sd->value_type);
+    dd("setting value type to %d", (int)sd->value_type);
 
     p = sd->data + key_len;
 
     ngx_memcpy(&num, p, sizeof(double));
     num += *value;
 
-    ngx_memcpy(p, (double *) &num, sizeof(double));
+    ngx_memcpy(p, (double *)&num, sizeof(double));
 
     mps_slab_unlock(pool);
 
@@ -900,17 +867,15 @@ remove:
     TSDebug(MPS_LOG_TAG,
             "lua shared dict incr in dict \"" LogLenStr "\": "
             "found old entry but value size NOT matched, removing it first",
-            (int) dict->name.len, dict->name.data);
+            (int)dict->name.len, dict->name.data);
 
     if (sd->value_type == SHDICT_TLIST) {
         queue = mps_shdict_get_list_head(sd, key_len);
 
         for (q = mps_queue_head(pool, queue);
              q != mps_queue_sentinel(pool, queue);
-             q = mps_queue_next(pool, q))
-        {
-            p = (u_char *) mps_queue_data(q, mps_shdict_list_node_t,
-                                          queue);
+             q = mps_queue_next(pool, q)) {
+            p = (u_char *)mps_queue_data(q, mps_shdict_list_node_t, queue);
 
             mps_slab_free_locked(pool, p);
         }
@@ -918,8 +883,8 @@ remove:
 
     mps_queue_remove(pool, &sd->queue);
 
-    node = (mps_rbtree_node_t *)
-                          ((u_char *) sd - offsetof(mps_rbtree_node_t, color));
+    node = (mps_rbtree_node_t *)((u_char *)sd -
+                                 offsetof(mps_rbtree_node_t, color));
 
     mps_rbtree_delete(pool, &tree->rbtree, node);
 
@@ -928,23 +893,22 @@ remove:
 insert:
 
     TSDebug(MPS_LOG_TAG,
-            "lua shared dict incr in dict \"" LogLenStr "\": creating a new entry",
-            (int) dict->name.len, dict->name.data);
+            "lua shared dict incr in dict \"" LogLenStr
+            "\": creating a new entry",
+            (int)dict->name.len, dict->name.data);
 
-    n = offsetof(mps_rbtree_node_t, color)
-        + offsetof(mps_shdict_node_t, data)
-        + key_len
-        + sizeof(double);
+    n = offsetof(mps_rbtree_node_t, color) + offsetof(mps_shdict_node_t, data) +
+        key_len + sizeof(double);
 
     node = mps_slab_alloc_locked(pool, n);
 
     if (node == NULL) {
 
-    TSDebug(MPS_LOG_TAG,
-            "lua shared dict incr in dict \"" LogLenStr "\": overriding non-expired items "
-            "due to memory shortage for entry \"" LogLenStr "\"",
-            (int) dict->name.len, dict->name.data,
-            (int) key_len, key);
+        TSDebug(MPS_LOG_TAG,
+                "lua shared dict incr in dict \"" LogLenStr
+                "\": overriding non-expired items "
+                "due to memory shortage for entry \"" LogLenStr "\"",
+                (int)dict->name.len, dict->name.data, (int)key_len, key);
 
         for (i = 0; i < 30; i++) {
             if (mps_shdict_expire(pool, tree, 0) == 0) {
@@ -967,13 +931,13 @@ insert:
 
 allocated:
 
-    sd = (mps_shdict_node_t *) &node->color;
+    sd = (mps_shdict_node_t *)&node->color;
 
     node->key = hash;
 
-    sd->key_len = (u_short) key_len;
+    sd->key_len = (u_short)key_len;
 
-    sd->value_len = (uint32_t) sizeof(double);
+    sd->value_len = (uint32_t)sizeof(double);
 
     mps_rbtree_insert(pool, &tree->rbtree, node);
 
@@ -984,7 +948,7 @@ setvalue:
     sd->user_flags = 0;
 
     if (init_ttl > 0) {
-        sd->expires = now + (uint64_t) init_ttl;
+        sd->expires = now + (uint64_t)init_ttl;
 
     } else {
         sd->expires = 0;
@@ -992,10 +956,10 @@ setvalue:
 
     dd("setting value type to %d", LUA_TNUMBER);
 
-    sd->value_type = (uint8_t) LUA_TNUMBER;
+    sd->value_type = (uint8_t)LUA_TNUMBER;
 
     p = ngx_copy(sd->data, key, key_len);
-    ngx_memcpy(p, (double *) &num, sizeof(double));
+    ngx_memcpy(p, (double *)&num, sizeof(double));
 
     mps_slab_unlock(pool);
 
@@ -1003,14 +967,12 @@ setvalue:
     return NGX_OK;
 }
 
-
-int
-mps_shdict_flush_all(mps_shdict_t *dict)
+int mps_shdict_flush_all(mps_shdict_t *dict)
 {
-    mps_slab_pool_t    *pool;
-    mps_queue_t        *q;
-    mps_shdict_tree_t  *tree;
-    mps_shdict_node_t  *sd;
+    mps_slab_pool_t *pool;
+    mps_queue_t *q;
+    mps_shdict_tree_t *tree;
+    mps_shdict_node_t *sd;
 
     pool = dict->pool;
     tree = mps_shdict_tree(pool);
@@ -1019,8 +981,7 @@ mps_shdict_flush_all(mps_shdict_t *dict)
 
     for (q = mps_queue_head(pool, &tree->lru_queue);
          q != mps_queue_sentinel(pool, &tree->lru_queue);
-         q = mps_queue_next(pool, q))
-    {
+         q = mps_queue_next(pool, q)) {
         sd = mps_queue_data(q, mps_shdict_node_t, queue);
         sd->expires = 1;
     }
@@ -1032,15 +993,14 @@ mps_shdict_flush_all(mps_shdict_t *dict)
     return NGX_OK;
 }
 
-
-static ngx_int_t
-mps_shdict_peek(mps_slab_pool_t *pool, ngx_uint_t hash,
-    const u_char *kdata, size_t klen, mps_shdict_node_t **sdp)
+static ngx_int_t mps_shdict_peek(mps_slab_pool_t *pool, ngx_uint_t hash,
+                                 const u_char *kdata, size_t klen,
+                                 mps_shdict_node_t **sdp)
 {
-    ngx_int_t           rc;
-    mps_rbtree_node_t  *node, *sentinel;
-    mps_shdict_tree_t  *tree;
-    mps_shdict_node_t  *sd;
+    ngx_int_t rc;
+    mps_rbtree_node_t *node, *sentinel;
+    mps_shdict_tree_t *tree;
+    mps_shdict_node_t *sd;
 
     tree = mps_shdict_tree(pool);
     node = mps_rbtree_node(pool, tree->rbtree.root);
@@ -1060,9 +1020,9 @@ mps_shdict_peek(mps_slab_pool_t *pool, ngx_uint_t hash,
 
         /* hash == node->key */
 
-        sd = (mps_shdict_node_t *) &node->color;
+        sd = (mps_shdict_node_t *)&node->color;
 
-        rc = ngx_memn2cmp(kdata, sd->data, klen, (size_t) sd->key_len);
+        rc = ngx_memn2cmp(kdata, sd->data, klen, (size_t)sd->key_len);
 
         if (rc == 0) {
             *sdp = sd;
@@ -1078,15 +1038,13 @@ mps_shdict_peek(mps_slab_pool_t *pool, ngx_uint_t hash,
     return NGX_DECLINED;
 }
 
-
-long
-mps_shdict_get_ttl(mps_shdict_t *dict, const u_char *key, size_t key_len)
+long mps_shdict_get_ttl(mps_shdict_t *dict, const u_char *key, size_t key_len)
 {
-    mps_slab_pool_t    *pool;
-    uint32_t            hash;
-    uint64_t            expires, now;
-    ngx_int_t           rc;
-    mps_shdict_node_t  *sd;
+    mps_slab_pool_t *pool;
+    uint32_t hash;
+    uint64_t expires, now;
+    ngx_int_t rc;
+    mps_shdict_node_t *sd;
 
     hash = ngx_murmur_hash2(key, key_len);
 
@@ -1116,16 +1074,14 @@ mps_shdict_get_ttl(mps_shdict_t *dict, const u_char *key, size_t key_len)
     return expires - now;
 }
 
-
-int
-mps_shdict_set_expire(mps_shdict_t *dict, const u_char *key, size_t key_len,
-    long exptime)
+int mps_shdict_set_expire(mps_shdict_t *dict, const u_char *key, size_t key_len,
+                          long exptime)
 {
-    mps_slab_pool_t    *pool;
-    uint32_t            hash;
-    ngx_int_t           rc;
-    uint64_t            now = 0;
-    mps_shdict_node_t  *sd;
+    mps_slab_pool_t *pool;
+    uint32_t hash;
+    ngx_int_t rc;
+    uint64_t now = 0;
+    mps_shdict_node_t *sd;
 
     if (exptime > 0) {
         now = mps_clock_time_ms();
@@ -1147,7 +1103,7 @@ mps_shdict_set_expire(mps_shdict_t *dict, const u_char *key, size_t key_len,
     /* rc == NGX_OK */
 
     if (exptime > 0) {
-        sd->expires = now + (uint64_t) exptime;
+        sd->expires = now + (uint64_t)exptime;
 
     } else {
         sd->expires = 0;
@@ -1158,22 +1114,18 @@ mps_shdict_set_expire(mps_shdict_t *dict, const u_char *key, size_t key_len,
     return NGX_OK;
 }
 
-
-size_t
-mps_shdict_capacity(mps_shdict_t *dict)
+size_t mps_shdict_capacity(mps_shdict_t *dict)
 {
     mps_slab_pool_t *pool;
 
     pool = dict->pool;
-    return (size_t) pool->end;
+    return (size_t)pool->end;
 }
 
-
-size_t
-mps_shdict_free_space(mps_shdict_t *dict)
+size_t mps_shdict_free_space(mps_shdict_t *dict)
 {
     mps_slab_pool_t *pool;
-    size_t   bytes;
+    size_t bytes;
 
     pool = dict->pool;
     mps_slab_lock(pool);

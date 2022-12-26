@@ -3,20 +3,17 @@
  * Copyright (C) Austin Appleby
  */
 
-
 #include <ngx_config.h>
 #include <ngx_core.h>
 
-
-uint32_t
-ngx_murmur_hash2(const u_char *data, size_t len)
+uint32_t ngx_murmur_hash2(const u_char *data, size_t len)
 {
-    uint32_t  h, k;
+    uint32_t h, k;
 
     h = 0 ^ len;
 
     while (len >= 4) {
-        k  = data[0];
+        k = data[0];
         k |= data[1] << 8;
         k |= data[2] << 16;
         k |= data[3] << 24;
