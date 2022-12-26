@@ -439,13 +439,14 @@ int mps_shdict_store(mps_shdict_t *dict, int op, const u_char *key,
 {
     mps_slab_pool_t *pool;
     mps_shdict_tree_t *tree;
-    int n;
+    int i, n;
     uint32_t hash;
     ngx_int_t rc;
     mps_queue_t *queue, *q;
     mps_rbtree_node_t *node;
     mps_shdict_node_t *sd;
     u_char c, *p;
+    uint64_t now;
 
     pool = dict->pool;
     tree = mps_shdict_tree(pool);
@@ -620,17 +621,56 @@ insert:
     node = mps_slab_alloc_locked(pool, n);
 
     if (node == NULL) {
+
+        if (op & MPS_SHDICT_SAFE_STORE) {
+            mps_slab_unlock(pool);
+
+            *errmsg = "no memory";
+            return NGX_ERROR;
+        }
+
+        TSDebug(MPS_LOG_TAG,
+                "lua shared dict set: overriding non-expired items "
+                "due to memory shortage for entry \"" LogLenStr "\"",
+                (int)key_len, key);
+
+        for (i = 0; i < 30; i++) {
+            if (mps_shdict_expire(pool, tree, 0) == 0) {
+                break;
+            }
+
+            *forcible = 1;
+
+            node = mps_slab_alloc_locked(pool, n);
+            if (node != NULL) {
+                goto allocated;
+            }
+        }
+
         mps_slab_unlock(pool);
+
+        *errmsg = "no memory";
         return NGX_ERROR;
     }
+
+allocated:
 
     sd = (mps_shdict_node_t *)&node->color;
 
     node->key = hash;
     sd->key_len = (u_short)key_len;
 
+    if (exptime > 0) {
+        now = mps_clock_time_ms();
+        sd->expires = now + (uint64_t)exptime;
+
+    } else {
+        sd->expires = 0;
+    }
+
     sd->user_flags = user_flags;
     sd->value_len = (uint32_t)str_value_len;
+    dd("setting value type to %d", value_type);
     sd->value_type = (uint8_t)value_type;
 
     p = ngx_copy(sd->data, key, key_len);
