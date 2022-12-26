@@ -5,33 +5,49 @@
 #define DICT_NAME "test_dict1"
 #define SHM_PATH  "/dev/shm/" DICT_NAME
 
-mps_shdict_t  *dict = NULL;
+static void verifyShmNotExist(const char *pathname) {
+    struct stat st;
+
+    if (lstat(pathname, &st) == -1) {
+        if (errno == ENOENT) {
+            return;
+        }
+
+        fprintf(stderr, "stat failed: %s\n", strerror(errno));
+        exit(1);
+    }
+
+    fprintf(stderr, "Please delete shm file \"%s\" before running tests.\n",
+        SHM_PATH);
+    exit(1);
+}
+
+static mps_shdict_t *openShdict() {
+    return mps_shdict_open_or_create(DICT_NAME, DICT_SIZE, S_IRUSR | S_IWUSR);
+}
 
 void setUp(void) {
-    fprintf(stderr, "setUp\n");
-    dict = mps_shdict_open_or_create(DICT_NAME, DICT_SIZE, S_IRUSR | S_IWUSR);
+    verifyShmNotExist(SHM_PATH);
 }
 
 void tearDown(void) {
-    fprintf(stderr, "tearDown\n");
-    mps_shdict_close(dict);
     if (unlink(SHM_PATH) == -1) {
         fprintf(stderr, "unlink shm file: %s\n", strerror(errno));
     }
 }
 
 void test_capacity(void) {
-    size_t  capacity;
-    
-    capacity = mps_shdict_capacity(dict);
+    mps_shdict_t *dict = openShdict();
+    size_t capacity = mps_shdict_capacity(dict);
     TEST_ASSERT_EQUAL_UINT64(DICT_SIZE, capacity);
+    mps_shdict_close(dict);
 }
 
 void test_free_space(void) {
-    size_t  free_space;
-    
-    free_space = mps_shdict_free_space(dict);
+    mps_shdict_t *dict = openShdict();
+    size_t free_space = mps_shdict_free_space(dict);
     TEST_ASSERT_EQUAL_UINT64(4096, free_space);
+    mps_shdict_close(dict);
 }
 
 // not needed when using generate_test_runner.rb
