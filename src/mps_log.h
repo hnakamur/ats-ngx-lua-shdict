@@ -13,6 +13,17 @@
 #include "tslog.h"
 #define LogLenStr "%.*s"
 
+#elif MPS_LOG_NOP
+
+#define TSStatus(...)
+#define TSNote(...)
+#define TSWarning(...)
+#define TSError(...)
+#define TSFatal(...)
+#define TSAlert(...)
+#define TSEmergency(...)
+#define TSDebug(...)
+
 #else
 
 #include "tslog_stderr.h"

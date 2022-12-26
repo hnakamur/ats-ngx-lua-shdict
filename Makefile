@@ -13,7 +13,7 @@ ATS_CFLAGS = -DMPS_ATS -O2 -fPIC $(COMMON_CFLAGS)
 
 NGX_CFLAGS = -DMPS_NGX -O2 -fPIC $(COMMON_CFLAGS)
 
-TEST_CFLAGS = -DMPS_LOG_STDERR -O0 -g3 -Itest/unity $(COV_FLAGS) $(COMMON_CFLAGS)
+TEST_CFLAGS = -DMPS_LOG_NOP -DUNITY_INCLUDE_DOUBLE -O0 -g3 -Itest/unity $(COV_FLAGS) $(COMMON_CFLAGS)
 
 MPS_DEPS = src/mps_core.h \
            src/mps_log.h \
@@ -79,7 +79,7 @@ example: objs/libmps_test_shdict.so
 	LD_LIBRARY_PATH=objs luajit mps_test_shdict_ex.lua
 
 test: objs/shdict_test
-	objs/shdict_test
+	LLVM_PROFILE_FILE=objs/shdict_test.profraw objs/shdict_test
 
 cov: objs/shdict_test
 	LLVM_PROFILE_FILE=objs/shdict_test.profraw objs/shdict_test
