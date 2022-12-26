@@ -73,6 +73,9 @@ test: objs/shdict_test
 objs/shdict_test: test/main.c $(MPS_TEST_OBJS)
 	$(CC) -o $@ $(TEST_CFLAGS) $^
 
+format:
+	ls src/*.[ch] test/*.[ch] | xargs clang-format -i -style=file
+
 # build SHLIBS
 
 objs/libmps_ats_shdict.so: $(MPS_ATS_OBJS)
