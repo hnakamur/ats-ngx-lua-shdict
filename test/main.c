@@ -261,6 +261,33 @@ void test_string_happy(void)
     mps_shdict_close(dict);
 }
 
+void test_safe_set(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const u_char *key = (const u_char *)"key1234";
+    size_t key_len = strlen((const char *)key), str_value_len = 0;
+    int value_type = MPS_SHDICT_TNUMBER, user_flags = 0xcafe, get_stale = 0,
+        is_stale = 0, forcible = 0;
+    char *err = NULL;
+    long exptime = 0;
+
+    double num_value = 23.5;
+    int rc = mps_shdict_safe_set(dict, key, key_len, value_type, NULL,
+                            0, num_value, exptime, user_flags, &err,
+                            &forcible);
+    TEST_ASSERT_EQUAL_INT(0, rc);
+
+    num_value = 4;
+    rc = mps_shdict_safe_set(dict, key, key_len, value_type, NULL,
+                            0, num_value, exptime, user_flags, &err,
+                            &forcible);
+    TEST_ASSERT_EQUAL_INT(-1, rc);
+    TEST_ASSERT_EQUAL_STRING("hoge", err);
+
+    mps_shdict_close(dict);
+}
+
 void test_flush_all(void)
 {
     mps_shdict_t *dict = open_shdict();
@@ -319,12 +346,13 @@ void test_flush_all(void)
 int main(void)
 {
     UNITY_BEGIN();
-    RUN_TEST(test_incr_happy);
-    RUN_TEST(test_boolean_happy);
-    RUN_TEST(test_number_happy);
-    RUN_TEST(test_string_happy);
-    RUN_TEST(test_flush_all);
-    RUN_TEST(test_capacity);
-    RUN_TEST(test_free_space);
+    // RUN_TEST(test_incr_happy);
+    // RUN_TEST(test_boolean_happy);
+    // RUN_TEST(test_number_happy);
+    // RUN_TEST(test_string_happy);
+    RUN_TEST(test_safe_set);
+    // RUN_TEST(test_flush_all);
+    // RUN_TEST(test_capacity);
+    // RUN_TEST(test_free_space);
     return UNITY_END();
 }
