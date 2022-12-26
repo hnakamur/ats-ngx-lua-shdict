@@ -90,9 +90,6 @@ static void mps_slab_sizes_init(ngx_uint_t pagesize)
 {
     ngx_uint_t n;
 
-    TSDebug(MPS_LOG_TAG,
-            "tid=%" PRId64 ", mps_slab_sizes_init pagesize=%" PRId64,
-            pthread_self(), pagesize);
     mps_pagesize = pagesize;
     for (n = mps_pagesize; n >>= 1; mps_pagesize_shift++) { /* void */
     }
@@ -102,6 +99,12 @@ static void mps_slab_sizes_init(ngx_uint_t pagesize)
     for (n = mps_slab_exact_size; n >>= 1; mps_slab_exact_shift++) {
         /* void */
     }
+
+    TSDebug(MPS_LOG_TAG,
+            "mps_slab_sizes_init pagesize=%u, shift=%u, max_sz=%u, "
+            "exact_sz=%u, exact_shift=%u",
+            pagesize, mps_pagesize_shift, mps_slab_max_size,
+            mps_slab_exact_size, mps_slab_exact_shift);
 }
 
 static pthread_once_t mps_slab_initialized = PTHREAD_ONCE_INIT;
@@ -191,6 +194,7 @@ void mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
     pages = (ngx_uint_t)(size / (mps_pagesize + sizeof(mps_slab_page_t)));
 
     pool->pages = mps_offset(pool, p);
+    TSDebug(MPS_LOG_TAG, "mps_slab_init pool->pages=%" PRId64, pool->pages);
     ngx_memzero(p, pages * sizeof(mps_slab_page_t));
 
     page = (mps_slab_page_t *)p;
@@ -214,6 +218,13 @@ void mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
     }
 
     last = mps_slab_page(pool, pages) + pages;
+    TSDebug(MPS_LOG_TAG,
+            "mps_slab_init last=%p, pool=%p, pages_ptr=%p, pool->pages=%ld, "
+            "pages=%d, end=%p",
+            last, pool, mps_slab_page(pool, pool->pages), pool->pages, pages,
+            mps_slab_page(pool, pool->end));
+    TSDebug(MPS_LOG_TAG, "sizeof(mps_slab_page_t)=%" PRId64,
+            sizeof(mps_slab_page_t));
     pool->last = mps_offset(pool, last);
     pool->pfree = pages;
 }
@@ -410,7 +421,8 @@ void *mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
 
     if (size > pool->min_size) {
         shift = 1;
-        for (s = size - 1; s >>= 1; shift++) { /* void */
+        for (s = size - 1; s >>= 1; shift++) {
+            /* void */
         }
         slot = shift - pool->min_shift;
 

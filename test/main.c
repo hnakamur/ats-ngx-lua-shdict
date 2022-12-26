@@ -4,7 +4,6 @@
 #define DICT_SIZE (4096 * 3)
 #define DICT_NAME "test_dict1"
 #define SHM_PATH "/dev/shm/" DICT_NAME
-#define VALUE_BUF_SIZE 4096
 
 static void verify_shm_not_exist(const char *pathname)
 {
@@ -164,7 +163,7 @@ void test_number_happy(void)
     mps_shdict_t *dict = open_shdict();
 
     const u_char *key = (const u_char *)"key1234";
-    size_t key_len = strlen((const char *)key), str_value_len = VALUE_BUF_SIZE;
+    size_t key_len = strlen((const char *)key), str_value_len = 0;
     int value_type = MPS_SHDICT_TNUMBER, user_flags = 0xcafe, get_stale = 0,
         is_stale = 0, forcible = 0;
     u_char *str_value_ptr = NULL;
@@ -266,24 +265,24 @@ void test_safe_set(void)
     mps_shdict_t *dict = open_shdict();
 
     const u_char *key = (const u_char *)"key1234";
-    size_t key_len = strlen((const char *)key), str_value_len = 0;
-    int value_type = MPS_SHDICT_TNUMBER, user_flags = 0xcafe, get_stale = 0,
-        is_stale = 0, forcible = 0;
+    size_t key_len = strlen((const char *)key), str_value_len = 1973;
+    u_char str_value_buf[1973];
+    int value_type = MPS_SHDICT_TSTRING, user_flags = 0xcafe, forcible = 0;
     char *err = NULL;
+    double num_value = 0;
     long exptime = 0;
 
-    double num_value = 23.5;
-    int rc = mps_shdict_safe_set(dict, key, key_len, value_type, NULL,
-                            0, num_value, exptime, user_flags, &err,
-                            &forcible);
+    memset(str_value_buf, '\x5a', str_value_len);
+    int rc = mps_shdict_safe_set(dict, key, key_len, value_type, str_value_buf,
+                                 str_value_len, num_value, exptime, user_flags,
+                                 &err, &forcible);
     TEST_ASSERT_EQUAL_INT(0, rc);
 
-    num_value = 4;
-    rc = mps_shdict_safe_set(dict, key, key_len, value_type, NULL,
-                            0, num_value, exptime, user_flags, &err,
-                            &forcible);
-    TEST_ASSERT_EQUAL_INT(-1, rc);
-    TEST_ASSERT_EQUAL_STRING("hoge", err);
+    // rc = mps_shdict_safe_set(dict, key, key_len, value_type, str_value_buf,
+    //                          str_value_len, num_value, exptime, user_flags,
+    //                          &err, &forcible);
+    // TEST_ASSERT_EQUAL_INT(-1, rc);
+    // TEST_ASSERT_EQUAL_STRING("hoge", err);
 
     mps_shdict_close(dict);
 }
@@ -313,8 +312,8 @@ void test_flush_all(void)
     const u_char *str_value2_ptr = (const u_char *)"some value";
     size_t key2_len = strlen((const char *)key2),
            str_value2_len = strlen((const char *)str_value2_ptr);
-    rc = mps_shdict_set(dict, key, key_len, value_type, str_value_ptr,
-                        str_value_len, num_value, exptime, user_flags, &err,
+    rc = mps_shdict_set(dict, key2, key2_len, value_type, str_value2_ptr,
+                        str_value2_len, num_value, exptime, user_flags, &err,
                         &forcible);
     TEST_ASSERT_EQUAL_INT(0, rc);
 
@@ -334,7 +333,7 @@ void test_flush_all(void)
     value_type = -1;
     got_str_value = NULL;
     got_str_value_len = 0;
-    rc = mps_shdict_get(dict, key, key_len, &value_type, &got_str_value,
+    rc = mps_shdict_get(dict, key2, key2_len, &value_type, &got_str_value,
                         &got_str_value_len, &num_value, &user_flags, get_stale,
                         &is_stale, &err);
     TEST_ASSERT_EQUAL_INT(0, rc);
