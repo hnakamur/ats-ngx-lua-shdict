@@ -217,7 +217,7 @@ void mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
         page->slab = pages;
     }
 
-    last = mps_slab_page(pool, pages) + pages;
+    last = mps_slab_page(pool, pool->pages) + pages;
     TSDebug(MPS_LOG_TAG,
             "mps_slab_init last=%p, pool=%p, pages_ptr=%p, pool->pages=%ld, "
             "pages=%d, end=%p",
