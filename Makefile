@@ -8,7 +8,7 @@ ATS_CFLAGS = -DMPS_ATS -O2 $(CFLAGS)
 
 NGX_CFLAGS = -DMPS_NGX -O2 $(CFLAGS)
 
-TEST_CFLAGS = -DMPS_LOG_STDERR -O0 $(CFLAGS)
+TEST_CFLAGS = -DMPS_LOG_STDERR -O0 $(CFLAGS) -Itest/unity
 
 MPS_DEPS = src/mps_core.h \
            src/mps_log.h \
@@ -33,6 +33,9 @@ MPS_DEPS = src/mps_core.h \
            src/tslog_ngx.h \
            src/tslog_stderr.h
 
+UNITY_DEPS = test/unity/unity.h \
+             test/unity/unity_internals.h
+
 MPS_ATS_OBJS = objs/ats/ngx_murmurhash.o \
                objs/ats/mps_rbtree.o \
                objs/ats/mps_shdict.o \
@@ -48,7 +51,8 @@ MPS_TEST_OBJS = objs/test/ngx_murmurhash.o \
                 objs/test/mps_shdict.o \
                 objs/test/mps_slab.o \
                 objs/test/ngx_string.o \
-                objs/test/tslog_stderr.o
+                objs/test/tslog_stderr.o \
+				objs/test/unity.o
 
 SHLIBS = objs/libmps_ats_shdict.so \
          objs/libmps_ngx_shdict.so \
@@ -60,8 +64,14 @@ install: $(SHLIBS)
 	sudo install $(SHLIBS) /usr/lib/x86_64-linux-gnu/
 	sudo install mps_ats_shdict.lua mps_ngx_shdict.lua /usr/local/share/lua/5.1/
 
-test: objs/libmps_test_shdict.so
+example: objs/libmps_test_shdict.so
 	LD_LIBRARY_PATH=objs luajit mps_test_shdict_ex.lua
+
+test: objs/shdict_test
+	objs/shdict_test
+
+objs/shdict_test: test/main.c $(MPS_TEST_OBJS)
+	$(CC) -o $@ $(TEST_CFLAGS) $^
 
 # build SHLIBS
 
@@ -133,6 +143,10 @@ objs/test/ngx_string.o:	src/ngx_string.c $(MPS_DEPS)
 	$(CC) -c $(TEST_CFLAGS) -o $@ $<
 
 objs/test/tslog_stderr.o:	src/tslog_stderr.c $(MPS_DEPS)
+	@mkdir -p objs/test
+	$(CC) -c $(TEST_CFLAGS) -o $@ $<
+
+objs/test/unity.o:	test/unity/unity.c $(UNITY_DEPS)
 	@mkdir -p objs/test
 	$(CC) -c $(TEST_CFLAGS) -o $@ $<
 
