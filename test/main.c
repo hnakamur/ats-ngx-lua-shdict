@@ -261,6 +261,61 @@ void test_string_happy(void)
     mps_shdict_close(dict);
 }
 
+void test_flush_all(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const u_char *key = (const u_char *)"key1234";
+    const u_char *str_value_ptr = (const u_char *)"Hello, world!";
+    size_t key_len = strlen((const char *)key),
+           str_value_len = strlen((const char *)str_value_ptr);
+    int value_type = MPS_SHDICT_TSTRING, user_flags = 0xcafe, get_stale = 0,
+        is_stale = 0, forcible = 0;
+    double num_value = 0;
+    char *err = NULL;
+    long exptime = 0;
+
+    /* set a string value */
+    int rc = mps_shdict_set(dict, key, key_len, value_type, str_value_ptr,
+                            str_value_len, num_value, exptime, user_flags, &err,
+                            &forcible);
+    TEST_ASSERT_EQUAL_INT(0, rc);
+
+    /* set another string value */
+    const u_char *key2 = (const u_char *)"a";
+    const u_char *str_value2_ptr = (const u_char *)"some value";
+    size_t key2_len = strlen((const char *)key2),
+           str_value2_len = strlen((const char *)str_value2_ptr);
+    rc = mps_shdict_set(dict, key, key_len, value_type, str_value_ptr,
+                        str_value_len, num_value, exptime, user_flags, &err,
+                        &forcible);
+    TEST_ASSERT_EQUAL_INT(0, rc);
+
+    rc = mps_shdict_flush_all(dict);
+    TEST_ASSERT_EQUAL_INT(0, rc);
+
+    /* verify key and key2 are deleted */
+    value_type = -1;
+    u_char *got_str_value = NULL;
+    size_t got_str_value_len = 0;
+    rc = mps_shdict_get(dict, key, key_len, &value_type, &got_str_value,
+                        &got_str_value_len, &num_value, &user_flags, get_stale,
+                        &is_stale, &err);
+    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(MPS_SHDICT_TNIL, value_type);
+
+    value_type = -1;
+    got_str_value = NULL;
+    got_str_value_len = 0;
+    rc = mps_shdict_get(dict, key, key_len, &value_type, &got_str_value,
+                        &got_str_value_len, &num_value, &user_flags, get_stale,
+                        &is_stale, &err);
+    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(MPS_SHDICT_TNIL, value_type);
+
+    mps_shdict_close(dict);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -268,6 +323,7 @@ int main(void)
     RUN_TEST(test_boolean_happy);
     RUN_TEST(test_number_happy);
     RUN_TEST(test_string_happy);
+    RUN_TEST(test_flush_all);
     RUN_TEST(test_capacity);
     RUN_TEST(test_free_space);
     return UNITY_END();
