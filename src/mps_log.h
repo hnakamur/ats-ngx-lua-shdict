@@ -8,9 +8,14 @@
 #include "tslog_ngx.h"
 #define LogLenStr "%*s"
 
-#else
+#elif MPS_ATS
 
 #include "tslog.h"
+#define LogLenStr "%.*s"
+
+#else
+
+#include "tslog_stderr.h"
 #define LogLenStr "%.*s"
 
 #endif

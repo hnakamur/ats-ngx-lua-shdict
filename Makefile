@@ -1,10 +1,14 @@
 INCS = -I src -I/usr/include/luajit-2.1
 
 CC =	cc
-CFLAGS = -fPIC $(INCS) -pipe -O2 -W -Wall -Wpointer-arith -Wno-unused-parameter -Werror -g
+CFLAGS = -fPIC $(INCS) -pipe -W -Wall -Wpointer-arith -Wno-unused-parameter -Werror -g
 LINK =	$(CC)
 
-NGX_CFLAGS = -DMPS_NGX $(CFLAGS)
+ATS_CFLAGS = -DMPS_ATS -O2 $(CFLAGS)
+
+NGX_CFLAGS = -DMPS_NGX -O2 $(CFLAGS)
+
+TEST_CFLAGS = -DMPS_LOG_STDERR -O0 $(CFLAGS)
 
 MPS_DEPS = src/mps_core.h \
            src/mps_log.h \
@@ -25,26 +29,39 @@ MPS_DEPS = src/mps_core.h \
            src/ngx_murmurhash.h \
            src/ngx_queue.h \
            src/ngx_string.h \
-           src/tslog.h
+           src/tslog.h \
+           src/tslog_ngx.h \
+           src/tslog_stderr.h
 
-MPS_ATS_OBJS = objs/ngx_murmurhash.o \
-               objs/mps_rbtree.o \
-               objs/mps_shdict.o \
-               objs/mps_slab.o \
-               objs/ngx_string.o
+MPS_ATS_OBJS = objs/ats/ngx_murmurhash.o \
+               objs/ats/mps_rbtree.o \
+               objs/ats/mps_shdict.o \
+               objs/ats/mps_slab.o \
+               objs/ats/ngx_string.o
 
 MPS_NGX_OBJS = objs/ngx/mps_rbtree.o \
                objs/ngx/mps_shdict.o \
                objs/ngx/mps_slab.o
 
+MPS_TEST_OBJS = objs/test/ngx_murmurhash.o \
+                objs/test/mps_rbtree.o \
+                objs/test/mps_shdict.o \
+                objs/test/mps_slab.o \
+                objs/test/ngx_string.o \
+                objs/test/tslog_stderr.o
+
 SHLIBS = objs/libmps_ats_shdict.so \
-         objs/libmps_ngx_shdict.so
+         objs/libmps_ngx_shdict.so \
+         objs/libmps_test_shdict.so
 
 build: $(SHLIBS)
 
 install: $(SHLIBS)
 	sudo install $(SHLIBS) /usr/lib/x86_64-linux-gnu/
 	sudo install mps_ats_shdict.lua mps_ngx_shdict.lua /usr/local/share/lua/5.1/
+
+test: objs/libmps_test_shdict.so
+	LD_LIBRARY_PATH=objs luajit mps_test_shdict_ex.lua
 
 # build SHLIBS
 
@@ -54,27 +71,30 @@ objs/libmps_ats_shdict.so: $(MPS_ATS_OBJS)
 objs/libmps_ngx_shdict.so: $(MPS_NGX_OBJS)
 	$(LINK) -o $@ $^ -shared
 
-# build MPS_OBJS
+objs/libmps_test_shdict.so: $(MPS_TEST_OBJS)
+	$(LINK) -o $@ $^ -shared
 
-objs/ngx_murmurhash.o:	src/ngx_murmurhash.c $(MPS_DEPS)
-	@mkdir -p objs
-	$(CC) -c $(CFLAGS) -o $@ $<
+# build MPS_ATS_OBJS
 
-objs/mps_rbtree.o:	src/mps_rbtree.c $(MPS_DEPS)	
-	@mkdir -p objs
-	$(CC) -c $(CFLAGS) -o $@ $<
+objs/ats/ngx_murmurhash.o:	src/ngx_murmurhash.c $(MPS_DEPS)
+	@mkdir -p objs/ats
+	$(CC) -c $(ATS_CFLAGS) -o $@ $<
 
-objs/mps_shdict.o:	src/mps_shdict.c $(MPS_DEPS)
-	@mkdir -p objs
-	$(CC) -c $(CFLAGS) -o $@ $<
+objs/ats/mps_rbtree.o:	src/mps_rbtree.c $(MPS_DEPS)	
+	@mkdir -p objs/ats
+	$(CC) -c $(ATS_CFLAGS) -o $@ $<
 
-objs/mps_slab.o:	src/mps_slab.c $(MPS_DEPS)
-		@mkdir -p objs
-	$(CC) -c $(CFLAGS) -o $@ $<
+objs/ats/mps_shdict.o:	src/mps_shdict.c $(MPS_DEPS)
+	@mkdir -p objs/ats
+	$(CC) -c $(ATS_CFLAGS) -o $@ $<
 
-objs/ngx_string.o:	src/ngx_string.c $(MPS_DEPS)
-	@mkdir -p objs
-	$(CC) -c $(CFLAGS) -o $@ $<
+objs/ats/mps_slab.o:	src/mps_slab.c $(MPS_DEPS)
+	@mkdir -p objs/ats
+	$(CC) -c $(ATS_CFLAGS) -o $@ $<
+
+objs/ats/ngx_string.o:	src/ngx_string.c $(MPS_DEPS)
+	@mkdir -p objs/ats
+	$(CC) -c $(ATS_CFLAGS) -o $@ $<
 
 # build MPS_NGX_OBJS
 
@@ -89,6 +109,32 @@ objs/ngx/mps_shdict.o:	src/mps_shdict.c $(MPS_DEPS)
 objs/ngx/mps_slab.o:	src/mps_slab.c $(MPS_DEPS)	
 	@mkdir -p objs/ngx
 	$(CC) -c $(NGX_CFLAGS) -o $@ $<
+
+# build MPS_TEST_OBJS
+
+objs/test/ngx_murmurhash.o:	src/ngx_murmurhash.c $(MPS_DEPS)
+	@mkdir -p objs/test
+	$(CC) -c $(TEST_CFLAGS) -o $@ $<
+
+objs/test/mps_rbtree.o:	src/mps_rbtree.c $(MPS_DEPS)	
+	@mkdir -p objs/test
+	$(CC) -c $(TEST_CFLAGS) -o $@ $<
+
+objs/test/mps_shdict.o:	src/mps_shdict.c $(MPS_DEPS)
+	@mkdir -p objs/test
+	$(CC) -c $(TEST_CFLAGS) -o $@ $<
+
+objs/test/mps_slab.o:	src/mps_slab.c $(MPS_DEPS)
+	@mkdir -p objs/test
+	$(CC) -c $(TEST_CFLAGS) -o $@ $<
+
+objs/test/ngx_string.o:	src/ngx_string.c $(MPS_DEPS)
+	@mkdir -p objs/test
+	$(CC) -c $(TEST_CFLAGS) -o $@ $<
+
+objs/test/tslog_stderr.o:	src/tslog_stderr.c $(MPS_DEPS)
+	@mkdir -p objs/test
+	$(CC) -c $(TEST_CFLAGS) -o $@ $<
 
 clean:
 	@rm -r objs
