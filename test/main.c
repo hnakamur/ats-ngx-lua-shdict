@@ -205,6 +205,31 @@ void test_incr_reuse_expired_boolean(void)
     mps_shdict_close(dict);
 }
 
+void test_incr_not_a_number(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const u_char *key1 = (const u_char *)"key1";
+    size_t key1_len = strlen((const char *)key1);
+    int user_flags = 0, forcible = 0;
+    char *err = NULL;
+    double num_value = 1;
+    long exptime = 0;
+    int rc = mps_shdict_set(dict, key1, key1_len, MPS_SHDICT_TBOOLEAN, NULL, 0,
+                            num_value, exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(0, rc);
+
+    forcible = -1;
+    int has_init = 1, init_ttl = 0;
+    double value = 3, init = 1;
+    rc = mps_shdict_incr(dict, key1, key1_len, &value, &err, has_init, init,
+                         init_ttl, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_ERROR, rc);
+    TEST_ASSERT_EQUAL_STRING("not a number", err);
+
+    mps_shdict_close(dict);
+}
+
 void test_boolean_happy(void)
 {
     mps_shdict_t *dict = open_shdict();
@@ -576,6 +601,7 @@ int main(void)
     UNITY_BEGIN();
     RUN_TEST(test_incr_happy);
     RUN_TEST(test_incr_not_found);
+    RUN_TEST(test_incr_not_a_number);
     RUN_TEST(test_incr_reuse_expired_number);
     RUN_TEST(test_incr_reuse_expired_boolean);
     RUN_TEST(test_boolean_happy);
