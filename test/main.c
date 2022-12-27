@@ -656,6 +656,29 @@ void test_replace_not_found(void)
     mps_shdict_close(dict);
 }
 
+void test_replace_with_ttl(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const u_char *key1 = (const u_char *)"key1";
+    size_t key1_len = strlen((const char *)key1);
+    double num_value = 1;
+    int user_flags = 0, forcible = 0;
+    char *err = NULL;
+    long exptime = 0;
+    int rc = mps_shdict_set(dict, key1, key1_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                            num_value, exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    num_value = 5;
+    exptime = 1;
+    rc = mps_shdict_replace(dict, key1, key1_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                            num_value, exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    mps_shdict_close(dict);
+}
+
 void test_set_invalid_value_type(void)
 {
     mps_shdict_t *dict = open_shdict();
@@ -835,5 +858,6 @@ int main(void)
     RUN_TEST(test_set_invalid_value_type);
     RUN_TEST(test_replace_expired);
     RUN_TEST(test_replace_not_found);
+    RUN_TEST(test_replace_with_ttl);
     return UNITY_END();
 }
