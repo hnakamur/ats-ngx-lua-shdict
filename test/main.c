@@ -232,6 +232,57 @@ void test_incr_not_a_number(void)
 
 void test_incr_forcible(void)
 {
+    verify_tree_enabled = 0;
+    mps_shdict_t *dict = open_shdict();
+
+    char key_buf[64];
+    const u_char *key = (const u_char *)key_buf;
+    size_t key_len;
+    int has_init = 1, init_ttl = 0, forcible = 0, i, rc;
+    double value, init = 1;
+    char *err = NULL;
+    for (i = 0; i < 63; i++) {
+        if (i == 59) {
+            verify_tree_enabled = 1;
+        }
+        key_len = sprintf(key_buf, "key%d", i);
+        value = 3;
+        rc = mps_shdict_incr(dict, key, key_len, &value, &err, has_init, init,
+                             init_ttl, &forcible);
+        TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+        TEST_ASSERT_EQUAL_DOUBLE(1 + 3, value);
+        TEST_ASSERT_EQUAL_INT(0, forcible);
+        TSDebug(MPS_LOG_TAG,
+                "test_incr_forcible i=%d before verify_tree "
+                "==========================",
+                i);
+        verify_tree(dict->pool, &mps_shdict_tree(dict->pool)->rbtree);
+        TSDebug(MPS_LOG_TAG,
+                "test_incr_forcible i=%d after verify_tree "
+                "==========================",
+                i);
+    }
+
+    key_len = sprintf(key_buf, "key%d", i);
+    value = 3;
+    TSDebug(MPS_LOG_TAG,
+            "test_incr_forcible calling incr for key=\"" LogLenStr "\"",
+            (int)key_len, key);
+    verify_tree(dict->pool, &mps_shdict_tree(dict->pool)->rbtree);
+
+    rc = mps_shdict_incr(dict, key, key_len, &value, &err, has_init, init,
+                         init_ttl, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+    TEST_ASSERT_EQUAL_DOUBLE(1 + 3, value);
+    TEST_ASSERT_EQUAL_INT(1, forcible);
+
+    mps_shdict_close(dict);
+    verify_tree_enabled = 0;
+}
+
+void test_incr_no_memory(void)
+{
+    verify_tree_enabled = 0;
     mps_shdict_t *dict = open_shdict();
 
     char key_buf[64];
@@ -273,11 +324,11 @@ void test_incr_forcible(void)
 
     rc = mps_shdict_incr(dict, key, key_len, &value, &err, has_init, init,
                          init_ttl, &forcible);
-    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
-    TEST_ASSERT_EQUAL_DOUBLE(1 + 3, value);
-    TEST_ASSERT_EQUAL_INT(1, forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_ERROR, rc);
+    TEST_ASSERT_EQUAL_STRING("no memory", err);
 
     mps_shdict_close(dict);
+    verify_tree_enabled = 0;
 }
 
 void test_boolean_happy(void)
@@ -995,33 +1046,34 @@ void test_memn2cmp(void)
 int main(void)
 {
     UNITY_BEGIN();
-    // RUN_TEST(test_add_exists);
-    // RUN_TEST(test_add_expired);
-    // RUN_TEST(test_nil_add);
-    // RUN_TEST(test_nil_set);
+    RUN_TEST(test_add_exists);
+    RUN_TEST(test_add_expired);
+    RUN_TEST(test_nil_add);
+    RUN_TEST(test_nil_set);
     RUN_TEST(test_incr_forcible);
-    // RUN_TEST(test_incr_happy);
-    // RUN_TEST(test_incr_not_found);
-    // RUN_TEST(test_incr_not_a_number);
-    // RUN_TEST(test_incr_reuse_expired_number);
-    // RUN_TEST(test_incr_reuse_expired_boolean);
-    // RUN_TEST(test_boolean_happy);
-    // RUN_TEST(test_boolean_get_buf_short);
-    // RUN_TEST(test_number_happy);
-    // RUN_TEST(test_string_happy);
-    // RUN_TEST(test_safe_set);
-    // RUN_TEST(test_safe_add);
-    // RUN_TEST(test_get_ttl_set_expire);
-    // RUN_TEST(test_flush_all);
-    // RUN_TEST(test_capacity);
-    // RUN_TEST(test_free_space);
-    // RUN_TEST(test_set_invalid_value_type);
-    // RUN_TEST(test_replace_expired);
-    // RUN_TEST(test_replace_not_found);
-    // RUN_TEST(test_replace_with_ttl);
-    // RUN_TEST(test_set_forcible);
-    // RUN_TEST(test_set_expire_no_mem);
-    // RUN_TEST(test_memn2cmp);
-    // RUN_TEST(test_safe_set_no_key_no_mem);
+    RUN_TEST(test_incr_no_memory);
+    RUN_TEST(test_incr_happy);
+    RUN_TEST(test_incr_not_found);
+    RUN_TEST(test_incr_not_a_number);
+    RUN_TEST(test_incr_reuse_expired_number);
+    RUN_TEST(test_incr_reuse_expired_boolean);
+    RUN_TEST(test_boolean_happy);
+    RUN_TEST(test_boolean_get_buf_short);
+    RUN_TEST(test_number_happy);
+    RUN_TEST(test_string_happy);
+    RUN_TEST(test_safe_set);
+    RUN_TEST(test_safe_add);
+    RUN_TEST(test_get_ttl_set_expire);
+    RUN_TEST(test_flush_all);
+    RUN_TEST(test_capacity);
+    RUN_TEST(test_free_space);
+    RUN_TEST(test_set_invalid_value_type);
+    RUN_TEST(test_replace_expired);
+    RUN_TEST(test_replace_not_found);
+    RUN_TEST(test_replace_with_ttl);
+    RUN_TEST(test_set_forcible);
+    RUN_TEST(test_set_expire_no_mem);
+    RUN_TEST(test_memn2cmp);
+    RUN_TEST(test_safe_set_no_key_no_mem);
     return UNITY_END();
 }
