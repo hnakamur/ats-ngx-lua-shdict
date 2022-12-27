@@ -454,8 +454,8 @@ int mps_shdict_store(mps_shdict_t *dict, int op, const u_char *key,
     *forcible = 0;
 
     hash = ngx_murmur_hash2(key, key_len);
-    TSDebug("shdict", "store start, key=" LogLenStr ", hash=%x", (int)key_len,
-            key, hash);
+    TSDebug("shdict", "store start, op=0x%x, key=" LogLenStr ", hash=%x", op,
+            (int)key_len, key, hash);
 
     switch (value_type) {
 
@@ -662,8 +662,6 @@ allocated:
 
     sd = (mps_shdict_node_t *)&node->color;
 
-    TSDebug(MPS_LOG_TAG, "store before setting node key key=\"" LogLenStr "\"",
-            (int)key_len, key);
     node->key = hash;
     sd->key_len = (u_short)key_len;
 
@@ -680,20 +678,10 @@ allocated:
     dd("setting value type to %d", value_type);
     sd->value_type = (uint8_t)value_type;
 
-    TSDebug(MPS_LOG_TAG, "store before copy key=\"" LogLenStr "\"",
-            (int)key_len, key);
     p = ngx_copy(sd->data, key, key_len);
-    TSDebug(MPS_LOG_TAG, "store before copy value for key=\"" LogLenStr "\"",
-            (int)key_len, key);
     ngx_memcpy(p, str_value_buf, str_value_len);
 
-    TSDebug(MPS_LOG_TAG,
-            "store before insert tree node for key=\"" LogLenStr "\"",
-            (int)key_len, key);
     mps_rbtree_insert(pool, &tree->rbtree, node);
-    TSDebug(MPS_LOG_TAG,
-            "store before insert queue node for key=\"" LogLenStr "\"",
-            (int)key_len, key);
     mps_queue_insert_head(pool, &tree->lru_queue, &sd->queue);
     mps_slab_unlock(pool);
 
