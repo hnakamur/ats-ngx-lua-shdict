@@ -301,6 +301,36 @@ void test_safe_set(void)
     mps_shdict_close(dict);
 }
 
+void test_safe_add(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const u_char *key = (const u_char *)"key1234";
+    size_t key_len = strlen((const char *)key), str_value_len = 4000;
+    u_char str_value_buf[4000];
+    int value_type = MPS_SHDICT_TSTRING, user_flags = 0xcafe, forcible = 0;
+    char *err = NULL;
+    double num_value = 0;
+
+    memset(str_value_buf, '\xa6', str_value_len);
+    long exptime = 1;
+    int rc = mps_shdict_add(dict, key, key_len, value_type, str_value_buf,
+                            str_value_len, num_value, exptime, user_flags, &err,
+                            &forcible);
+    TEST_ASSERT_EQUAL_INT(0, rc);
+
+    sleep_ms(1);
+
+    const u_char *key2 = (const u_char *)"a";
+    size_t key2_len = strlen((const char *)key2);
+    rc = mps_shdict_safe_add(dict, key2, key2_len, value_type, str_value_buf,
+                             str_value_len, num_value, exptime, user_flags,
+                             &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(0, rc);
+
+    mps_shdict_close(dict);
+}
+
 void test_flush_all(void)
 {
     mps_shdict_t *dict = open_shdict();
@@ -364,6 +394,7 @@ int main(void)
     RUN_TEST(test_number_happy);
     RUN_TEST(test_string_happy);
     RUN_TEST(test_safe_set);
+    RUN_TEST(test_safe_add);
     RUN_TEST(test_flush_all);
     RUN_TEST(test_capacity);
     RUN_TEST(test_free_space);
