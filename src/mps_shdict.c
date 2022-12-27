@@ -439,8 +439,6 @@ static int mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_tree_t *tree,
                 mps_offset(pool, node));
 
         mps_rbtree_delete(pool, &tree->rbtree, node);
-        verify_tree(pool, &tree->rbtree);
-        TSDebug(MPS_LOG_TAG, "expire, after verify_tree after rbtree_delete");
 
         TSDebug(MPS_LOG_TAG, "expire, calling free_locked, node=%p", node);
         mps_slab_free_locked(pool, node);
@@ -1023,10 +1021,6 @@ remove:
 
     TSDebug(MPS_LOG_TAG, "incr, before rbtree_delete at label remove");
     mps_rbtree_delete(pool, &tree->rbtree, node);
-    verify_tree(pool, &tree->rbtree);
-    TSDebug(MPS_LOG_TAG,
-            "incr, after verify_tree after rbtree_delete at label remove");
-
     mps_slab_free_locked(pool, node);
 
 insert:
@@ -1039,15 +1033,8 @@ insert:
     n = offsetof(mps_rbtree_node_t, color) + offsetof(mps_shdict_node_t, data) +
         key_len + sizeof(double);
 
-    verify_tree(pool, &tree->rbtree);
-    TSDebug(MPS_LOG_TAG, "mps_shdict_incr after verify before alloc node "
-                         "----------------------");
-
     node = mps_slab_alloc_locked(pool, n);
     TSStatus("incr allocated node=%x", mps_offset(pool, node));
-    verify_tree(pool, &tree->rbtree);
-    TSDebug(MPS_LOG_TAG, "mps_shdict_incr after verify after alloc node "
-                         "----------------------");
 
     if (node == NULL) {
 

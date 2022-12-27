@@ -232,7 +232,6 @@ void test_incr_not_a_number(void)
 
 void test_incr_forcible(void)
 {
-    verify_tree_enabled = 0;
     mps_shdict_t *dict = open_shdict();
 
     char key_buf[64];
@@ -242,9 +241,6 @@ void test_incr_forcible(void)
     double value, init = 1;
     char *err = NULL;
     for (i = 0; i < 63; i++) {
-        if (i == 59) {
-            verify_tree_enabled = 1;
-        }
         key_len = sprintf(key_buf, "key%d", i);
         value = 3;
         rc = mps_shdict_incr(dict, key, key_len, &value, &err, has_init, init,
@@ -252,23 +248,10 @@ void test_incr_forcible(void)
         TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
         TEST_ASSERT_EQUAL_DOUBLE(1 + 3, value);
         TEST_ASSERT_EQUAL_INT(0, forcible);
-        TSDebug(MPS_LOG_TAG,
-                "test_incr_forcible i=%d before verify_tree "
-                "==========================",
-                i);
-        verify_tree(dict->pool, &mps_shdict_tree(dict->pool)->rbtree);
-        TSDebug(MPS_LOG_TAG,
-                "test_incr_forcible i=%d after verify_tree "
-                "==========================",
-                i);
     }
 
     key_len = sprintf(key_buf, "key%d", i);
     value = 3;
-    TSDebug(MPS_LOG_TAG,
-            "test_incr_forcible calling incr for key=\"" LogLenStr "\"",
-            (int)key_len, key);
-    verify_tree(dict->pool, &mps_shdict_tree(dict->pool)->rbtree);
 
     rc = mps_shdict_incr(dict, key, key_len, &value, &err, has_init, init,
                          init_ttl, &forcible);
@@ -277,12 +260,10 @@ void test_incr_forcible(void)
     TEST_ASSERT_EQUAL_INT(1, forcible);
 
     mps_shdict_close(dict);
-    verify_tree_enabled = 0;
 }
 
 void test_incr_no_memory(void)
 {
-    verify_tree_enabled = 0;
     mps_shdict_t *dict = open_shdict();
 
     char key_buf[64];
@@ -292,9 +273,6 @@ void test_incr_no_memory(void)
     double value, init = 1;
     char *err = NULL;
     for (i = 0; i < 63; i++) {
-        if (i == 59) {
-            verify_tree_enabled = 1;
-        }
         key_len = sprintf(key_buf, "key%d", i);
         value = 3;
         rc = mps_shdict_incr(dict, key, key_len, &value, &err, has_init, init,
@@ -302,25 +280,12 @@ void test_incr_no_memory(void)
         TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
         TEST_ASSERT_EQUAL_DOUBLE(1 + 3, value);
         TEST_ASSERT_EQUAL_INT(0, forcible);
-        TSDebug(MPS_LOG_TAG,
-                "test_incr_forcible i=%d before verify_tree "
-                "==========================",
-                i);
-        verify_tree(dict->pool, &mps_shdict_tree(dict->pool)->rbtree);
-        TSDebug(MPS_LOG_TAG,
-                "test_incr_forcible i=%d after verify_tree "
-                "==========================",
-                i);
     }
 
     key_len = 63;
     memset(key_buf, 'k', key_len);
     key_buf[key_len] = '\0';
     value = 3;
-    TSDebug(MPS_LOG_TAG,
-            "test_incr_forcible calling incr for key=\"" LogLenStr "\"",
-            (int)key_len, key);
-    verify_tree(dict->pool, &mps_shdict_tree(dict->pool)->rbtree);
 
     rc = mps_shdict_incr(dict, key, key_len, &value, &err, has_init, init,
                          init_ttl, &forcible);
@@ -328,7 +293,6 @@ void test_incr_no_memory(void)
     TEST_ASSERT_EQUAL_STRING("no memory", err);
 
     mps_shdict_close(dict);
-    verify_tree_enabled = 0;
 }
 
 void test_boolean_happy(void)

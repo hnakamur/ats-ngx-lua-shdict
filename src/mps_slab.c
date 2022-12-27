@@ -465,10 +465,6 @@ void *mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
             mps_offset(pool, mps_pool_stats(pool)),
             mps_offset(pool, &mps_pool_stats(pool)[slot]));
 
-    verify_tree(pool, &mps_shdict_tree(pool)->rbtree);
-    TSDebug(MPS_LOG_TAG, "mps_slab_alloc_locked, verify_tree before reqs++"
-                         " --------------");
-
     TSDebug(MPS_LOG_TAG,
             "mps_slab_alloc_locked: pool=%p, pool->stats=%x, "
             "mps_pool_stats(pool)=%p (off=%x)",
@@ -481,10 +477,6 @@ void *mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
             "mps_slab_alloc_locked: &mps_pool_stats(pool)[slot]=%p (off=%x)",
             &mps_pool_stats(pool)[slot],
             mps_offset(pool, &mps_pool_stats(pool)[slot]));
-
-    verify_tree(pool, &mps_shdict_tree(pool)->rbtree);
-    TSDebug(MPS_LOG_TAG, "mps_slab_alloc_locked, verify_tree after reqs++"
-                         " --------------");
 
     slots = mps_slab_slots(pool);
     page = mps_slab_page_next(pool, &slots[slot]);
@@ -571,16 +563,7 @@ void *mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
                     continue;
                 }
 
-                verify_tree(pool, &mps_shdict_tree(pool)->rbtree);
-                TSDebug(MPS_LOG_TAG,
-                        "mps_slab_alloc_locked, shift > mps_slab_exact_shift, "
-                        "before modify --------------");
-
                 page->slab |= m;
-                TSDebug(MPS_LOG_TAG,
-                        "mps_slab_alloc_locked, shift > mps_slab_exact_shift, "
-                        "i=%d, m=%d, page->slab=%d",
-                        i, m, page->slab);
 
                 if ((page->slab & MPS_SLAB_MAP_MASK) == mask) {
                     mps_slab_page_prev(pool, page)->next = page->next;
@@ -590,14 +573,7 @@ void *mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
                     page->prev = MPS_SLAB_BIG;
                 }
 
-                verify_tree(pool, &mps_shdict_tree(pool)->rbtree);
-                TSDebug(MPS_LOG_TAG,
-                        "mps_slab_alloc_locked, shift > mps_slab_exact_shift, "
-                        "after modify --------------");
-
                 p = mps_slab_page_addr(pool, page) + (i << shift);
-                TSDebug(MPS_LOG_TAG, "mps_slab_alloc_locked, p_off=%x",
-                        mps_offset(pool, p));
 
                 mps_pool_stats(pool)[slot].used++;
 
