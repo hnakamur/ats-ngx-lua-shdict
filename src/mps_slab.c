@@ -233,6 +233,8 @@ void mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
             sizeof(mps_slab_page_t));
     pool->last = mps_offset(pool, last);
     pool->pfree = pages;
+
+    pool->log_nomem = 1;
 }
 
 static mps_err_t mps_slab_create(mps_slab_pool_t **pool, const char *shm_name,
@@ -960,7 +962,9 @@ static mps_slab_page_t *mps_slab_alloc_pages(mps_slab_pool_t *pool,
         }
     }
 
-    TSFatal("mps_slab_alloc_pages: pool=%p: no memory", pool);
+    if (pool->log_nomem) {
+        TSFatal("mps_slab_alloc_pages: pool=%p: no memory", pool);
+    }
 
     return NULL;
 }

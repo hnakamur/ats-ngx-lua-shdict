@@ -47,6 +47,8 @@ typedef struct {
 
     mps_ptroff_t start;
     mps_ptroff_t end;
+
+    unsigned log_nomem : 1;
 } mps_slab_pool_t;
 
 #define mps_nulloff 0
