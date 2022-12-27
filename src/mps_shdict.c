@@ -181,6 +181,9 @@ static void mps_shdict_on_init(mps_slab_pool_t *pool)
     mps_rbtree_init(pool, &dict->rbtree, &dict->sentinel,
                     MPS_RBTREE_INSERT_TYPE_ID_LUADICT);
     mps_queue_init(pool, &dict->lru_queue);
+
+    pool->log_nomem = 0;
+
     TSStatus("mps_shdict_on_init exit");
 }
 
