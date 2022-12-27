@@ -42,7 +42,7 @@
 #endif
 
 #define mps_pool_stats(pool)                                                   \
-    ((mps_slab_stat_t *)(u_char *)(pool) + (pool)->stats)
+    ((mps_slab_stat_t *)((u_char *)(pool) + (pool)->stats))
 
 #define mps_slab_slots(pool)                                                   \
     ((mps_slab_page_t *)((u_char *)(pool) + sizeof(mps_slab_pool_t)))
