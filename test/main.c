@@ -331,6 +331,84 @@ void test_safe_add(void)
     mps_shdict_close(dict);
 }
 
+void test_get_ttl_set_expire(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const u_char *key = (const u_char *)"key1234";
+    size_t key_len = strlen((const char *)key);
+    int value_type = MPS_SHDICT_TNUMBER, user_flags = 0xcafe, get_stale = 0,
+        is_stale = 0, forcible = 0;
+    double num_value = 23.5;
+    char *err = NULL;
+
+    long got_ttl_ms = mps_shdict_get_ttl(dict, key, key_len);
+    TEST_ASSERT_EQUAL_INT64(NGX_DECLINED, got_ttl_ms);
+
+    long exptime = 10;
+    int rc = mps_shdict_set_expire(dict, key, key_len, exptime);
+    TEST_ASSERT_EQUAL_INT(NGX_DECLINED, rc);
+
+    exptime = 0;
+    rc = mps_shdict_set(dict, key, key_len, value_type, NULL, 0, num_value,
+                        exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    got_ttl_ms = mps_shdict_get_ttl(dict, key, key_len);
+    TEST_ASSERT_EQUAL_INT64(exptime, got_ttl_ms);
+
+    exptime = 1;
+    rc = mps_shdict_set_expire(dict, key, key_len, exptime);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    got_ttl_ms = mps_shdict_get_ttl(dict, key, key_len);
+    TEST_ASSERT_EQUAL_INT64(exptime, got_ttl_ms);
+
+    sleep_ms(2);
+
+    u_char *str_value_ptr = NULL;
+    size_t str_value_len = 0;
+    value_type = -1;
+    num_value = -1;
+    user_flags = 0;
+    rc = mps_shdict_get(dict, key, key_len, &value_type, &str_value_ptr,
+                        &str_value_len, &num_value, &user_flags, get_stale,
+                        &is_stale, &err);
+    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(MPS_SHDICT_TNIL, value_type);
+
+    get_stale = 1;
+    is_stale = -1;
+    value_type = -1;
+    num_value = -1;
+    rc = mps_shdict_get(dict, key, key_len, &value_type, &str_value_ptr,
+                        &str_value_len, &num_value, &user_flags, get_stale,
+                        &is_stale, &err);
+    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(1, is_stale);
+    TEST_ASSERT_EQUAL_INT(MPS_SHDICT_TNUMBER, value_type);
+    TEST_ASSERT_EQUAL_DOUBLE(23.5, num_value);
+    TEST_ASSERT_EQUAL_INT(0xcafe, user_flags);
+
+    exptime = 0;
+    rc = mps_shdict_set_expire(dict, key, key_len, exptime);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    value_type = -1;
+    num_value = -1;
+    user_flags = 0;
+    rc = mps_shdict_get(dict, key, key_len, &value_type, &str_value_ptr,
+                        &str_value_len, &num_value, &user_flags, get_stale,
+                        &is_stale, &err);
+    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(0, is_stale);
+    TEST_ASSERT_EQUAL_INT(MPS_SHDICT_TNUMBER, value_type);
+    TEST_ASSERT_EQUAL_DOUBLE(23.5, num_value);
+    TEST_ASSERT_EQUAL_INT(0xcafe, user_flags);
+
+    mps_shdict_close(dict);
+}
+
 void test_flush_all(void)
 {
     mps_shdict_t *dict = open_shdict();
@@ -395,6 +473,7 @@ int main(void)
     RUN_TEST(test_string_happy);
     RUN_TEST(test_safe_set);
     RUN_TEST(test_safe_add);
+    RUN_TEST(test_get_ttl_set_expire);
     RUN_TEST(test_flush_all);
     RUN_TEST(test_capacity);
     RUN_TEST(test_free_space);
