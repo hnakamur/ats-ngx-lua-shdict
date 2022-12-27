@@ -23,6 +23,7 @@
 #define TSAlert(...)
 #define TSEmergency(...)
 #define TSDebug(...)
+#define LogLenStr
 
 #else
 
