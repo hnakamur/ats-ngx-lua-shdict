@@ -28,6 +28,17 @@ static mps_shdict_t *open_shdict()
     return mps_shdict_open_or_create(DICT_NAME, DICT_SIZE, S_IRUSR | S_IWUSR);
 }
 
+static void sleep_ms(size_t msec)
+{
+    struct timespec ts;
+
+    ts.tv_sec = msec / 1000;
+    ts.tv_nsec = (msec % 1000) * 1000000;
+    if (nanosleep(&ts, NULL) == -1) {
+        fprintf(stderr, "nanosleep err: %s\n", strerror(errno));
+    }
+}
+
 void setUp(void)
 {
     verify_shm_not_exist(SHM_PATH);
@@ -265,24 +276,27 @@ void test_safe_set(void)
     mps_shdict_t *dict = open_shdict();
 
     const u_char *key = (const u_char *)"key1234";
-    size_t key_len = strlen((const char *)key), str_value_len = 1973;
-    u_char str_value_buf[1973];
+    size_t key_len = strlen((const char *)key), str_value_len = 4000;
+    u_char str_value_buf[4000];
     int value_type = MPS_SHDICT_TSTRING, user_flags = 0xcafe, forcible = 0;
     char *err = NULL;
     double num_value = 0;
-    long exptime = 0;
 
-    memset(str_value_buf, '\x5a', str_value_len);
+    memset(str_value_buf, '\xa6', str_value_len);
+    long exptime = 1;
     int rc = mps_shdict_safe_set(dict, key, key_len, value_type, str_value_buf,
                                  str_value_len, num_value, exptime, user_flags,
                                  &err, &forcible);
     TEST_ASSERT_EQUAL_INT(0, rc);
 
-    // rc = mps_shdict_safe_set(dict, key, key_len, value_type, str_value_buf,
-    //                          str_value_len, num_value, exptime, user_flags,
-    //                          &err, &forcible);
-    // TEST_ASSERT_EQUAL_INT(-1, rc);
-    // TEST_ASSERT_EQUAL_STRING("hoge", err);
+    sleep_ms(1);
+
+    const u_char *key2 = (const u_char *)"a";
+    size_t key2_len = strlen((const char *)key2);
+    rc = mps_shdict_safe_set(dict, key2, key2_len, value_type, str_value_buf,
+                             str_value_len, num_value, exptime, user_flags,
+                             &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(0, rc);
 
     mps_shdict_close(dict);
 }
@@ -345,13 +359,13 @@ void test_flush_all(void)
 int main(void)
 {
     UNITY_BEGIN();
-    // RUN_TEST(test_incr_happy);
-    // RUN_TEST(test_boolean_happy);
-    // RUN_TEST(test_number_happy);
-    // RUN_TEST(test_string_happy);
+    RUN_TEST(test_incr_happy);
+    RUN_TEST(test_boolean_happy);
+    RUN_TEST(test_number_happy);
+    RUN_TEST(test_string_happy);
     RUN_TEST(test_safe_set);
-    // RUN_TEST(test_flush_all);
-    // RUN_TEST(test_capacity);
-    // RUN_TEST(test_free_space);
+    RUN_TEST(test_flush_all);
+    RUN_TEST(test_capacity);
+    RUN_TEST(test_free_space);
     return UNITY_END();
 }
