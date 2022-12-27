@@ -549,6 +549,79 @@ void test_nil_set(void)
     mps_shdict_close(dict);
 }
 
+void test_replace_expired(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    /* This key is needed for mps_shdict_lookup to return NGX_DONE. */
+    const u_char *key1 = (const u_char *)"key1";
+    size_t key1_len = strlen((const char *)key1);
+    double num_value = 1;
+    int user_flags = 0, forcible = 0;
+    char *err = NULL;
+    long exptime = 0;
+    int rc = mps_shdict_set(dict, key1, key1_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                            num_value, exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    const u_char *key2 = (const u_char *)"key2";
+    size_t key2_len = strlen((const char *)key2);
+    exptime = 1;
+    rc = mps_shdict_set(dict, key2, key2_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                        num_value, exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    sleep_ms(2);
+
+    num_value = 2;
+    rc = mps_shdict_replace(dict, key2, key2_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                            num_value, exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_DECLINED, rc);
+    TEST_ASSERT_EQUAL_STRING("not found", err);
+
+    mps_shdict_close(dict);
+}
+
+void test_replace_not_found(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const u_char *key = (const u_char *)"key1234";
+    size_t key_len = strlen((const char *)key);
+    double num_value = 1;
+    int user_flags = 0, forcible = 0;
+    char *err = NULL;
+    long exptime = 0;
+    int rc =
+        mps_shdict_replace(dict, key, key_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                           num_value, exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_DECLINED, rc);
+    TEST_ASSERT_EQUAL_STRING("not found", err);
+
+    mps_shdict_close(dict);
+}
+
+void test_set_invalid_value_type(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const u_char *key = (const u_char *)"key1234";
+    size_t key_len = strlen((const char *)key);
+    double num_value = 0;
+    int user_flags = 0, forcible = 0;
+    char *err = NULL;
+    long exptime = 0;
+
+    /* set a true value */
+    int value_type = -234;
+    int rc = mps_shdict_set(dict, key, key_len, value_type, NULL, 0, num_value,
+                            exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_ERROR, rc);
+    TEST_ASSERT_EQUAL_STRING("unsupported value type", err);
+
+    mps_shdict_close(dict);
+}
+
 void test_get_ttl_set_expire(void)
 {
     mps_shdict_t *dict = open_shdict();
@@ -702,5 +775,8 @@ int main(void)
     RUN_TEST(test_flush_all);
     RUN_TEST(test_capacity);
     RUN_TEST(test_free_space);
+    RUN_TEST(test_set_invalid_value_type);
+    RUN_TEST(test_replace_expired);
+    RUN_TEST(test_replace_not_found);
     return UNITY_END();
 }
