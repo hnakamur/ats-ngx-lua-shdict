@@ -301,6 +301,39 @@ void test_boolean_happy(void)
     mps_shdict_close(dict);
 }
 
+void test_boolean_get_buf_short(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const u_char *key = (const u_char *)"key1234";
+    size_t key_len = strlen((const char *)key), str_value_len = 1;
+    int value_type = MPS_SHDICT_TBOOLEAN, user_flags = 0xbeaf, get_stale = 0,
+        is_stale = 0, forcible = 0;
+    u_char str_value_buf[1], *str_value_ptr = str_value_buf;
+    double num_value = 1;
+    char *err = NULL;
+    long exptime = 0;
+
+    /* set a true value */
+    int rc = mps_shdict_set(dict, key, key_len, value_type, str_value_ptr,
+                            str_value_len, num_value, exptime, user_flags, &err,
+                            &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    /* get the true value */
+    value_type = -1;
+    num_value = 0;
+    user_flags = 0;
+    str_value_len = 0;
+    rc = mps_shdict_get(dict, key, key_len, &value_type, &str_value_ptr,
+                        &str_value_len, &num_value, &user_flags, get_stale,
+                        &is_stale, &err);
+    TEST_ASSERT_EQUAL_INT(NGX_ERROR, rc);
+    TEST_ASSERT_NULL(err);
+
+    mps_shdict_close(dict);
+}
+
 void test_number_happy(void)
 {
     mps_shdict_t *dict = open_shdict();
@@ -463,6 +496,59 @@ void test_safe_add(void)
     mps_shdict_close(dict);
 }
 
+void test_nil_add(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const u_char *key = (const u_char *)"key1234";
+    size_t key_len = strlen((const char *)key);
+    int user_flags = 0, forcible = 0;
+    double num_value = 0;
+    char *err = NULL;
+    long exptime = 0;
+
+    /* set a true value */
+    int rc = mps_shdict_add(dict, key, key_len, MPS_SHDICT_TNIL, NULL, 0,
+                            num_value, exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_ERROR, rc);
+    TEST_ASSERT_EQUAL_STRING("attempt to add or replace nil values", err);
+
+    mps_shdict_close(dict);
+}
+
+void test_nil_set(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const u_char *key = (const u_char *)"key1234";
+    size_t key_len = strlen((const char *)key);
+    int user_flags = 0, forcible = 0;
+    char *err = NULL;
+    long exptime = 0;
+
+    /* set a true value */
+    double num_value = 1;
+    int rc = mps_shdict_set(dict, key, key_len, MPS_SHDICT_TBOOLEAN, NULL, 0,
+                            num_value, exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    /* set nil */
+    rc = mps_shdict_set(dict, key, key_len, MPS_SHDICT_TNIL, NULL, 0, num_value,
+                        exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    int value_type = -1, get_stale = 0, is_stale = 0;
+    u_char *str_value_ptr = NULL;
+    size_t str_value_len = 0;
+    rc = mps_shdict_get(dict, key, key_len, &value_type, &str_value_ptr,
+                        &str_value_len, &num_value, &user_flags, get_stale,
+                        &is_stale, &err);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+    TEST_ASSERT_EQUAL_INT(MPS_SHDICT_TNIL, value_type);
+
+    mps_shdict_close(dict);
+}
+
 void test_get_ttl_set_expire(void)
 {
     mps_shdict_t *dict = open_shdict();
@@ -599,12 +685,15 @@ void test_flush_all(void)
 int main(void)
 {
     UNITY_BEGIN();
+    RUN_TEST(test_nil_add);
+    RUN_TEST(test_nil_set);
     RUN_TEST(test_incr_happy);
     RUN_TEST(test_incr_not_found);
     RUN_TEST(test_incr_not_a_number);
     RUN_TEST(test_incr_reuse_expired_number);
     RUN_TEST(test_incr_reuse_expired_boolean);
     RUN_TEST(test_boolean_happy);
+    RUN_TEST(test_boolean_get_buf_short);
     RUN_TEST(test_number_happy);
     RUN_TEST(test_string_happy);
     RUN_TEST(test_safe_set);
