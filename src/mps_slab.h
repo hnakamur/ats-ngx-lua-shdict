@@ -54,7 +54,7 @@ typedef struct {
 #define mps_nulloff 0
 #define mps_offset(pool, ptr) (mps_ptroff_t)((u_char *)(ptr) - (u_char *)(pool))
 
-#define mps_nullptr(pool) (pool)
+#define mps_nullptr(pool) ((void *)pool)
 #define mps_ptr(pool, offset) ((u_char *)(pool) + (offset))
 
 #define mps_slab_page(pool, off) ((mps_slab_page_t *)mps_ptr(pool, off))

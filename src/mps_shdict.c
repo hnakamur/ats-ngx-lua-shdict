@@ -132,7 +132,6 @@ void mps_shdict_rbtree_insert_value(mps_slab_pool_t *pool,
     s = mps_offset(pool, sentinel);
 
     for (;;) {
-
         if (node->key < temp->key) {
 
             p = &temp->left;
@@ -160,9 +159,17 @@ void mps_shdict_rbtree_insert_value(mps_slab_pool_t *pool,
     }
 
     *p = mps_offset(pool, node);
+    TSDebug(MPS_LOG_TAG,
+            "shdict_insert_val, updated temp=%x, *p=%x, temp->%s=%x",
+            mps_offset(pool, temp), *p, (p == &temp->left ? "left" : "right"),
+            (p == &temp->left ? temp->left : temp->right));
     node->parent = mps_offset(pool, temp);
     node->left = s;
     node->right = s;
+    TSDebug(MPS_LOG_TAG,
+            "shdict_insert_val, inserted node parent=%x, node=%x, left=%x, "
+            "right=%x",
+            node->parent, mps_offset(pool, node), node->left, node->right);
     ngx_rbt_red(node);
 }
 
@@ -359,7 +366,7 @@ static ngx_int_t mps_shdict_lookup(mps_slab_pool_t *pool, ngx_uint_t hash,
         node = mps_rbtree_node(pool, (rc < 0) ? node->left : node->right);
     }
 
-    *sdp = NULL;
+    *sdp = mps_nullptr(pool);
 
     return NGX_DECLINED;
 }
@@ -389,8 +396,10 @@ static int mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_tree_t *tree,
         if (mps_queue_empty(pool, &tree->lru_queue)) {
             return freed;
         }
+        TSDebug(MPS_LOG_TAG, "expire, lru queue not empty");
 
         q = mps_queue_last(pool, &tree->lru_queue);
+        TSDebug(MPS_LOG_TAG, "expire, q=%p", q);
 
         sd = mps_queue_data(q, mps_shdict_node_t, queue);
         TSDebug(MPS_LOG_TAG,
@@ -425,10 +434,17 @@ static int mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_tree_t *tree,
 
         node = (mps_rbtree_node_t *)((u_char *)sd -
                                      offsetof(mps_rbtree_node_t, color));
+        TSDebug(MPS_LOG_TAG,
+                "expire, calling rbtree_delete, node=%p, node_off=%x", node,
+                mps_offset(pool, node));
 
         mps_rbtree_delete(pool, &tree->rbtree, node);
+        verify_tree(pool, &tree->rbtree);
+        TSDebug(MPS_LOG_TAG, "expire, after verify_tree after rbtree_delete");
 
+        TSDebug(MPS_LOG_TAG, "expire, calling free_locked, node=%p", node);
         mps_slab_free_locked(pool, node);
+        TSDebug(MPS_LOG_TAG, "expire, after free_locked, node=%p", node);
 
         freed++;
     }
@@ -632,7 +648,7 @@ insert:
 
     node = mps_slab_alloc_locked(pool, n);
 
-    if (node == NULL) {
+    if (node == mps_nullptr(pool)) {
 
         if (op & MPS_SHDICT_SAFE_STORE) {
             mps_slab_unlock(pool);
@@ -654,7 +670,7 @@ insert:
             *forcible = 1;
 
             node = mps_slab_alloc_locked(pool, n);
-            if (node != NULL) {
+            if (node != mps_nullptr(pool)) {
                 goto allocated;
             }
         }
@@ -906,6 +922,7 @@ int mps_shdict_incr(mps_shdict_t *dict, const u_char *key, size_t key_len,
 #if 1
     mps_shdict_expire(pool, tree, 1);
 #endif
+
     rc = mps_shdict_lookup(pool, hash, key, key_len, &sd);
 
     dd("shdict lookup returned %d", (int)rc);
@@ -970,6 +987,14 @@ int mps_shdict_incr(mps_shdict_t *dict, const u_char *key, size_t key_len,
     mps_slab_unlock(pool);
 
     *value = num;
+    {
+        node = (mps_rbtree_node_t *)((u_char *)sd -
+                                     offsetof(mps_rbtree_node_t, color));
+        TSStatus(
+            "incr updated value#1=%g, node=%x, left=%x, right=%x, parent=%x",
+            *value, mps_offset(pool, node), node->left, node->right,
+            node->parent);
+    }
     return NGX_OK;
 
 remove:
@@ -996,7 +1021,11 @@ remove:
     node = (mps_rbtree_node_t *)((u_char *)sd -
                                  offsetof(mps_rbtree_node_t, color));
 
+    TSDebug(MPS_LOG_TAG, "incr, before rbtree_delete at label remove");
     mps_rbtree_delete(pool, &tree->rbtree, node);
+    verify_tree(pool, &tree->rbtree);
+    TSDebug(MPS_LOG_TAG,
+            "incr, after verify_tree after rbtree_delete at label remove");
 
     mps_slab_free_locked(pool, node);
 
@@ -1010,9 +1039,17 @@ insert:
     n = offsetof(mps_rbtree_node_t, color) + offsetof(mps_shdict_node_t, data) +
         key_len + sizeof(double);
 
-    node = mps_slab_alloc_locked(pool, n);
+    verify_tree(pool, &tree->rbtree);
+    TSDebug(MPS_LOG_TAG, "mps_shdict_incr after verify before alloc node "
+                         "----------------------");
 
-    if (node == NULL) {
+    node = mps_slab_alloc_locked(pool, n);
+    TSStatus("incr allocated node=%x", mps_offset(pool, node));
+    verify_tree(pool, &tree->rbtree);
+    TSDebug(MPS_LOG_TAG, "mps_shdict_incr after verify after alloc node "
+                         "----------------------");
+
+    if (node == mps_nullptr(pool)) {
 
         TSDebug(MPS_LOG_TAG,
                 "lua shared dict incr in dict \"" LogLenStr
@@ -1021,6 +1058,7 @@ insert:
                 (int)dict->name.len, dict->name.data, (int)key_len, key);
 
         for (i = 0; i < 30; i++) {
+            TSDebug(MPS_LOG_TAG, "incr calling expire with n=0, i=%d", i);
             if (mps_shdict_expire(pool, tree, 0) == 0) {
                 break;
             }
@@ -1028,7 +1066,7 @@ insert:
             *forcible = 1;
 
             node = mps_slab_alloc_locked(pool, n);
-            if (node != NULL) {
+            if (node != mps_nullptr(pool)) {
                 goto allocated;
             }
         }
@@ -1074,6 +1112,14 @@ setvalue:
     mps_slab_unlock(pool);
 
     *value = num;
+    {
+        node = (mps_rbtree_node_t *)((u_char *)sd -
+                                     offsetof(mps_rbtree_node_t, color));
+        TSStatus(
+            "incr updated value#2=%g, node=%x, left=%x, right=%x, parent=%x",
+            *value, mps_offset(pool, node), node->left, node->right,
+            node->parent);
+    }
     return NGX_OK;
 }
 
@@ -1143,7 +1189,7 @@ static ngx_int_t mps_shdict_peek(mps_slab_pool_t *pool, ngx_uint_t hash,
         node = mps_rbtree_node(pool, (rc < 0) ? node->left : node->right);
     }
 
-    *sdp = NULL;
+    *sdp = mps_nullptr(pool);
 
     return NGX_DECLINED;
 }

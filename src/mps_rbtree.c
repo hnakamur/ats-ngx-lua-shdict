@@ -42,6 +42,9 @@ void mps_rbtree_init(mps_slab_pool_t *pool, mps_rbtree_t *tree,
     tree->root = mps_offset(pool, sentinel);
     tree->sentinel = mps_offset(pool, sentinel);
     tree->insert = insert_type_id;
+    TSDebug(MPS_LOG_TAG,
+            "mps_rbtree_init, tree=%p, root_off=0x%0x, sentinel=%p, insert=%d",
+            tree, tree->root, sentinel, tree->insert);
 }
 
 void mps_rbtree_insert(mps_slab_pool_t *pool, mps_rbtree_t *tree,
@@ -59,6 +62,8 @@ void mps_rbtree_insert(mps_slab_pool_t *pool, mps_rbtree_t *tree,
     if (*root == sentinel) {
         node->parent = mps_nulloff;
         node->left = sentinel;
+        TSDebug(MPS_LOG_TAG, "updated left=%x, at %s:%d", node->left, __FILE__,
+                __LINE__);
         node->right = sentinel;
         ngx_rbt_black(node);
         *root = mps_offset(pool, node);
@@ -72,8 +77,23 @@ void mps_rbtree_insert(mps_slab_pool_t *pool, mps_rbtree_t *tree,
         return;
     }
     insert_value = insert_values[tree->insert];
+#if 0    
+    verify_tree(pool, tree);
+    TSDebug(MPS_LOG_TAG, "mps_rbtree_insert after verify before insert_value "
+                         "----------------------");
+#endif
     insert_value(pool, mps_rbtree_node(pool, *root), node,
                  mps_rbtree_node(pool, sentinel));
+    TSDebug(MPS_LOG_TAG,
+            "mps_rbtree_insert after insert_value, node=%x, left=%x, right=%x, "
+            "parent=%x",
+            mps_offset(pool, node), node->left, node->right, node->parent);
+#if 0    
+    verify_tree(pool, tree);
+    TSDebug(MPS_LOG_TAG, "mps_rbtree_insert after verify after insert_value "
+                         "----------------------");
+#endif
+    mps_rbtree_node_t *node2 = node;
 
     /* re-balance tree */
 
@@ -128,6 +148,13 @@ void mps_rbtree_insert(mps_slab_pool_t *pool, mps_rbtree_t *tree,
     }
 
     ngx_rbt_black(mps_rbtree_node(pool, *root));
+#if 0    
+    TSDebug(MPS_LOG_TAG, "mps_rbtree_insert verify before exiting -----------");
+    verify_tree(pool, tree);
+#endif
+    TSDebug(MPS_LOG_TAG,
+            "mps_rbtree_insert exiting, node2=%x, left=%x, right=%x, parent=%x",
+            mps_offset(pool, node2), node2->left, node2->right, node2->parent);
 }
 
 void mps_rbtree_insert_value(mps_slab_pool_t *pool, mps_rbtree_node_t *temp,
@@ -152,6 +179,8 @@ void mps_rbtree_insert_value(mps_slab_pool_t *pool, mps_rbtree_node_t *temp,
     *p = mps_offset(pool, node);
     node->parent = mps_offset(pool, temp);
     node->left = s;
+    TSDebug(MPS_LOG_TAG, "updated left=%x, at %s:%d", node->left, __FILE__,
+            __LINE__);
     node->right = s;
     ngx_rbt_red(node);
 }
@@ -189,8 +218,53 @@ void mps_rbtree_insert_timer_value(mps_slab_pool_t *pool,
     *p = mps_offset(pool, node);
     node->parent = mps_offset(pool, temp);
     node->left = s;
+    TSDebug(MPS_LOG_TAG, "updated left=%x, at %s:%d", node->left, __FILE__,
+            __LINE__);
     node->right = s;
     ngx_rbt_red(node);
+}
+
+static void verify_tree_node(mps_slab_pool_t *pool, mps_rbtree_t *tree,
+                             mps_rbtree_node_t *node)
+{
+    if (node->left == mps_nulloff) {
+        TSError("verify_tree_node, node->left is null, node=%x",
+                mps_offset(pool, node));
+    }
+    if (node->right == mps_nulloff) {
+        TSError("verify_tree_node, node->right is null, node=%x",
+                mps_offset(pool, node));
+    }
+    if (node->left == mps_nulloff || node->right == mps_nulloff) {
+        return;
+    }
+
+    if (node->left != tree->sentinel) {
+        TSStatus("calling verify_tree_node, node=%x, left=%x",
+                 mps_offset(pool, node), node->left);
+        verify_tree_node(pool, tree, mps_rbtree_node(pool, node->left));
+    }
+    if (node->right != tree->sentinel) {
+        TSStatus("calling verify_tree_node, node=%x, right=%x",
+                 mps_offset(pool, node), node->right);
+        verify_tree_node(pool, tree, mps_rbtree_node(pool, node->right));
+    }
+}
+
+int verify_tree_enabled = 0;
+
+void verify_tree(mps_slab_pool_t *pool, mps_rbtree_t *tree)
+{
+    mps_rbtree_node_t *root;
+
+    if (!verify_tree_enabled) {
+        return;
+    }
+
+    root = mps_rbtree_node(pool, tree->root);
+    TSStatus("verify_tree start, root=%x", tree->root);
+    verify_tree_node(pool, tree, root);
+    TSStatus("verify_tree exit, root=%x", tree->root);
 }
 
 void mps_rbtree_delete(mps_slab_pool_t *pool, mps_rbtree_t *tree,
@@ -205,6 +279,16 @@ void mps_rbtree_delete(mps_slab_pool_t *pool, mps_rbtree_t *tree,
 
     root = &tree->root;
     sentinel = tree->sentinel;
+    TSDebug(MPS_LOG_TAG,
+            "mps_rbtree_delete tree=%p, root_off=0x%x, root=%p, "
+            "sentinel_off=0x%x node=%p",
+            tree, *root, mps_rbtree_node(pool, *root), sentinel, node);
+
+    TSDebug(MPS_LOG_TAG,
+            "mps_rbtree_delete node->left=%x, node->right=%x, sentinel=%x",
+            node->left, node->right, sentinel);
+    verify_tree(pool, tree);
+    TSDebug(MPS_LOG_TAG, "mps_rbtree_delete after verify_tree at start");
 
     if (node->left == sentinel) {
         temp = mps_rbtree_node(pool, node->right);
@@ -220,24 +304,33 @@ void mps_rbtree_delete(mps_slab_pool_t *pool, mps_rbtree_t *tree,
         temp = mps_rbtree_node(pool, subst->right);
     }
 
+    TSDebug(MPS_LOG_TAG, "mps_rbtree_delete tree=%p, subst=%p", tree, subst);
+
     if (subst == mps_rbtree_node(pool, *root)) {
         *root = mps_offset(pool, temp);
         ngx_rbt_black(temp);
 
         /* DEBUG stuff */
         node->left = mps_nulloff;
+        TSDebug(MPS_LOG_TAG, "updated left=%x, at %s:%d", node->left, __FILE__,
+                __LINE__);
         node->right = mps_nulloff;
         node->parent = mps_nulloff;
         node->key = 0;
 
+        verify_tree(pool, tree);
         return;
     }
+
+    TSDebug(MPS_LOG_TAG, "mps_rbtree_delete tree=%p #2", tree);
 
     red = ngx_rbt_is_red(subst);
 
     subst_parent = mps_rbtree_node(pool, subst->parent);
     if (subst == mps_rbtree_node(pool, subst_parent->left)) {
         subst_parent->left = mps_offset(pool, temp);
+        TSDebug(MPS_LOG_TAG, "updated left=%x, at %s:%d", subst_parent->left,
+                __FILE__, __LINE__);
 
     } else {
         subst_parent->right = mps_offset(pool, temp);
@@ -256,6 +349,8 @@ void mps_rbtree_delete(mps_slab_pool_t *pool, mps_rbtree_t *tree,
         }
 
         subst->left = node->left;
+        TSDebug(MPS_LOG_TAG, "updated left=%x, at %s:%d", subst->left, __FILE__,
+                __LINE__);
         subst->right = node->right;
         subst->parent = node->parent;
         ngx_rbt_copy_color(subst, node);
@@ -268,6 +363,8 @@ void mps_rbtree_delete(mps_slab_pool_t *pool, mps_rbtree_t *tree,
 
             if (node == mps_rbtree_node(pool, node_parent->left)) {
                 node_parent->left = mps_offset(pool, subst);
+                TSDebug(MPS_LOG_TAG, "updated left=%x, at %s:%d",
+                        node_parent->left, __FILE__, __LINE__);
 
             } else {
                 node_parent->right = mps_offset(pool, subst);
@@ -287,17 +384,25 @@ void mps_rbtree_delete(mps_slab_pool_t *pool, mps_rbtree_t *tree,
 
     /* DEBUG stuff */
     node->left = mps_nulloff;
+    TSDebug(MPS_LOG_TAG, "updated left=%x, at %s:%d", node->left, __FILE__,
+            __LINE__);
     node->right = mps_nulloff;
     node->parent = mps_nulloff;
     node->key = 0;
 
+    TSDebug(MPS_LOG_TAG, "mps_rbtree_delete tree=%p after debug#1", tree);
+
     if (red) {
+        verify_tree(pool, tree);
         return;
     }
 
     /* a delete fixup */
+    TSDebug(MPS_LOG_TAG, "mps_rbtree_delete tree=%p, deleting fixup", tree);
 
     while (temp != mps_rbtree_node(pool, *root) && ngx_rbt_is_black(temp)) {
+        TSDebug(MPS_LOG_TAG, "mps_rbtree_delete tree=%p, while loop temp=%p",
+                tree, temp);
 
         temp_parent = mps_rbtree_node(pool, temp->parent);
         if (temp == mps_rbtree_node(pool, temp_parent->left)) {
@@ -373,6 +478,7 @@ void mps_rbtree_delete(mps_slab_pool_t *pool, mps_rbtree_t *tree,
     }
 
     ngx_rbt_black(temp);
+    verify_tree(pool, tree);
 }
 
 static ngx_inline void mps_rbtree_left_rotate(mps_slab_pool_t *pool,
@@ -400,6 +506,8 @@ static ngx_inline void mps_rbtree_left_rotate(mps_slab_pool_t *pool,
 
         if (node == mps_rbtree_node(pool, node_parent->left)) {
             node_parent->left = mps_offset(pool, temp);
+            TSDebug(MPS_LOG_TAG, "updated left=%x, at %s:%d", node_parent->left,
+                    __FILE__, __LINE__);
 
         } else {
             node_parent->right = mps_offset(pool, temp);
@@ -407,6 +515,8 @@ static ngx_inline void mps_rbtree_left_rotate(mps_slab_pool_t *pool,
     }
 
     temp->left = mps_offset(pool, node);
+    TSDebug(MPS_LOG_TAG, "updated left=%x, at %s:%d", temp->left, __FILE__,
+            __LINE__);
     node->parent = mps_offset(pool, temp);
 }
 
@@ -419,6 +529,8 @@ static ngx_inline void mps_rbtree_right_rotate(mps_slab_pool_t *pool,
 
     temp = mps_rbtree_node(pool, node->left);
     node->left = temp->right;
+    TSDebug(MPS_LOG_TAG, "updated left=%x, at %s:%d", node->left, __FILE__,
+            __LINE__);
 
     if (temp->right != sentinel) {
         temp_right = mps_rbtree_node(pool, temp->right);
@@ -438,6 +550,8 @@ static ngx_inline void mps_rbtree_right_rotate(mps_slab_pool_t *pool,
 
         } else {
             node_parent->left = mps_offset(pool, temp);
+            TSDebug(MPS_LOG_TAG, "updated left=%x, at %s:%d", node_parent->left,
+                    __FILE__, __LINE__);
         }
     }
 

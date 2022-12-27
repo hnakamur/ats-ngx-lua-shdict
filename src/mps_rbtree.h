@@ -10,6 +10,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include "mps_slab.h"
+#include "mps_log.h"
 
 typedef ngx_uint_t mps_rbtree_key_t;
 typedef ngx_int_t mps_rbtree_key_int_t;
@@ -89,11 +90,20 @@ static ngx_inline mps_rbtree_node_t *mps_rbtree_min(mps_slab_pool_t *pool,
                                                     mps_rbtree_node_t *node,
                                                     mps_ptroff_t sentinel)
 {
+    TSDebug(MPS_LOG_TAG, "mps_rbtree_min, node_off=%x, left=%x, sentinel=%x",
+            mps_offset(pool, node), node->left, sentinel);
     while (node->left != sentinel) {
         node = mps_rbtree_node(pool, node->left);
+        TSDebug(MPS_LOG_TAG, "mps_rbtree_min, updated node_off=%x",
+                mps_offset(pool, node));
     }
 
+    TSDebug(MPS_LOG_TAG, "mps_rbtree_min, return node_off=%x",
+            mps_offset(pool, node));
     return node;
 }
+
+extern int verify_tree_enabled;
+void verify_tree(mps_slab_pool_t *pool, mps_rbtree_t *tree);
 
 #endif /* _MPS_RBTREE_H_INCLUDED_ */
