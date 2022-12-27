@@ -549,6 +549,61 @@ void test_nil_set(void)
     mps_shdict_close(dict);
 }
 
+void test_add_exists(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const u_char *key1 = (const u_char *)"key1";
+    size_t key1_len = strlen((const char *)key1);
+    double num_value = 1;
+    int user_flags = 0, forcible = 0;
+    char *err = NULL;
+    long exptime = 0;
+    int rc = mps_shdict_set(dict, key1, key1_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                            num_value, exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    rc = mps_shdict_add(dict, key1, key1_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                        num_value, exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_DECLINED, rc);
+    TEST_ASSERT_EQUAL_STRING("exists", err);
+
+    mps_shdict_close(dict);
+}
+
+void test_add_expired(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    /* This key is needed for mps_shdict_lookup to return NGX_DONE. */
+    const u_char *key1 = (const u_char *)"key1";
+    size_t key1_len = strlen((const char *)key1);
+    double num_value = 1;
+    int user_flags = 0, forcible = 0;
+    char *err = NULL;
+    long exptime = 0;
+    int rc = mps_shdict_set(dict, key1, key1_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                            num_value, exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+    TEST_ASSERT_EQUAL_INT(0, forcible);
+
+    const u_char *key2 = (const u_char *)"key2";
+    size_t key2_len = strlen((const char *)key2);
+    exptime = 1;
+    rc = mps_shdict_set(dict, key2, key2_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                        num_value, exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    sleep_ms(2);
+
+    rc = mps_shdict_add(dict, key2, key2_len, MPS_SHDICT_TBOOLEAN, NULL, 0,
+                        num_value, exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+    TEST_ASSERT_EQUAL_INT(0, forcible);
+
+    mps_shdict_close(dict);
+}
+
 void test_replace_expired(void)
 {
     mps_shdict_t *dict = open_shdict();
@@ -758,6 +813,8 @@ void test_flush_all(void)
 int main(void)
 {
     UNITY_BEGIN();
+    RUN_TEST(test_add_exists);
+    RUN_TEST(test_add_expired);
     RUN_TEST(test_nil_add);
     RUN_TEST(test_nil_set);
     RUN_TEST(test_incr_happy);
