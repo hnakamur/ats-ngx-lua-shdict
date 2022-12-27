@@ -110,6 +110,26 @@ void test_incr_happy(void)
     mps_shdict_close(dict);
 }
 
+void test_incr_not_found(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const char *key = "key1";
+    size_t key_len = strlen(key);
+    double value = 1;
+    char *err = NULL;
+    int has_init = 0;
+    double init = 0;
+    long init_ttl = 1;
+    int forcible = 0;
+    int rc = mps_shdict_incr(dict, (const u_char *)key, key_len, &value, &err,
+                             has_init, init, init_ttl, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_ERROR, rc);
+    TEST_ASSERT_EQUAL_STRING("not found", err);
+
+    mps_shdict_close(dict);
+}
+
 void test_boolean_happy(void)
 {
     mps_shdict_t *dict = open_shdict();
@@ -480,6 +500,7 @@ int main(void)
 {
     UNITY_BEGIN();
     RUN_TEST(test_incr_happy);
+    RUN_TEST(test_incr_not_found);
     RUN_TEST(test_boolean_happy);
     RUN_TEST(test_number_happy);
     RUN_TEST(test_string_happy);
