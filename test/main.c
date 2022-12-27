@@ -71,16 +71,16 @@ void test_incr_happy(void)
 {
     mps_shdict_t *dict = open_shdict();
 
-    const char *key = "key1";
-    size_t key_len = strlen(key);
+    const u_char *key = (const u_char *)"key1";
+    size_t key_len = strlen((const char *)key);
     double value = 1;
     char *err = NULL;
     int has_init = 1;
     double init = 0;
     long init_ttl = 1;
     int forcible = 0;
-    int rc = mps_shdict_incr(dict, (const u_char *)key, key_len, &value, &err,
-                             has_init, init, init_ttl, &forcible);
+    int rc = mps_shdict_incr(dict, key, key_len, &value, &err, has_init, init,
+                             init_ttl, &forcible);
     TEST_ASSERT_EQUAL_INT(0, rc);
     TEST_ASSERT_EQUAL_DOUBLE(1, value);
 
@@ -88,8 +88,8 @@ void test_incr_happy(void)
     TEST_ASSERT_EQUAL_INT64(init_ttl, got_ttl_ms);
 
     long init_ttl2 = 10;
-    rc = mps_shdict_incr(dict, (const u_char *)key, key_len, &value, &err,
-                         has_init, init, init_ttl2, &forcible);
+    rc = mps_shdict_incr(dict, key, key_len, &value, &err, has_init, init,
+                         init_ttl2, &forcible);
     TEST_ASSERT_EQUAL_INT(0, rc);
     TEST_ASSERT_EQUAL_DOUBLE(2, value);
 
@@ -101,8 +101,8 @@ void test_incr_happy(void)
     init_ttl = 0;
     forcible = -1;
     value = 1;
-    rc = mps_shdict_incr(dict, (const u_char *)key, key_len, &value, &err,
-                         has_init, init, init_ttl, &forcible);
+    rc = mps_shdict_incr(dict, key, key_len, &value, &err, has_init, init,
+                         init_ttl, &forcible);
     TEST_ASSERT_EQUAL_INT(0, rc);
     TEST_ASSERT_EQUAL_DOUBLE(1, value);
     TEST_ASSERT_EQUAL_INT(0, forcible);
@@ -130,7 +130,7 @@ void test_incr_not_found(void)
     mps_shdict_close(dict);
 }
 
-void test_incr_reuse_expired(void)
+void test_incr_reuse_expired_number(void)
 {
     mps_shdict_t *dict = open_shdict();
 
@@ -162,6 +162,41 @@ void test_incr_reuse_expired(void)
     init = 1;
     value = 3;
     rc = mps_shdict_incr(dict, key2, key2_len, &value, &err, has_init, init,
+                         init_ttl, &forcible);
+    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_DOUBLE(3 + 1, value);
+    TEST_ASSERT_EQUAL_INT(0, forcible);
+
+    mps_shdict_close(dict);
+}
+
+void test_incr_reuse_expired_boolean(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const u_char *key2 = (const u_char *)"key2";
+    size_t key2_len = strlen((const char *)key2);
+    int user_flags = 0, forcible = 0;
+    char *err = NULL;
+    double num_value = 1;
+    long exptime = 0;
+    int rc = mps_shdict_set(dict, key2, key2_len, MPS_SHDICT_TBOOLEAN, NULL, 0,
+                            num_value, exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(0, rc);
+
+    const u_char *key1 = (const u_char *)"key1";
+    size_t key1_len = strlen((const char *)key1);
+    exptime = 1;
+    rc = mps_shdict_set(dict, key1, key1_len, MPS_SHDICT_TBOOLEAN, NULL, 0,
+                        num_value, exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(0, rc);
+
+    sleep_ms(2);
+
+    forcible = -1;
+    int has_init = 1, init_ttl = 0;
+    double value = 3, init = 1;
+    rc = mps_shdict_incr(dict, key1, key1_len, &value, &err, has_init, init,
                          init_ttl, &forcible);
     TEST_ASSERT_EQUAL_INT(0, rc);
     TEST_ASSERT_EQUAL_DOUBLE(3 + 1, value);
@@ -541,7 +576,8 @@ int main(void)
     UNITY_BEGIN();
     RUN_TEST(test_incr_happy);
     RUN_TEST(test_incr_not_found);
-    RUN_TEST(test_incr_reuse_expired);
+    RUN_TEST(test_incr_reuse_expired_number);
+    RUN_TEST(test_incr_reuse_expired_boolean);
     RUN_TEST(test_boolean_happy);
     RUN_TEST(test_number_happy);
     RUN_TEST(test_string_happy);
