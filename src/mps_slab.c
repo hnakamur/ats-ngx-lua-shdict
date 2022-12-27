@@ -960,7 +960,7 @@ static mps_slab_page_t *mps_slab_alloc_pages(mps_slab_pool_t *pool,
         }
     }
 
-    TSFatal("mps_slab_free_locked: pool=%p: no memory", pool);
+    TSFatal("mps_slab_alloc_pages: pool=%p: no memory", pool);
 
     return NULL;
 }
