@@ -376,6 +376,7 @@ static int mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_tree_t *tree,
     mps_shdict_list_node_t *lnode;
 
     now = mps_clock_time_ms();
+    TSDebug(MPS_LOG_TAG, "expire start, n=%d, now=%" PRId64, n, now);
 
     /*
      * n == 1 deletes one or two expired entries
@@ -392,6 +393,9 @@ static int mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_tree_t *tree,
         q = mps_queue_last(pool, &tree->lru_queue);
 
         sd = mps_queue_data(q, mps_shdict_node_t, queue);
+        TSDebug(MPS_LOG_TAG,
+                "expire, n=%d, key=" LogLenStr ", expires=%" PRId64, n,
+                (int)sd->key_len, sd->data, sd->expires);
 
         if (n++ != 0) {
 
