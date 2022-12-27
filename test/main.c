@@ -77,23 +77,35 @@ void test_incr_happy(void)
     char *err = NULL;
     int has_init = 1;
     double init = 0;
-    long init_ttl = 0;
+    long init_ttl = 1;
     int forcible = 0;
     int rc = mps_shdict_incr(dict, (const u_char *)key, key_len, &value, &err,
                              has_init, init, init_ttl, &forcible);
     TEST_ASSERT_EQUAL_INT(0, rc);
     TEST_ASSERT_EQUAL_DOUBLE(1, value);
 
+    long got_ttl_ms = mps_shdict_get_ttl(dict, key, key_len);
+    TEST_ASSERT_EQUAL_INT64(init_ttl, got_ttl_ms);
+
+    long init_ttl2 = 10;
     rc = mps_shdict_incr(dict, (const u_char *)key, key_len, &value, &err,
-                         has_init, init, init_ttl, &forcible);
+                         has_init, init, init_ttl2, &forcible);
     TEST_ASSERT_EQUAL_INT(0, rc);
     TEST_ASSERT_EQUAL_DOUBLE(2, value);
 
+    got_ttl_ms = mps_shdict_get_ttl(dict, key, key_len);
+    TEST_ASSERT_EQUAL_INT64(init_ttl, got_ttl_ms);
+
+    sleep_ms(2);
+
+    init_ttl = 0;
+    forcible = -1;
     value = 1;
     rc = mps_shdict_incr(dict, (const u_char *)key, key_len, &value, &err,
                          has_init, init, init_ttl, &forcible);
     TEST_ASSERT_EQUAL_INT(0, rc);
-    TEST_ASSERT_EQUAL_DOUBLE(3, value);
+    TEST_ASSERT_EQUAL_DOUBLE(1, value);
+    TEST_ASSERT_EQUAL_INT(0, forcible);
 
     mps_shdict_close(dict);
 }
