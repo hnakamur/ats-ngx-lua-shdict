@@ -434,11 +434,11 @@ void *mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
 
         page = mps_slab_alloc_pages(pool, (size >> mps_pagesize_shift) +
                                               ((size % mps_pagesize) ? 1 : 0));
-        if (page != mps_nullptr(pool)) {
+        if (page != NULL) {
             p = mps_slab_page_addr(pool, page);
 
         } else {
-            p = (uintptr_t)mps_nullptr(pool);
+            p = 0;
         }
 
         goto done;
@@ -613,7 +613,7 @@ void *mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
     TSDebug(MPS_LOG_TAG, "alloced 1 page=%p, shift=%d, exact_shift=%d", page,
             shift, mps_slab_exact_shift);
 
-    if (page != mps_nullptr(pool)) {
+    if (page != NULL) {
         if (shift < mps_slab_exact_shift) {
             bitmap = (uintptr_t *)mps_slab_page_addr(pool, page);
             TSDebug(MPS_LOG_TAG, "alloced 1 page=%p, small, bitmap=%p", bitmap);
@@ -696,7 +696,7 @@ void *mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
         }
     }
 
-    p = (uintptr_t)mps_nullptr(pool);
+    p = 0;
 
     mps_pool_stats(pool)[slot].fails++;
 
@@ -725,7 +725,7 @@ void *mps_slab_calloc_locked(mps_slab_pool_t *pool, size_t size)
     void *p;
 
     p = mps_slab_alloc_locked(pool, size);
-    if (p != mps_nullptr(pool)) {
+    if (p != NULL) {
         ngx_memzero(p, size);
     }
 
@@ -1024,7 +1024,7 @@ static mps_slab_page_t *mps_slab_alloc_pages(mps_slab_pool_t *pool,
         TSFatal("mps_slab_alloc_pages: pool=%p: no memory", pool);
     }
 
-    return mps_nullptr(pool);
+    return NULL;
 }
 
 static void mps_slab_free_pages(mps_slab_pool_t *pool, mps_slab_page_t *page,

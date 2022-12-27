@@ -366,7 +366,7 @@ static ngx_int_t mps_shdict_lookup(mps_slab_pool_t *pool, ngx_uint_t hash,
         node = mps_rbtree_node(pool, (rc < 0) ? node->left : node->right);
     }
 
-    *sdp = mps_nullptr(pool);
+    *sdp = NULL;
 
     return NGX_DECLINED;
 }
@@ -648,7 +648,7 @@ insert:
 
     node = mps_slab_alloc_locked(pool, n);
 
-    if (node == mps_nullptr(pool)) {
+    if (node == NULL) {
 
         if (op & MPS_SHDICT_SAFE_STORE) {
             mps_slab_unlock(pool);
@@ -670,7 +670,7 @@ insert:
             *forcible = 1;
 
             node = mps_slab_alloc_locked(pool, n);
-            if (node != mps_nullptr(pool)) {
+            if (node != NULL) {
                 goto allocated;
             }
         }
@@ -1049,7 +1049,7 @@ insert:
     TSDebug(MPS_LOG_TAG, "mps_shdict_incr after verify after alloc node "
                          "----------------------");
 
-    if (node == mps_nullptr(pool)) {
+    if (node == NULL) {
 
         TSDebug(MPS_LOG_TAG,
                 "lua shared dict incr in dict \"" LogLenStr
@@ -1066,7 +1066,7 @@ insert:
             *forcible = 1;
 
             node = mps_slab_alloc_locked(pool, n);
-            if (node != mps_nullptr(pool)) {
+            if (node != NULL) {
                 goto allocated;
             }
         }
@@ -1189,7 +1189,7 @@ static ngx_int_t mps_shdict_peek(mps_slab_pool_t *pool, ngx_uint_t hash,
         node = mps_rbtree_node(pool, (rc < 0) ? node->left : node->right);
     }
 
-    *sdp = mps_nullptr(pool);
+    *sdp = NULL;
 
     return NGX_DECLINED;
 }
