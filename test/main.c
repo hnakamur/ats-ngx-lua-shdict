@@ -28,6 +28,13 @@ static mps_shdict_t *open_shdict()
     return mps_shdict_open_or_create(DICT_NAME, DICT_SIZE, S_IRUSR | S_IWUSR);
 }
 
+void delete_shm_file(const char *name)
+{
+    if (unlink(name) == -1 && errno != ENOENT) {
+        fprintf(stderr, "unlink shm file: %s\n", strerror(errno));
+    }
+}
+
 static void sleep_ms(size_t msec)
 {
     struct timespec ts;
@@ -46,9 +53,7 @@ void setUp(void)
 
 void tearDown(void)
 {
-    if (unlink(SHM_PATH) == -1) {
-        fprintf(stderr, "unlink shm file: %s\n", strerror(errno));
-    }
+    delete_shm_file(SHM_PATH);
 }
 
 void test_capacity(void)
@@ -1026,6 +1031,9 @@ void test_memn2cmp(void)
         1, ngx_memn2cmp((const u_char *)"foobar", (const u_char *)"foo", 6, 3));
 }
 
+extern void test_slab_calloc_one_byte(void);
+extern void test_slab_open_existing(void);
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -1059,5 +1067,8 @@ int main(void)
     RUN_TEST(test_set_expire_no_mem);
     RUN_TEST(test_memn2cmp);
     RUN_TEST(test_safe_set_no_key_no_mem);
+
+    RUN_TEST(test_slab_calloc_one_byte);
+    RUN_TEST(test_slab_open_existing);
     return UNITY_END();
 }

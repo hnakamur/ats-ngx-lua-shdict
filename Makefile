@@ -66,7 +66,8 @@ MPS_TEST_OBJS = objs/test/ngx_murmurhash.o \
                 objs/test/mps_slab.o \
                 objs/test/ngx_string.o \
                 objs/test/tslog_stderr.o \
-				objs/test/unity.o
+				objs/test/unity.o \
+				objs/test/slab.o
 
 SHLIBS = objs/libmps_ats_shdict.so \
          objs/libmps_ngx_shdict.so
@@ -142,6 +143,10 @@ objs/ngx/mps_slab.o:	src/mps_slab.c $(MPS_DEPS)
 	$(CC) -c $(NGX_CFLAGS) -o $@ $<
 
 # build MPS_TEST_OBJS
+
+objs/test/slab.o:	test/slab.c $(MPS_DEPS)
+	@mkdir -p objs/test
+	$(CC) -c $(TEST_CFLAGS) -o $@ $<
 
 objs/test/ngx_murmurhash.o:	src/ngx_murmurhash.c $(MPS_DEPS)
 	@mkdir -p objs/test
