@@ -43,7 +43,7 @@ void mps_rbtree_init(mps_slab_pool_t *pool, mps_rbtree_t *tree,
     tree->sentinel = mps_offset(pool, sentinel);
     tree->insert = insert_type_id;
     TSDebug(MPS_LOG_TAG,
-            "mps_rbtree_init, tree=%p, root_off=0x%0x, sentinel=%p, insert=%d",
+            "mps_rbtree_init, tree=%p, root_off=0x%lx, sentinel=%p, insert=%ld",
             tree, tree->root, sentinel, tree->insert);
 }
 
@@ -132,9 +132,10 @@ void mps_rbtree_insert(mps_slab_pool_t *pool, mps_rbtree_t *tree,
     }
 
     ngx_rbt_black(mps_rbtree_node(pool, *root));
-    TSDebug(MPS_LOG_TAG,
-            "mps_rbtree_insert exiting, node2=%x, left=%x, right=%x, parent=%x",
-            mps_offset(pool, node2), node2->left, node2->right, node2->parent);
+    TSDebug(
+        MPS_LOG_TAG,
+        "mps_rbtree_insert exiting, node2=%lx, left=%lx, right=%lx, parent=%lx",
+        mps_offset(pool, node2), node2->left, node2->right, node2->parent);
 }
 
 void mps_rbtree_insert_value(mps_slab_pool_t *pool, mps_rbtree_node_t *temp,

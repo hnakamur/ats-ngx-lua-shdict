@@ -90,15 +90,15 @@ static ngx_inline mps_rbtree_node_t *mps_rbtree_min(mps_slab_pool_t *pool,
                                                     mps_rbtree_node_t *node,
                                                     mps_ptroff_t sentinel)
 {
-    TSDebug(MPS_LOG_TAG, "mps_rbtree_min, node_off=%x, left=%x, sentinel=%x",
+    TSDebug(MPS_LOG_TAG, "mps_rbtree_min, node_off=%lx, left=%lx, sentinel=%lx",
             mps_offset(pool, node), node->left, sentinel);
     while (node->left != sentinel) {
         node = mps_rbtree_node(pool, node->left);
-        TSDebug(MPS_LOG_TAG, "mps_rbtree_min, updated node_off=%x",
+        TSDebug(MPS_LOG_TAG, "mps_rbtree_min, updated node_off=%lx",
                 mps_offset(pool, node));
     }
 
-    TSDebug(MPS_LOG_TAG, "mps_rbtree_min, return node_off=%x",
+    TSDebug(MPS_LOG_TAG, "mps_rbtree_min, return node_off=%lx",
             mps_offset(pool, node));
     return node;
 }

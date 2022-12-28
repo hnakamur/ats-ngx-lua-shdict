@@ -160,15 +160,15 @@ void mps_shdict_rbtree_insert_value(mps_slab_pool_t *pool,
 
     *p = mps_offset(pool, node);
     TSDebug(MPS_LOG_TAG,
-            "shdict_insert_val, updated temp=%x, *p=%x, temp->%s=%x",
+            "shdict_insert_val, updated temp=%lx, *p=%lx, temp->%s=%lx",
             mps_offset(pool, temp), *p, (p == &temp->left ? "left" : "right"),
             (p == &temp->left ? temp->left : temp->right));
     node->parent = mps_offset(pool, temp);
     node->left = s;
     node->right = s;
     TSDebug(MPS_LOG_TAG,
-            "shdict_insert_val, inserted node parent=%x, node=%x, left=%x, "
-            "right=%x",
+            "shdict_insert_val, inserted node parent=%lx, node=%lx, left=%lx, "
+            "right=%lx",
             node->parent, mps_offset(pool, node), node->left, node->right);
     ngx_rbt_red(node);
 }
@@ -304,7 +304,7 @@ void mps_shdict_close(mps_shdict_t *dict)
 
     mps_slab_close(dict->pool, dict->size);
 
-    TSDebug(MPS_LOG_TAG, "mps_shdict_close, after close, dicts_count=%ld",
+    TSDebug(MPS_LOG_TAG, "mps_shdict_close, after close, dicts_count=%d",
             dicts_count);
 
     dict_name_data = dict->name.data;
@@ -414,7 +414,7 @@ static int mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_tree_t *tree,
     mps_shdict_list_node_t *lnode;
 
     now = mps_clock_time_ms();
-    TSDebug(MPS_LOG_TAG, "expire start, n=%d, now=%" PRId64, n, now);
+    TSDebug(MPS_LOG_TAG, "expire start, n=%" PRId64 ", now=%" PRId64, n, now);
 
     /*
      * n == 1 deletes one or two expired entries
@@ -434,7 +434,7 @@ static int mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_tree_t *tree,
 
         sd = mps_queue_data(q, mps_shdict_node_t, queue);
         TSDebug(MPS_LOG_TAG,
-                "expire, n=%d, key=" LogLenStr ", expires=%" PRId64, n,
+                "expire, n=%" PRId64 ", key=" LogLenStr ", expires=%" PRId64, n,
                 (int)sd->key_len, sd->data, sd->expires);
 
         if (n++ != 0) {
@@ -466,7 +466,7 @@ static int mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_tree_t *tree,
         node = (mps_rbtree_node_t *)((u_char *)sd -
                                      offsetof(mps_rbtree_node_t, color));
         TSDebug(MPS_LOG_TAG,
-                "expire, calling rbtree_delete, node=%p, node_off=%x", node,
+                "expire, calling rbtree_delete, node=%p, node_off=%lx", node,
                 mps_offset(pool, node));
 
         mps_rbtree_delete(pool, &tree->rbtree, node);
@@ -670,8 +670,8 @@ insert:
     n = offsetof(mps_rbtree_node_t, color) + offsetof(mps_shdict_node_t, data) +
         key_len + str_value_len;
     TSDebug(MPS_LOG_TAG,
-            "store allocating node size=%d, off1=%d, off2=%d, key_len=%d, "
-            "value_len=%d",
+            "store allocating node size=%d, off1=%ld, off2=%ld, key_len=%ld, "
+            "value_len=%ld",
             n, offsetof(mps_rbtree_node_t, color),
             offsetof(mps_shdict_node_t, data), key_len, str_value_len);
 
@@ -1019,10 +1019,10 @@ int mps_shdict_incr(mps_shdict_t *dict, const u_char *key, size_t key_len,
     {
         node = (mps_rbtree_node_t *)((u_char *)sd -
                                      offsetof(mps_rbtree_node_t, color));
-        TSStatus(
-            "incr updated value#1=%g, node=%x, left=%x, right=%x, parent=%x",
-            *value, mps_offset(pool, node), node->left, node->right,
-            node->parent);
+        TSStatus("incr updated value#1=%g, node=%lx, left=%lx, right=%lx, "
+                 "parent=%lx",
+                 *value, mps_offset(pool, node), node->left, node->right,
+                 node->parent);
     }
     return NGX_OK;
 
@@ -1065,7 +1065,7 @@ insert:
         key_len + sizeof(double);
 
     node = mps_slab_alloc_locked(pool, n);
-    TSStatus("incr allocated node=%x", mps_offset(pool, node));
+    TSStatus("incr allocated node=%lx", mps_offset(pool, node));
 
     if (node == NULL) {
 
@@ -1133,10 +1133,10 @@ setvalue:
     {
         node = (mps_rbtree_node_t *)((u_char *)sd -
                                      offsetof(mps_rbtree_node_t, color));
-        TSStatus(
-            "incr updated value#2=%g, node=%x, left=%x, right=%x, parent=%x",
-            *value, mps_offset(pool, node), node->left, node->right,
-            node->parent);
+        TSStatus("incr updated value#2=%g, node=%lx, left=%lx, right=%lx, "
+                 "parent=%lx",
+                 *value, mps_offset(pool, node), node->left, node->right,
+                 node->parent);
     }
     return NGX_OK;
 }
