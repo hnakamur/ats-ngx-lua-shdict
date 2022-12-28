@@ -167,9 +167,9 @@ void mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
     pool->min_shift = 3;
     TSDebug(MPS_LOG_TAG,
             "mps_slab_init pool->end=%x, pool_t_size=%x, stat_t_size=%x, "
-            "page_t_size=%x",
+            "page_t_size=%x, pool_ptr=%p, end_ptr=%p",
             pool->end, sizeof(mps_slab_pool_t), sizeof(mps_slab_stat_t),
-            sizeof(mps_slab_page_t));
+            sizeof(mps_slab_page_t), pool, mps_ptr(pool, pool->end));
 
     pool->min_size = (size_t)1 << pool->min_shift;
 

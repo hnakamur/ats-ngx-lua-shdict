@@ -997,6 +997,25 @@ void test_flush_all(void)
     mps_shdict_close(dict);
 }
 
+void test_open_multi(void)
+{
+    mps_shdict_t *dict1 =
+        mps_shdict_open_or_create(DICT_NAME, DICT_SIZE, S_IRUSR | S_IWUSR);
+    fprintf(stderr, "dict1=%p\n", dict1);
+    mps_shdict_t *dict2 =
+        mps_shdict_open_or_create("test_dict2", DICT_SIZE, S_IRUSR | S_IWUSR);
+    fprintf(stderr, "dict2=%p\n", dict2);
+    mps_shdict_close(dict2);
+    mps_shdict_close(dict1);
+
+    // It is OK to close twice.
+    mps_shdict_close(dict1);
+
+    if (unlink("/dev/shm/test_dict2") == -1) {
+        fprintf(stderr, "unlink shm file: %s\n", strerror(errno));
+    }
+}
+
 void test_memn2cmp(void)
 {
     TEST_ASSERT_EQUAL_INT(-1, ngx_memn2cmp((const u_char *)"foo",
@@ -1010,6 +1029,7 @@ void test_memn2cmp(void)
 int main(void)
 {
     UNITY_BEGIN();
+    RUN_TEST(test_open_multi);
     RUN_TEST(test_add_exists);
     RUN_TEST(test_add_expired);
     RUN_TEST(test_nil_add);
