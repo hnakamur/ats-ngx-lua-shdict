@@ -12,21 +12,26 @@
 #endif
 #endif
 
-tsapi void TSStatus(const char *fmt, ...)
-    TS_PRINTFLIKE(1, 2); // Log information
-tsapi void TSNote(const char *fmt, ...)
-    TS_PRINTFLIKE(1, 2); // Log significant information
-tsapi void TSWarning(const char *fmt, ...)
-    TS_PRINTFLIKE(1, 2); // Log concerning information
-tsapi void TSError(const char *fmt, ...)
-    TS_PRINTFLIKE(1, 2); // Log operational failure, fail CI
-tsapi void TSFatal(const char *fmt, ...)
-    TS_PRINTFLIKE(1, 2); // Log recoverable crash, fail CI, exit & restart
-tsapi void TSAlert(const char *fmt, ...) TS_PRINTFLIKE(
-    1, 2); // Log recoverable crash, fail CI, exit & restart, Ops attention
-tsapi void TSEmergency(const char *fmt, ...)
-    TS_PRINTFLIKE(1,
-                  2); // Log unrecoverable crash, fail CI, exit, Ops attention
+// Log information
+tsapi void TSStatus(const char *fmt, ...) TS_PRINTFLIKE(1, 2);
+
+// Log significant information
+tsapi void TSNote(const char *fmt, ...) TS_PRINTFLIKE(1, 2);
+
+// Log concerning information
+tsapi void TSWarning(const char *fmt, ...) TS_PRINTFLIKE(1, 2);
+
+// Log operational failure, fail CI
+tsapi void TSError(const char *fmt, ...) TS_PRINTFLIKE(1, 2);
+
+// Log recoverable crash, fail CI, exit & restart
+tsapi void TSFatal(const char *fmt, ...) TS_PRINTFLIKE(1, 2);
+
+// Log recoverable crash, fail CI, exit & restart, Ops attention
+tsapi void TSAlert(const char *fmt, ...) TS_PRINTFLIKE(1, 2);
+
+// Log unrecoverable crash, fail CI, exit, Ops attention
+tsapi void TSEmergency(const char *fmt, ...) TS_PRINTFLIKE(1, 2);
 
 tsapi int TSIsDebugTagSet(const char *t);
 tsapi void TSDebug(const char *tag, const char *format_str, ...)
