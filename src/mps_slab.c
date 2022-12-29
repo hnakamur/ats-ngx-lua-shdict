@@ -167,10 +167,12 @@ static void mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size,
     pool->end = pool_size;
     pool->min_shift = min_shift;
     TSDebug(MPS_LOG_TAG,
-            "mps_slab_init pool->end=%lx, pool_t_size=%lx, stat_t_size=%lx, "
+            "mps_slab_init pool->end=%lx, min_shift=%ld, pool_t_size=%lx, "
+            "stat_t_size=%lx, "
             "page_t_size=%lx, pool_ptr=%p, end_ptr=%p",
-            pool->end, sizeof(mps_slab_pool_t), sizeof(mps_slab_stat_t),
-            sizeof(mps_slab_page_t), pool, mps_ptr(pool, pool->end));
+            pool->end, min_shift, sizeof(mps_slab_pool_t),
+            sizeof(mps_slab_stat_t), sizeof(mps_slab_page_t), pool,
+            mps_ptr(pool, pool->end));
 
     pool->min_size = (size_t)1 << pool->min_shift;
 
@@ -502,6 +504,15 @@ void *mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
             bitmap = (uintptr_t *)mps_slab_page_addr(pool, page);
 
             map = (mps_pagesize >> shift) / (8 * sizeof(uintptr_t));
+            TSDebug(
+                MPS_LOG_TAG,
+                "mps_slab_alloc_locked: shift=%ld < exact_shift=%ld, map=%ld",
+                shift, mps_slab_exact_shift, map);
+            for (n = 0; n < map; n++) {
+                TSDebug(MPS_LOG_TAG,
+                        "mps_slab_alloc_locked: bitmap[%d]=%lx, busy=%d", n,
+                        bitmap[n], bitmap[n] == MPS_SLAB_BUSY);
+            }
 
             for (n = 0; n < map; n++) {
 
@@ -515,12 +526,20 @@ void *mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
                         bitmap[n] |= m;
 
                         i = (n * 8 * sizeof(uintptr_t) + i) << shift;
+                        TSDebug(MPS_LOG_TAG,
+                                "mps_slab_alloc_locked: bitmap[%d]=%lx, m=%lx, "
+                                "i=%d",
+                                n, bitmap[n], m, i);
 
                         p = (uintptr_t)bitmap + i;
 
                         mps_pool_stats(pool)[slot].used++;
 
                         if (bitmap[n] == MPS_SLAB_BUSY) {
+                            TSDebug(MPS_LOG_TAG,
+                                    "mps_slab_alloc_locked: n=%ld, map=%ld", n,
+                                    map);
+
                             for (n = n + 1; n < map; n++) {
                                 if (bitmap[n] != MPS_SLAB_BUSY) {
                                     goto done;

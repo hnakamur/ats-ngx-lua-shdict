@@ -49,10 +49,13 @@ void test_slab_alloc_32_bytes(void)
                                 S_IRUSR | S_IWUSR, slab_on_init);
     TEST_ASSERT_NOT_NULL(pool);
 
-    void *p = mps_slab_alloc(pool, 32);
-    TEST_ASSERT_NOT_NULL(p);
+    void *p1 = mps_slab_alloc(pool, 32);
+    TEST_ASSERT_NOT_NULL(p1);
 
-    mps_slab_free(pool, p);
+    void *p2 = mps_slab_alloc(pool, 32);
+    TEST_ASSERT_NOT_NULL(p2);
+
+    mps_slab_free(pool, p1);
 
     mps_slab_close(pool, SHM_SIZE);
     delete_shm_file("/dev/shm" SHM_NAME);
@@ -65,10 +68,13 @@ void test_slab_alloc_64_bytes(void)
                                 S_IRUSR | S_IWUSR, slab_on_init);
     TEST_ASSERT_NOT_NULL(pool);
 
-    void *p = mps_slab_alloc(pool, 64);
-    TEST_ASSERT_NOT_NULL(p);
+    void *p1 = mps_slab_alloc(pool, 64);
+    TEST_ASSERT_NOT_NULL(p1);
 
-    mps_slab_free(pool, p);
+    void *p2 = mps_slab_alloc(pool, 64);
+    TEST_ASSERT_NOT_NULL(p2);
+
+    mps_slab_free(pool, p1);
 
     mps_slab_close(pool, SHM_SIZE);
     delete_shm_file("/dev/shm" SHM_NAME);
