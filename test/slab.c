@@ -141,14 +141,22 @@ void test_slab_alloc_big(void)
 void test_slab_alloc_two_pages(void)
 {
     mps_slab_pool_t *pool =
-        mps_slab_open_or_create(SHM_NAME, 4096 * 4, MPS_SLAB_DEFAULT_MIN_SHIFT,
+        mps_slab_open_or_create(SHM_NAME, 4096 * 20, MPS_SLAB_DEFAULT_MIN_SHIFT,
                                 S_IRUSR | S_IWUSR, slab_on_init);
     TEST_ASSERT_NOT_NULL(pool);
 
-    void *p = mps_slab_alloc(pool, 4096 * 2);
-    TEST_ASSERT_NOT_NULL(p);
+    int alloc_size = 4096 * 2;
 
-    mps_slab_free(pool, p);
+    void *p = mps_slab_alloc(pool, alloc_size);
+    TEST_ASSERT_NOT_NULL(p);
+    for (int i = 1; i < 4; i++) {
+        void *p2 = mps_slab_alloc(pool, alloc_size);
+        TEST_ASSERT_NOT_NULL(p2);
+    }
+
+    for (int i = 0; i < 4; i++) {
+        mps_slab_free(pool, (u_char *)p + i * alloc_size);
+    }
 
     mps_slab_close(pool, SHM_SIZE);
     delete_shm_file("/dev/shm" SHM_NAME);
