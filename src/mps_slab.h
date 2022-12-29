@@ -60,8 +60,10 @@ typedef struct {
 
 typedef void (*mps_slab_on_init_pt)(mps_slab_pool_t *pool);
 
+#define MPS_SLAB_DEFAULT_MIN_SHIFT 3
+
 mps_slab_pool_t *mps_slab_open_or_create(const char *shm_name, size_t shm_size,
-                                         mode_t mode,
+                                         size_t min_shift, mode_t mode,
                                          mps_slab_on_init_pt on_init);
 void mps_slab_close(mps_slab_pool_t *pool, size_t shm_size);
 

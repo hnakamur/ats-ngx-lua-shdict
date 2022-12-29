@@ -1,7 +1,7 @@
 
 local ffi = require "ffi"
 local C = ffi.C
-local S = ffi.load("mps_test_shdict")
+local S = ffi.load("mps_stderr_shdict")
 
 local str_buf_size = 4096
 local str_buf
@@ -115,7 +115,7 @@ ffi.cdef[[
     } mps_shdict_t;
 
     mps_shdict_t *mps_shdict_open_or_create(const char *dict_name,
-        size_t shm_size, mode_t mode);
+        size_t shm_size, size_t min_shift, mode_t mode);
 
     void mps_shdict_close(mps_shdict_t *dict);
 
@@ -474,8 +474,15 @@ end
 
 ffi.metatype('mps_shdict_t', metatable)
 
+local MPS_SLAB_DEFAULT_MIN_SHIFT = 3
+
+local function open_or_create(dict_name, shm_size, mode)
+    return S.mps_shdict_open_or_create(dict_name, shm_size,
+        MPS_SLAB_DEFAULT_MIN_SHIFT, mode)
+end
+
 return {
-    open_or_create = S.mps_shdict_open_or_create,
+    open_or_create = open_or_create,
     S_IRUSR = 0x100,
     S_IWUSR = 0x080,
     S_IRGRP = 0x020,

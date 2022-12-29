@@ -195,7 +195,7 @@ static void mps_shdict_on_init(mps_slab_pool_t *pool)
 }
 
 mps_shdict_t *mps_shdict_open_or_create(const char *dict_name, size_t shm_size,
-                                        mode_t mode)
+                                        size_t min_shift, mode_t mode)
 {
     int rc;
     mps_shdict_t *dict, *new_dicts;
@@ -234,8 +234,8 @@ mps_shdict_t *mps_shdict_open_or_create(const char *dict_name, size_t shm_size,
                          dict_name_len);
     *p = '\0';
 
-    pool =
-        mps_slab_open_or_create(shm_name, shm_size, mode, mps_shdict_on_init);
+    pool = mps_slab_open_or_create(shm_name, shm_size, min_shift, mode,
+                                   mps_shdict_on_init);
     TSStatus("mps_shdict_open_or_create name=%s, pool=%p", dict_name, pool);
     if (pool == NULL) {
         pthread_mutex_unlock(&dicts_lock);

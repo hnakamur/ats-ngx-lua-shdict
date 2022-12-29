@@ -25,7 +25,8 @@ static void verify_shm_not_exist(const char *pathname)
 
 static mps_shdict_t *open_shdict()
 {
-    return mps_shdict_open_or_create(DICT_NAME, DICT_SIZE, S_IRUSR | S_IWUSR);
+    return mps_shdict_open_or_create(
+        DICT_NAME, DICT_SIZE, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR);
 }
 
 void delete_shm_file(const char *name)
@@ -1004,11 +1005,11 @@ void test_flush_all(void)
 
 void test_open_multi(void)
 {
-    mps_shdict_t *dict1 =
-        mps_shdict_open_or_create(DICT_NAME, DICT_SIZE, S_IRUSR | S_IWUSR);
+    mps_shdict_t *dict1 = mps_shdict_open_or_create(
+        DICT_NAME, DICT_SIZE, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR);
     fprintf(stderr, "dict1=%p\n", dict1);
-    mps_shdict_t *dict2 =
-        mps_shdict_open_or_create("test_dict2", DICT_SIZE, S_IRUSR | S_IWUSR);
+    mps_shdict_t *dict2 = mps_shdict_open_or_create(
+        "test_dict2", DICT_SIZE, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR);
     fprintf(stderr, "dict2=%p\n", dict2);
     mps_shdict_close(dict2);
     mps_shdict_close(dict1);

@@ -13,8 +13,9 @@ static void slab_on_init(mps_slab_pool_t *pool)
 
 void test_slab_calloc_one_byte(void)
 {
-    mps_slab_pool_t *pool = mps_slab_open_or_create(
-        SHM_NAME, SHM_SIZE, S_IRUSR | S_IWUSR, slab_on_init);
+    mps_slab_pool_t *pool =
+        mps_slab_open_or_create(SHM_NAME, SHM_SIZE, MPS_SLAB_DEFAULT_MIN_SHIFT,
+                                S_IRUSR | S_IWUSR, slab_on_init);
     TEST_ASSERT_NOT_NULL(pool);
 
     void *p = mps_slab_calloc(pool, 1);
@@ -28,8 +29,9 @@ void test_slab_calloc_one_byte(void)
 
 void test_slab_alloc_32_bytes(void)
 {
-    mps_slab_pool_t *pool = mps_slab_open_or_create(
-        SHM_NAME, SHM_SIZE, S_IRUSR | S_IWUSR, slab_on_init);
+    mps_slab_pool_t *pool =
+        mps_slab_open_or_create(SHM_NAME, SHM_SIZE, MPS_SLAB_DEFAULT_MIN_SHIFT,
+                                S_IRUSR | S_IWUSR, slab_on_init);
     TEST_ASSERT_NOT_NULL(pool);
 
     void *p = mps_slab_alloc(pool, 32);
@@ -43,8 +45,9 @@ void test_slab_alloc_32_bytes(void)
 
 void test_slab_alloc_64_bytes(void)
 {
-    mps_slab_pool_t *pool = mps_slab_open_or_create(
-        SHM_NAME, SHM_SIZE, S_IRUSR | S_IWUSR, slab_on_init);
+    mps_slab_pool_t *pool =
+        mps_slab_open_or_create(SHM_NAME, SHM_SIZE, MPS_SLAB_DEFAULT_MIN_SHIFT,
+                                S_IRUSR | S_IWUSR, slab_on_init);
     TEST_ASSERT_NOT_NULL(pool);
 
     void *p = mps_slab_alloc(pool, 64);
@@ -58,8 +61,9 @@ void test_slab_alloc_64_bytes(void)
 
 void test_slab_alloc_two_pages(void)
 {
-    mps_slab_pool_t *pool = mps_slab_open_or_create(
-        SHM_NAME, 4096 * 4, S_IRUSR | S_IWUSR, slab_on_init);
+    mps_slab_pool_t *pool =
+        mps_slab_open_or_create(SHM_NAME, 4096 * 4, MPS_SLAB_DEFAULT_MIN_SHIFT,
+                                S_IRUSR | S_IWUSR, slab_on_init);
     TEST_ASSERT_NOT_NULL(pool);
 
     void *p = mps_slab_alloc(pool, 4096 * 2);
@@ -73,12 +77,14 @@ void test_slab_alloc_two_pages(void)
 
 void test_slab_open_existing(void)
 {
-    mps_slab_pool_t *pool1 = mps_slab_open_or_create(
-        SHM_NAME, SHM_SIZE, S_IRUSR | S_IWUSR, slab_on_init);
+    mps_slab_pool_t *pool1 =
+        mps_slab_open_or_create(SHM_NAME, SHM_SIZE, MPS_SLAB_DEFAULT_MIN_SHIFT,
+                                S_IRUSR | S_IWUSR, slab_on_init);
     TEST_ASSERT_NOT_NULL(pool1);
 
-    mps_slab_pool_t *pool2 = mps_slab_open_or_create(
-        SHM_NAME, SHM_SIZE, S_IRUSR | S_IWUSR, slab_on_init);
+    mps_slab_pool_t *pool2 =
+        mps_slab_open_or_create(SHM_NAME, SHM_SIZE, MPS_SLAB_DEFAULT_MIN_SHIFT,
+                                S_IRUSR | S_IWUSR, slab_on_init);
     TEST_ASSERT_NOT_NULL(pool2);
 
     mps_slab_close(pool2, SHM_SIZE);
@@ -98,8 +104,9 @@ static void *thread_start(void *arg)
 
     fprintf(stderr, "thread_start, thread_num=%d\n", tinfo->thread_num);
 
-    mps_slab_pool_t *pool1 = mps_slab_open_or_create(
-        SHM_NAME, SHM_SIZE, S_IRUSR | S_IWUSR, slab_on_init);
+    mps_slab_pool_t *pool1 =
+        mps_slab_open_or_create(SHM_NAME, SHM_SIZE, MPS_SLAB_DEFAULT_MIN_SHIFT,
+                                S_IRUSR | S_IWUSR, slab_on_init);
     fprintf(stderr, "thread_num=%d, pool1=%p\n", tinfo->thread_num, pool1);
     TEST_ASSERT_NOT_NULL(pool1);
 

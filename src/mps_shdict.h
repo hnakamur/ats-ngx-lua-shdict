@@ -60,7 +60,7 @@ enum {
 };
 
 mps_shdict_t *mps_shdict_open_or_create(const char *dict_name, size_t shm_size,
-                                        mode_t mode);
+                                        size_t min_shift, mode_t mode);
 void mps_shdict_close(mps_shdict_t *dict);
 
 /* Unconditionally set the value. */

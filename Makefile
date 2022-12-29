@@ -18,6 +18,8 @@ TEST_LOG_FLAG = -DMPS_LOG_STDERR -DDDEBUG
 
 TEST_CFLAGS = $(TEST_LOG_FLAG) -DUNITY_INCLUDE_DOUBLE -O0 -g3 -Itest/unity $(COV_FLAGS) $(COMMON_CFLAGS)
 
+STDERR_CFLAGS = -DMPS_LOG_STDERR -DDDEBUG -O0 -g3 -fPIC $(COMMON_CFLAGS)
+
 MPS_DEPS = src/mps_core.h \
            src/mps_log.h \
            src/mps_queue.h \
@@ -69,6 +71,13 @@ MPS_TEST_OBJS = objs/test/ngx_murmurhash.o \
 				objs/test/unity.o \
 				objs/test/slab.o
 
+MPS_STDERR_OBJS = objs/stderr/ngx_murmurhash.o \
+                  objs/stderr/mps_rbtree.o \
+                  objs/stderr/mps_shdict.o \
+                  objs/stderr/mps_slab.o \
+                  objs/stderr/ngx_string.o \
+                  objs/stderr/tslog_stderr.o \
+
 SHLIBS = objs/libmps_ats_shdict.so \
          objs/libmps_ngx_shdict.so
 
@@ -78,8 +87,8 @@ install: $(SHLIBS)
 	sudo install $(SHLIBS) /usr/lib/x86_64-linux-gnu/
 	sudo install mps_ats_shdict.lua mps_ngx_shdict.lua /usr/local/share/lua/5.1/
 
-example: objs/libmps_test_shdict.so
-	LD_LIBRARY_PATH=objs luajit mps_test_shdict_ex.lua
+example: objs/libmps_stderr_shdict.so
+	LD_LIBRARY_PATH=objs luajit mps_stderr_shdict_ex.lua
 
 test: objs/shdict_test
 	LLVM_PROFILE_FILE=objs/shdict_test.profraw objs/shdict_test
@@ -103,7 +112,7 @@ objs/libmps_ats_shdict.so: $(MPS_ATS_OBJS)
 objs/libmps_ngx_shdict.so: $(MPS_NGX_OBJS)
 	$(LINK) -o $@ $^ -shared
 
-objs/libmps_test_shdict.so: $(MPS_TEST_OBJS)
+objs/libmps_stderr_shdict.so: $(MPS_STDERR_OBJS)
 	$(LINK) -o $@ $^ -shared
 
 # build MPS_ATS_OBJS
@@ -175,6 +184,32 @@ objs/test/tslog_stderr.o:	src/tslog_stderr.c $(MPS_DEPS)
 objs/test/unity.o:	test/unity/unity.c $(UNITY_DEPS)
 	@mkdir -p objs/test
 	$(CC) -c $(TEST_CFLAGS) -o $@ $<
+
+# build MPS_STDERR_OBJS
+
+objs/stderr/ngx_murmurhash.o:	src/ngx_murmurhash.c $(MPS_DEPS)
+	@mkdir -p objs/stderr
+	$(CC) -c $(STDERR_CFLAGS) -o $@ $<
+
+objs/stderr/mps_rbtree.o:	src/mps_rbtree.c $(MPS_DEPS)	
+	@mkdir -p objs/stderr
+	$(CC) -c $(STDERR_CFLAGS) -o $@ $<
+
+objs/stderr/mps_shdict.o:	src/mps_shdict.c $(MPS_DEPS)
+	@mkdir -p objs/stderr
+	$(CC) -c $(STDERR_CFLAGS) -o $@ $<
+
+objs/stderr/mps_slab.o:	src/mps_slab.c $(MPS_DEPS)
+	@mkdir -p objs/stderr
+	$(CC) -c $(STDERR_CFLAGS) -o $@ $<
+
+objs/stderr/ngx_string.o:	src/ngx_string.c $(MPS_DEPS)
+	@mkdir -p objs/stderr
+	$(CC) -c $(STDERR_CFLAGS) -o $@ $<
+
+objs/stderr/tslog_stderr.o:	src/tslog_stderr.c $(MPS_DEPS)
+	@mkdir -p objs/stderr
+	$(CC) -c $(STDERR_CFLAGS) -o $@ $<
 
 clean:
 	@rm -r objs

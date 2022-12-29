@@ -149,7 +149,8 @@ static mps_err_t mps_slab_init_mutex(mps_slab_pool_t *pool)
     return 0;
 }
 
-void mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
+static void mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size,
+                          size_t min_shift)
 {
     u_char *p, *start;
     size_t size;
@@ -164,7 +165,7 @@ void mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
     }
 
     pool->end = pool_size;
-    pool->min_shift = 3;
+    pool->min_shift = min_shift;
     TSDebug(MPS_LOG_TAG,
             "mps_slab_init pool->end=%lx, pool_t_size=%lx, stat_t_size=%lx, "
             "page_t_size=%lx, pool_ptr=%p, end_ptr=%p",
@@ -256,7 +257,7 @@ void mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size)
 }
 
 static mps_err_t mps_slab_create(mps_slab_pool_t **pool, const char *shm_name,
-                                 size_t shm_size, mode_t mode,
+                                 size_t shm_size, size_t min_shift, mode_t mode,
                                  mps_slab_on_init_pt on_init)
 {
     int fd;
@@ -280,7 +281,7 @@ static mps_err_t mps_slab_create(mps_slab_pool_t **pool, const char *shm_name,
     }
     *pool = (mps_slab_pool_t *)addr;
 
-    mps_slab_init(*pool, (u_char *)addr, shm_size);
+    mps_slab_init(*pool, (u_char *)addr, shm_size, min_shift);
     if (on_init) {
         on_init(*pool);
     }
@@ -332,7 +333,7 @@ static mps_err_t mps_slab_open(mps_slab_pool_t **pool, const char *shm_name,
 }
 
 mps_slab_pool_t *mps_slab_open_or_create(const char *shm_name, size_t shm_size,
-                                         mode_t mode,
+                                         size_t min_shift, mode_t mode,
                                          mps_slab_on_init_pt on_init)
 {
     mps_err_t err = 0;
@@ -354,7 +355,8 @@ mps_slab_pool_t *mps_slab_open_or_create(const char *shm_name, size_t shm_size,
             return NULL;
         }
 
-        err = mps_slab_create(&pool, shm_name, shm_size, mode, on_init);
+        err = mps_slab_create(&pool, shm_name, shm_size, min_shift, mode,
+                              on_init);
         if (err) {
             if (err != EEXIST) {
                 TSError("mps_slab_open_or_create: mps_slab_create: err=%s",
