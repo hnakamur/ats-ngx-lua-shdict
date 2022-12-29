@@ -20,7 +20,22 @@ void test_slab_alloc_one_byte_min_shift_one(void)
     void *p = mps_slab_calloc(pool, 1);
     TEST_ASSERT_NOT_NULL(p);
 
+    int alloc_size = 2;
+    void *p2 = NULL;
+    for (int i = 1; i <= 4096 / alloc_size; i++) {
+        p2 = mps_slab_calloc(pool, 1);
+        TEST_ASSERT_NOT_NULL(p2);
+    }
+
     mps_slab_free(pool, p);
+
+    p = mps_slab_calloc(pool, 1);
+    TEST_ASSERT_NOT_NULL(p);
+
+    for (int i = 0; i <= 4096 / alloc_size; i++) {
+        fprintf(stderr, "free loop i=%d\n", i);
+        mps_slab_free(pool, (u_char *)p + i * alloc_size);
+    }
 
     mps_slab_close(pool, SHM_SIZE);
     delete_shm_file("/dev/shm" SHM_NAME);

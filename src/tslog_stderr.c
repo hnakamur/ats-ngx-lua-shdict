@@ -47,7 +47,8 @@ void mps_log_stderr(const char *level, int exits, const char *fmt, ...)
     }
 }
 
-void mps_log_stderr_debug(const char *tag, const char *fmt, ...)
+void mps_log_stderr_debug(const char *func, const char *file, int line,
+                          const char *tag, const char *fmt, ...)
 {
     va_list ap;
     char buf[TSLOG_STDERR_BUFSIZE];
@@ -80,5 +81,5 @@ void mps_log_stderr_debug(const char *tag, const char *fmt, ...)
     }
 
     /* Print the message with level and newline to stderr. */
-    fprintf(stderr, "[Debug] (%s) %s\n", tag, buf);
+    fprintf(stderr, "[Debug](%s)%s:%s:%d: %s\n", tag, func, file, line, buf);
 }
