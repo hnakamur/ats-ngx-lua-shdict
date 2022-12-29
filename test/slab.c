@@ -26,6 +26,21 @@ void test_slab_calloc_one_byte(void)
     delete_shm_file("/dev/shm" SHM_NAME);
 }
 
+void test_slab_alloc_two_pages(void)
+{
+    mps_slab_pool_t *pool = mps_slab_open_or_create(
+        SHM_NAME, 4096 * 4, S_IRUSR | S_IWUSR, slab_on_init);
+    TEST_ASSERT_NOT_NULL(pool);
+
+    void *p = mps_slab_alloc(pool, 4096 * 2);
+    TEST_ASSERT_NOT_NULL(p);
+
+    mps_slab_free(pool, p);
+
+    mps_slab_close(pool, SHM_SIZE);
+    delete_shm_file("/dev/shm" SHM_NAME);
+}
+
 void test_slab_open_existing(void)
 {
     mps_slab_pool_t *pool1 = mps_slab_open_or_create(

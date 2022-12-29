@@ -1031,6 +1031,7 @@ void test_memn2cmp(void)
         1, ngx_memn2cmp((const u_char *)"foobar", (const u_char *)"foo", 6, 3));
 }
 
+extern void test_slab_alloc_two_pages(void);
 extern void test_slab_calloc_one_byte(void);
 extern void test_slab_open_existing(void);
 extern void test_slab_open_or_create_multithread(void);
@@ -1070,6 +1071,7 @@ int main(void)
     RUN_TEST(test_safe_set_no_key_no_mem);
 
     RUN_TEST(test_slab_calloc_one_byte);
+    RUN_TEST(test_slab_alloc_two_pages);
     RUN_TEST(test_slab_open_existing);
     RUN_TEST(test_slab_open_or_create_multithread);
 
