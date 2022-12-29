@@ -1032,6 +1032,7 @@ void test_memn2cmp(void)
         1, ngx_memn2cmp((const u_char *)"foobar", (const u_char *)"foo", 6, 3));
 }
 
+extern void test_slab_alloc_one_byte_min_shift_one(void);
 extern void test_slab_calloc_one_byte(void);
 extern void test_slab_alloc_32_bytes(void);
 extern void test_slab_alloc_64_bytes(void);
@@ -1073,6 +1074,7 @@ int main(void)
     RUN_TEST(test_memn2cmp);
     RUN_TEST(test_safe_set_no_key_no_mem);
 
+    RUN_TEST(test_slab_alloc_one_byte_min_shift_one);
     RUN_TEST(test_slab_calloc_one_byte);
     RUN_TEST(test_slab_alloc_32_bytes);
     RUN_TEST(test_slab_alloc_64_bytes);

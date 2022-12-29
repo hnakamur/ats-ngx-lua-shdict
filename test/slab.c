@@ -11,6 +11,21 @@ static void slab_on_init(mps_slab_pool_t *pool)
     pool->log_nomem = 0;
 }
 
+void test_slab_alloc_one_byte_min_shift_one(void)
+{
+    mps_slab_pool_t *pool = mps_slab_open_or_create(
+        SHM_NAME, SHM_SIZE, 1, S_IRUSR | S_IWUSR, slab_on_init);
+    TEST_ASSERT_NOT_NULL(pool);
+
+    void *p = mps_slab_calloc(pool, 1);
+    TEST_ASSERT_NOT_NULL(p);
+
+    mps_slab_free(pool, p);
+
+    mps_slab_close(pool, SHM_SIZE);
+    delete_shm_file("/dev/shm" SHM_NAME);
+}
+
 void test_slab_calloc_one_byte(void)
 {
     mps_slab_pool_t *pool =
