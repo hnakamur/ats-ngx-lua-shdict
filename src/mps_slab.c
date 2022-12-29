@@ -452,9 +452,17 @@ void *mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
         }
         slot = shift - pool->min_shift;
 
+        TSDebug(MPS_LOG_TAG,
+                "mps_slab_alloc_locked: pool=%p, size=%lu > min_size=%lu", pool,
+                size, pool->min_size);
+
     } else {
         shift = pool->min_shift;
         slot = 0;
+
+        TSDebug(MPS_LOG_TAG,
+                "mps_slab_alloc_locked: pool=%p, size=%lu <= min_size=%lu",
+                pool, size, pool->min_size);
     }
 
     TSDebug(MPS_LOG_TAG,
