@@ -76,20 +76,34 @@ void test_slab_alloc_32_bytes(void)
     delete_shm_file("/dev/shm" SHM_NAME);
 }
 
-void test_slab_alloc_64_bytes(void)
+void test_slab_alloc_exact(void)
 {
     mps_slab_pool_t *pool =
         mps_slab_open_or_create(SHM_NAME, SHM_SIZE, MPS_SLAB_DEFAULT_MIN_SHIFT,
                                 S_IRUSR | S_IWUSR, slab_on_init);
     TEST_ASSERT_NOT_NULL(pool);
 
-    void *p1 = mps_slab_alloc(pool, 64);
-    TEST_ASSERT_NOT_NULL(p1);
+    int alloc_size = 64;
+    void *p = mps_slab_calloc(pool, alloc_size);
+    TEST_ASSERT_NOT_NULL(p);
 
-    void *p2 = mps_slab_alloc(pool, 64);
-    TEST_ASSERT_NOT_NULL(p2);
+    void *p2 = NULL;
+    for (int i = 1; i <= 4096 / alloc_size; i++) {
+        fprintf(stderr, "alloc loop i=%d\n", i);
 
-    mps_slab_free(pool, p1);
+        p2 = mps_slab_calloc(pool, alloc_size);
+        TEST_ASSERT_NOT_NULL(p2);
+    }
+
+    mps_slab_free(pool, p);
+
+    p = mps_slab_calloc(pool, alloc_size);
+    TEST_ASSERT_NOT_NULL(p);
+
+    for (int i = 0; i <= 4096 / alloc_size; i++) {
+        fprintf(stderr, "free loop i=%d\n", i);
+        mps_slab_free(pool, (u_char *)p + i * alloc_size);
+    }
 
     mps_slab_close(pool, SHM_SIZE);
     delete_shm_file("/dev/shm" SHM_NAME);

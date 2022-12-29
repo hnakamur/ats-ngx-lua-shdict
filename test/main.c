@@ -1035,7 +1035,7 @@ void test_memn2cmp(void)
 extern void test_slab_alloc_one_byte_min_shift_one(void);
 extern void test_slab_calloc_one_byte(void);
 extern void test_slab_alloc_32_bytes(void);
-extern void test_slab_alloc_64_bytes(void);
+extern void test_slab_alloc_exact(void);
 extern void test_slab_alloc_two_pages(void);
 extern void test_slab_open_existing(void);
 extern void test_slab_open_or_create_multithread(void);
@@ -1077,7 +1077,7 @@ int main(void)
     RUN_TEST(test_slab_alloc_one_byte_min_shift_one);
     RUN_TEST(test_slab_calloc_one_byte);
     RUN_TEST(test_slab_alloc_32_bytes);
-    RUN_TEST(test_slab_alloc_64_bytes);
+    RUN_TEST(test_slab_alloc_exact);
     RUN_TEST(test_slab_alloc_two_pages);
     RUN_TEST(test_slab_open_existing);
     RUN_TEST(test_slab_open_or_create_multithread);
