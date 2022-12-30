@@ -87,7 +87,7 @@ void test_incr_happy(void)
     int forcible = 0;
     int rc = mps_shdict_incr(dict, key, key_len, &value, &err, has_init, init,
                              init_ttl, &forcible);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
     TEST_ASSERT_EQUAL_DOUBLE(1, value);
 
     long got_ttl_ms = mps_shdict_get_ttl(dict, key, key_len);
@@ -96,7 +96,7 @@ void test_incr_happy(void)
     long init_ttl2 = 10;
     rc = mps_shdict_incr(dict, key, key_len, &value, &err, has_init, init,
                          init_ttl2, &forcible);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
     TEST_ASSERT_EQUAL_DOUBLE(2, value);
 
     got_ttl_ms = mps_shdict_get_ttl(dict, key, key_len);
@@ -109,7 +109,7 @@ void test_incr_happy(void)
     value = 1;
     rc = mps_shdict_incr(dict, key, key_len, &value, &err, has_init, init,
                          init_ttl, &forcible);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
     TEST_ASSERT_EQUAL_DOUBLE(1, value);
     TEST_ASSERT_EQUAL_INT(0, forcible);
 
@@ -150,7 +150,7 @@ void test_incr_reuse_expired_number(void)
     int forcible = 0;
     int rc = mps_shdict_incr(dict, key1, key1_len, &value, &err, has_init, init,
                              init_ttl, &forcible);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
     TEST_ASSERT_EQUAL_DOUBLE(1, value);
 
     const u_char *key2 = (const u_char *)"key2";
@@ -158,7 +158,7 @@ void test_incr_reuse_expired_number(void)
     init_ttl = 1;
     rc = mps_shdict_incr(dict, key2, key2_len, &value, &err, has_init, init,
                          init_ttl, &forcible);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
     TEST_ASSERT_EQUAL_DOUBLE(1, value);
 
     sleep_ms(2);
@@ -169,7 +169,7 @@ void test_incr_reuse_expired_number(void)
     value = 3;
     rc = mps_shdict_incr(dict, key2, key2_len, &value, &err, has_init, init,
                          init_ttl, &forcible);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
     TEST_ASSERT_EQUAL_DOUBLE(3 + 1, value);
     TEST_ASSERT_EQUAL_INT(0, forcible);
 
@@ -188,14 +188,14 @@ void test_incr_reuse_expired_boolean(void)
     long exptime = 0;
     int rc = mps_shdict_set(dict, key2, key2_len, MPS_SHDICT_TBOOLEAN, NULL, 0,
                             num_value, exptime, user_flags, &err, &forcible);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
 
     const u_char *key1 = (const u_char *)"key1";
     size_t key1_len = strlen((const char *)key1);
     exptime = 1;
     rc = mps_shdict_set(dict, key1, key1_len, MPS_SHDICT_TBOOLEAN, NULL, 0,
                         num_value, exptime, user_flags, &err, &forcible);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
 
     sleep_ms(2);
 
@@ -204,7 +204,52 @@ void test_incr_reuse_expired_boolean(void)
     double value = 3, init = 1;
     rc = mps_shdict_incr(dict, key1, key1_len, &value, &err, has_init, init,
                          init_ttl, &forcible);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+    TEST_ASSERT_EQUAL_DOUBLE(3 + 1, value);
+    TEST_ASSERT_EQUAL_INT(0, forcible);
+
+    mps_shdict_close(dict);
+}
+
+void test_incr_remove_expired_list(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const u_char *key2 = (const u_char *)"key2";
+    size_t key2_len = strlen((const char *)key2);
+    int n;
+    char *err = NULL;
+    double num_value;
+
+    num_value = 3;
+    n = mps_shdict_lpush(dict, key2, key2_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                         num_value, &err);
+    TEST_ASSERT_EQUAL_INT(1, n);
+
+    const u_char *key = (const u_char *)"key";
+    size_t key_len = strlen((const char *)key);
+
+    num_value = 1.5;
+    n = mps_shdict_lpush(dict, key, key_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                         num_value, &err);
+    TEST_ASSERT_EQUAL_INT(1, n);
+
+    num_value = 1.5;
+    n = mps_shdict_lpush(dict, key, key_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                         num_value, &err);
+    TEST_ASSERT_EQUAL_INT(2, n);
+
+    long exptime = 1;
+    int rc = mps_shdict_set_expire(dict, key, key_len, exptime);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    sleep_ms(2);
+
+    int has_init = 1, init_ttl = 0, forcible = -1;
+    double value = 3, init = 1;
+    rc = mps_shdict_incr(dict, key, key_len, &value, &err, has_init, init,
+                         init_ttl, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
     TEST_ASSERT_EQUAL_DOUBLE(3 + 1, value);
     TEST_ASSERT_EQUAL_INT(0, forcible);
 
@@ -223,7 +268,7 @@ void test_incr_not_a_number(void)
     long exptime = 0;
     int rc = mps_shdict_set(dict, key1, key1_len, MPS_SHDICT_TBOOLEAN, NULL, 0,
                             num_value, exptime, user_flags, &err, &forcible);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
 
     forcible = -1;
     int has_init = 1, init_ttl = 0;
@@ -318,7 +363,7 @@ void test_boolean_happy(void)
     int rc = mps_shdict_set(dict, key, key_len, value_type, str_value_ptr,
                             str_value_len, num_value, exptime, user_flags, &err,
                             &forcible);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
 
     /* get the true value */
     value_type = -1;
@@ -327,7 +372,7 @@ void test_boolean_happy(void)
     rc = mps_shdict_get(dict, key, key_len, &value_type, &str_value_ptr,
                         &str_value_len, &num_value, &user_flags, get_stale,
                         &is_stale, &err);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
     TEST_ASSERT_EQUAL_INT(MPS_SHDICT_TBOOLEAN, value_type);
     TEST_ASSERT_EQUAL_UINT64(1, str_value_len);
     TEST_ASSERT_EQUAL_UINT8(1, str_value_ptr[0]);
@@ -338,7 +383,7 @@ void test_boolean_happy(void)
     rc = mps_shdict_replace(dict, key, key_len, value_type, str_value_ptr,
                             str_value_len, num_value, exptime, user_flags, &err,
                             &forcible);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
 
     /* get the false value */
     value_type = -1;
@@ -347,7 +392,7 @@ void test_boolean_happy(void)
     rc = mps_shdict_get(dict, key, key_len, &value_type, &str_value_ptr,
                         &str_value_len, &num_value, &user_flags, get_stale,
                         &is_stale, &err);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
     TEST_ASSERT_EQUAL_INT(MPS_SHDICT_TBOOLEAN, value_type);
     TEST_ASSERT_EQUAL_UINT64(1, str_value_len);
     TEST_ASSERT_EQUAL_UINT8(0, str_value_ptr[0]);
@@ -355,19 +400,19 @@ void test_boolean_happy(void)
 
     /* delete the value */
     rc = mps_shdict_delete(dict, key, key_len);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
 
     /* verify the value is deleted */
     value_type = -1;
     rc = mps_shdict_get(dict, key, key_len, &value_type, &str_value_ptr,
                         &str_value_len, &num_value, &user_flags, get_stale,
                         &is_stale, &err);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
     TEST_ASSERT_EQUAL_INT(MPS_SHDICT_TNIL, value_type);
 
     /* It is OK to call delete for non existing key. */
     rc = mps_shdict_delete(dict, key, key_len);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
 
     mps_shdict_close(dict);
 }
@@ -421,7 +466,7 @@ void test_number_happy(void)
     int rc = mps_shdict_set(dict, key, key_len, value_type, str_value_ptr,
                             str_value_len, num_value, exptime, user_flags, &err,
                             &forcible);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
 
     value_type = -1;
     num_value = -1;
@@ -429,24 +474,24 @@ void test_number_happy(void)
     rc = mps_shdict_get(dict, key, key_len, &value_type, &str_value_ptr,
                         &str_value_len, &num_value, &user_flags, get_stale,
                         &is_stale, &err);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
     TEST_ASSERT_EQUAL_INT(MPS_SHDICT_TNUMBER, value_type);
     TEST_ASSERT_EQUAL_DOUBLE(23.5, num_value);
     TEST_ASSERT_EQUAL_INT(0xcafe, user_flags);
 
     rc = mps_shdict_delete(dict, key, key_len);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
 
     value_type = -1;
     rc = mps_shdict_get(dict, key, key_len, &value_type, &str_value_ptr,
                         &str_value_len, &num_value, &user_flags, get_stale,
                         &is_stale, &err);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
     TEST_ASSERT_EQUAL_INT(MPS_SHDICT_TNIL, value_type);
 
     /* It is OK to call delete for non existing key. */
     rc = mps_shdict_delete(dict, key, key_len);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
 
     mps_shdict_close(dict);
 }
@@ -469,7 +514,7 @@ void test_string_happy(void)
     int rc = mps_shdict_set(dict, key, key_len, value_type, str_value_ptr,
                             str_value_len, num_value, exptime, user_flags, &err,
                             &forcible);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
 
     /* get the value */
     value_type = -1;
@@ -479,16 +524,16 @@ void test_string_happy(void)
     rc = mps_shdict_get(dict, key, key_len, &value_type, &str_value_ptr2,
                         &str_value_len2, &num_value, &user_flags, get_stale,
                         &is_stale, &err);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
     TEST_ASSERT_EQUAL_INT(MPS_SHDICT_TSTRING, value_type);
-    TEST_ASSERT_EQUAL_STRING(str_value_ptr, str_value_ptr2);
     TEST_ASSERT_EQUAL_UINT64(str_value_len, str_value_len2);
+    TEST_ASSERT_EQUAL_MEMORY(str_value_ptr, str_value_ptr2, str_value_len2);
     TEST_ASSERT_EQUAL_INT(0xcafe, user_flags);
     free(str_value_ptr2);
 
     /* delete the value */
     rc = mps_shdict_delete(dict, key, key_len);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
 
     /* verify the value is deleted */
     value_type = -1;
@@ -497,12 +542,12 @@ void test_string_happy(void)
     rc = mps_shdict_get(dict, key, key_len, &value_type, &str_value_ptr2,
                         &str_value_len2, &num_value, &user_flags, get_stale,
                         &is_stale, &err);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
     TEST_ASSERT_EQUAL_INT(MPS_SHDICT_TNIL, value_type);
 
     /* It is OK to call delete for non existing key. */
     rc = mps_shdict_delete(dict, key, key_len);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
 
     mps_shdict_close(dict);
 }
@@ -523,7 +568,7 @@ void test_safe_set(void)
     int rc = mps_shdict_safe_set(dict, key, key_len, value_type, str_value_buf,
                                  str_value_len, num_value, exptime, user_flags,
                                  &err, &forcible);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
 
     sleep_ms(1);
 
@@ -532,7 +577,7 @@ void test_safe_set(void)
     rc = mps_shdict_safe_set(dict, key2, key2_len, value_type, str_value_buf,
                              str_value_len, num_value, exptime, user_flags,
                              &err, &forcible);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
 
     mps_shdict_close(dict);
 }
@@ -553,7 +598,7 @@ void test_safe_add(void)
     int rc = mps_shdict_add(dict, key, key_len, value_type, str_value_buf,
                             str_value_len, num_value, exptime, user_flags, &err,
                             &forcible);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
 
     sleep_ms(1);
 
@@ -562,7 +607,7 @@ void test_safe_add(void)
     rc = mps_shdict_safe_add(dict, key2, key2_len, value_type, str_value_buf,
                              str_value_len, num_value, exptime, user_flags,
                              &err, &forcible);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
 
     mps_shdict_close(dict);
 }
@@ -913,7 +958,7 @@ void test_get_ttl_set_expire(void)
     rc = mps_shdict_get(dict, key, key_len, &value_type, &str_value_ptr,
                         &str_value_len, &num_value, &user_flags, get_stale,
                         &is_stale, &err);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
     TEST_ASSERT_EQUAL_INT(MPS_SHDICT_TNIL, value_type);
 
     get_stale = 1;
@@ -923,7 +968,7 @@ void test_get_ttl_set_expire(void)
     rc = mps_shdict_get(dict, key, key_len, &value_type, &str_value_ptr,
                         &str_value_len, &num_value, &user_flags, get_stale,
                         &is_stale, &err);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
     TEST_ASSERT_EQUAL_INT(1, is_stale);
     TEST_ASSERT_EQUAL_INT(MPS_SHDICT_TNUMBER, value_type);
     TEST_ASSERT_EQUAL_DOUBLE(23.5, num_value);
@@ -939,11 +984,370 @@ void test_get_ttl_set_expire(void)
     rc = mps_shdict_get(dict, key, key_len, &value_type, &str_value_ptr,
                         &str_value_len, &num_value, &user_flags, get_stale,
                         &is_stale, &err);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
     TEST_ASSERT_EQUAL_INT(0, is_stale);
     TEST_ASSERT_EQUAL_INT(MPS_SHDICT_TNUMBER, value_type);
     TEST_ASSERT_EQUAL_DOUBLE(23.5, num_value);
     TEST_ASSERT_EQUAL_INT(0xcafe, user_flags);
+
+    mps_shdict_close(dict);
+}
+
+void test_list_basics(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const u_char *key = (const u_char *)"key1";
+    size_t key_len = strlen((const char *)key), str_value_len;
+    u_char str_value_buf[2048], *str_value_ptr;
+    int value_type, n, rc;
+    double num_value;
+    char *err = NULL;
+
+    num_value = 1.5;
+    n = mps_shdict_lpush(dict, key, key_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                         num_value, &err);
+    TEST_ASSERT_EQUAL_INT(1, n);
+
+    n = mps_shdict_lpush(dict, key, key_len, MPS_SHDICT_TSTRING,
+                         (const u_char *)"value1", strlen("value1"), 0, &err);
+    TEST_ASSERT_EQUAL_INT(2, n);
+
+    n = mps_shdict_rpush(dict, key, key_len, MPS_SHDICT_TSTRING,
+                         (const u_char *)"value2", strlen("value2"), 0, &err);
+    TEST_ASSERT_EQUAL_INT(3, n);
+
+    n = mps_shdict_llen(dict, key, key_len, &err);
+    TEST_ASSERT_EQUAL_INT(3, n);
+
+    str_value_ptr = NULL;
+    str_value_len = 0;
+    rc = mps_shdict_lpop(dict, key, key_len, &value_type, &str_value_ptr,
+                         &str_value_len, &num_value, &err);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+    TEST_ASSERT_EQUAL_INT(MPS_SHDICT_TSTRING, value_type);
+    TEST_ASSERT_EQUAL_UINT64(strlen("value1"), str_value_len);
+    TEST_ASSERT_EQUAL_MEMORY("value1", str_value_ptr, str_value_len);
+    free(str_value_ptr);
+
+    n = mps_shdict_llen(dict, key, key_len, &err);
+    TEST_ASSERT_EQUAL_INT(2, n);
+
+    str_value_ptr = str_value_buf;
+    str_value_len = 2048;
+    rc = mps_shdict_rpop(dict, key, key_len, &value_type, &str_value_ptr,
+                         &str_value_len, &num_value, &err);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+    TEST_ASSERT_EQUAL_INT(MPS_SHDICT_TSTRING, value_type);
+    TEST_ASSERT_EQUAL_UINT64(strlen("value2"), str_value_len);
+    TEST_ASSERT_EQUAL_MEMORY("value2", str_value_ptr, str_value_len);
+
+    n = mps_shdict_llen(dict, key, key_len, &err);
+    TEST_ASSERT_EQUAL_INT(1, n);
+
+    str_value_ptr = NULL;
+    str_value_len = 0;
+    rc = mps_shdict_lpop(dict, key, key_len, &value_type, &str_value_ptr,
+                         &str_value_len, &num_value, &err);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+    TEST_ASSERT_EQUAL_INT(MPS_SHDICT_TNUMBER, value_type);
+    TEST_ASSERT_EQUAL_DOUBLE(1.5, num_value);
+
+    n = mps_shdict_llen(dict, key, key_len, &err);
+    TEST_ASSERT_EQUAL_INT(0, n);
+
+    str_value_ptr = NULL;
+    str_value_len = 0;
+    rc = mps_shdict_lpop(dict, key, key_len, &value_type, &str_value_ptr,
+                         &str_value_len, &num_value, &err);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+    TEST_ASSERT_EQUAL_INT(MPS_SHDICT_TNIL, value_type);
+
+    mps_shdict_close(dict);
+}
+
+void test_list_delete(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const u_char *key = (const u_char *)"key1";
+    size_t key_len = strlen((const char *)key);
+    int n, rc;
+    double num_value;
+    char *err = NULL;
+
+    num_value = 1.5;
+    n = mps_shdict_lpush(dict, key, key_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                         num_value, &err);
+    TEST_ASSERT_EQUAL_INT(1, n);
+
+    n = mps_shdict_lpush(dict, key, key_len, MPS_SHDICT_TSTRING,
+                         (const u_char *)"value1", strlen("value1"), 0, &err);
+    TEST_ASSERT_EQUAL_INT(2, n);
+
+    rc = mps_shdict_delete(dict, key, key_len);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    mps_shdict_close(dict);
+}
+
+void test_list_removed_expired_not_list_value(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const u_char *key2 = (const u_char *)"key2";
+    size_t key2_len = strlen((const char *)key2);
+    int n, rc;
+    double num_value;
+    int user_flags = 0, forcible = 0;
+    long exptime;
+    char *err = NULL;
+
+    num_value = 1.5;
+    exptime = 0;
+    rc = mps_shdict_set(dict, key2, key2_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                        num_value, exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    const u_char *key = (const u_char *)"key1";
+    size_t key_len = strlen((const char *)key);
+
+    exptime = 1;
+    rc = mps_shdict_set(dict, key, key_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                        num_value, exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    sleep_ms(2);
+
+    n = mps_shdict_lpush(dict, key, key_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                         num_value, &err);
+    TEST_ASSERT_EQUAL_INT(1, n);
+
+    mps_shdict_close(dict);
+}
+
+void test_list_removed_expired_list_value(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const u_char *key2 = (const u_char *)"key2";
+    size_t key2_len = strlen((const char *)key2);
+    int n, rc;
+    double num_value;
+    int user_flags = 0, forcible = 0;
+    long exptime;
+    char *err = NULL;
+
+    num_value = 1.5;
+    exptime = 0;
+    rc = mps_shdict_set(dict, key2, key2_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                        num_value, exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    const u_char *key = (const u_char *)"key1";
+    size_t key_len = strlen((const char *)key);
+    n = mps_shdict_lpush(dict, key, key_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                         num_value, &err);
+    TEST_ASSERT_EQUAL_INT(1, n);
+
+    n = mps_shdict_lpush(dict, key, key_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                         num_value, &err);
+    TEST_ASSERT_EQUAL_INT(2, n);
+
+    exptime = 1;
+    rc = mps_shdict_set_expire(dict, key, key_len, exptime);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    sleep_ms(2);
+
+    n = mps_shdict_lpush(dict, key, key_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                         num_value, &err);
+    TEST_ASSERT_EQUAL_INT(1, n);
+
+    mps_shdict_close(dict);
+}
+
+void test_list_get_err(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const u_char *key = (const u_char *)"key1";
+    size_t key_len = strlen((const char *)key);
+    int n, rc;
+    double num_value;
+    char *err = NULL;
+
+    num_value = 1.5;
+    n = mps_shdict_lpush(dict, key, key_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                         num_value, &err);
+    TEST_ASSERT_EQUAL_INT(1, n);
+
+    n = mps_shdict_lpush(dict, key, key_len, MPS_SHDICT_TSTRING,
+                         (const u_char *)"value1", strlen("value1"), 0, &err);
+    TEST_ASSERT_EQUAL_INT(2, n);
+
+    u_char *str_value_ptr = NULL;
+    size_t str_value_len = 0;
+    int value_type = -1;
+    int user_flags = 0, get_stale = 0, is_stale = 0;
+    num_value = -1;
+    rc = mps_shdict_get(dict, key, key_len, &value_type, &str_value_ptr,
+                        &str_value_len, &num_value, &user_flags, get_stale,
+                        &is_stale, &err);
+    TEST_ASSERT_EQUAL_INT(NGX_ERROR, rc);
+    TEST_ASSERT_EQUAL_STRING("value is a list", err);
+
+    mps_shdict_close(dict);
+}
+
+void test_list_push_bad_type_err(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const u_char *key = (const u_char *)"key1";
+    size_t key_len = strlen((const char *)key);
+    int n;
+    char *err = NULL;
+
+    n = mps_shdict_lpush(dict, key, key_len, MPS_SHDICT_TNIL, NULL, 0, 0, &err);
+    TEST_ASSERT_EQUAL_INT(NGX_ERROR, n);
+    TEST_ASSERT_EQUAL_STRING("unsupported value type", err);
+
+    err = NULL;
+    n = mps_shdict_lpush(dict, key, key_len, MPS_SHDICT_TBOOLEAN, NULL, 0, 1,
+                         &err);
+    TEST_ASSERT_EQUAL_INT(NGX_ERROR, n);
+    TEST_ASSERT_EQUAL_STRING("unsupported value type", err);
+}
+
+void test_list_pop_not_list_err(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const u_char *key = (const u_char *)"key1";
+    size_t key_len = strlen((const char *)key);
+    int rc;
+    double num_value;
+    int user_flags = 0, forcible = 0;
+    long exptime = 0;
+    char *err = NULL;
+
+    num_value = 1.5;
+    rc = mps_shdict_set(dict, key, key_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                        num_value, exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    int value_type = -1;
+    u_char *str_value_ptr = NULL;
+    size_t str_value_len = 0;
+    rc = mps_shdict_lpop(dict, key, key_len, &value_type, &str_value_ptr,
+                         &str_value_len, &num_value, &err);
+    TEST_ASSERT_EQUAL_INT(NGX_ERROR, rc);
+    TEST_ASSERT_EQUAL_STRING("value not a list", err);
+
+    mps_shdict_close(dict);
+}
+
+void test_list_push_not_list_err(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const u_char *key = (const u_char *)"key1";
+    size_t key_len = strlen((const char *)key);
+    int n, rc;
+    double num_value;
+    int user_flags = 0, forcible = 0;
+    long exptime = 0;
+    char *err = NULL;
+
+    num_value = 1.5;
+    rc = mps_shdict_set(dict, key, key_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                        num_value, exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    err = NULL;
+    num_value = 3.5;
+    n = mps_shdict_lpush(dict, key, key_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                         num_value, &err);
+    TEST_ASSERT_EQUAL_INT(NGX_ERROR, n);
+    TEST_ASSERT_EQUAL_STRING("value not a list", err);
+
+    mps_shdict_close(dict);
+}
+
+void test_list_llen_not_list_err(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const u_char *key = (const u_char *)"key1";
+    size_t key_len = strlen((const char *)key);
+    int n, rc;
+    double num_value;
+    int user_flags = 0, forcible = 0;
+    long exptime = 0;
+    char *err = NULL;
+
+    num_value = 1.5;
+    rc = mps_shdict_set(dict, key, key_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                        num_value, exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    n = mps_shdict_llen(dict, key, key_len, &err);
+    TEST_ASSERT_EQUAL_INT(NGX_ERROR, n);
+    TEST_ASSERT_EQUAL_STRING("value not a list", err);
+
+    mps_shdict_close(dict);
+}
+
+void test_list_push_no_memory_for_new_list(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const u_char *key = (const u_char *)"key1";
+    size_t key_len = strlen((const char *)key), str_value_len = 4096;
+    u_char str_value_buf[4096];
+    int n;
+    double num_value = 0;
+    char *err = NULL;
+
+    err = NULL;
+    ngx_memset(str_value_buf, '\xa7', str_value_len);
+    n = mps_shdict_lpush(dict, key, key_len, MPS_SHDICT_TSTRING, str_value_buf,
+                         str_value_len, num_value, &err);
+    TEST_ASSERT_EQUAL_INT(NGX_ERROR, n);
+    TEST_ASSERT_EQUAL_STRING("no memory", err);
+
+    mps_shdict_close(dict);
+}
+
+void test_list_push_no_memory_for_list_entry(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const size_t key_buf_size = 16, value_buf_size = 32;
+    u_char key_buf[key_buf_size], value_buf[value_buf_size];
+    int i, user_flags = 0xcafe, forcible = 0;
+    double num_value = 0;
+    long exptime = 0;
+    char *err = NULL;
+
+    for (i = 0; i < 63; i++) {
+        fprintf(stderr, "i=%d ----------------\n", i);
+        ngx_memset(value_buf, '\xa8', value_buf_size);
+        size_t key_len = snprintf((char *)key_buf, key_buf_size, "key%d", i);
+        int rc = mps_shdict_safe_set(dict, key_buf, key_len, MPS_SHDICT_TSTRING,
+                                     value_buf, value_buf_size, num_value,
+                                     exptime, user_flags, &err, &forcible);
+        TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+    }
+
+    fprintf(stderr, "put key a----------------\n");
+    const u_char *key = (const u_char *)"a";
+    size_t key_len = strlen((const char *)key);
+    int n = mps_shdict_lpush(dict, key, key_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                             num_value, &err);
+    TEST_ASSERT_EQUAL_INT(NGX_ERROR, n);
+    TEST_ASSERT_EQUAL_STRING("no memory", err);
 
     mps_shdict_close(dict);
 }
@@ -957,7 +1361,7 @@ void test_flush_all(void)
     size_t key_len = strlen((const char *)key),
            str_value_len = strlen((const char *)str_value_ptr);
     int value_type = MPS_SHDICT_TSTRING, user_flags = 0xcafe, get_stale = 0,
-        is_stale = 0, forcible = 0;
+        is_stale = 0, forcible = 0, n;
     double num_value = 0;
     char *err = NULL;
     long exptime = 0;
@@ -966,7 +1370,7 @@ void test_flush_all(void)
     int rc = mps_shdict_set(dict, key, key_len, value_type, str_value_ptr,
                             str_value_len, num_value, exptime, user_flags, &err,
                             &forcible);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
 
     /* set another string value */
     const u_char *key2 = (const u_char *)"a";
@@ -976,10 +1380,23 @@ void test_flush_all(void)
     rc = mps_shdict_set(dict, key2, key2_len, value_type, str_value2_ptr,
                         str_value2_len, num_value, exptime, user_flags, &err,
                         &forcible);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
 
+    /* set a list value */
+    const u_char *key3 = (const u_char *)"q";
+    size_t key3_len = strlen((const char *)key3);
+    num_value = 1.5;
+    n = mps_shdict_lpush(dict, key3, key3_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                         num_value, &err);
+    TEST_ASSERT_EQUAL_INT(1, n);
+
+    n = mps_shdict_lpush(dict, key3, key3_len, MPS_SHDICT_TSTRING,
+                         (const u_char *)"value1", strlen("value1"), 0, &err);
+    TEST_ASSERT_EQUAL_INT(2, n);
+
+    /* Delete all keys */
     rc = mps_shdict_flush_all(dict);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
 
     /* verify key and key2 are deleted */
     value_type = -1;
@@ -988,7 +1405,7 @@ void test_flush_all(void)
     rc = mps_shdict_get(dict, key, key_len, &value_type, &got_str_value,
                         &got_str_value_len, &num_value, &user_flags, get_stale,
                         &is_stale, &err);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
     TEST_ASSERT_EQUAL_INT(MPS_SHDICT_TNIL, value_type);
 
     value_type = -1;
@@ -997,7 +1414,16 @@ void test_flush_all(void)
     rc = mps_shdict_get(dict, key2, key2_len, &value_type, &got_str_value,
                         &got_str_value_len, &num_value, &user_flags, get_stale,
                         &is_stale, &err);
-    TEST_ASSERT_EQUAL_INT(0, rc);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+    TEST_ASSERT_EQUAL_INT(MPS_SHDICT_TNIL, value_type);
+
+    value_type = -1;
+    got_str_value = NULL;
+    got_str_value_len = 0;
+    rc = mps_shdict_get(dict, key3, key3_len, &value_type, &got_str_value,
+                        &got_str_value_len, &num_value, &user_flags, get_stale,
+                        &is_stale, &err);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
     TEST_ASSERT_EQUAL_INT(MPS_SHDICT_TNIL, value_type);
 
     mps_shdict_close(dict);
@@ -1054,6 +1480,7 @@ int main(void)
     RUN_TEST(test_incr_happy);
     RUN_TEST(test_incr_not_found);
     RUN_TEST(test_incr_not_a_number);
+    RUN_TEST(test_incr_remove_expired_list);
     RUN_TEST(test_incr_reuse_expired_number);
     RUN_TEST(test_incr_reuse_expired_boolean);
     RUN_TEST(test_boolean_happy);
@@ -1074,6 +1501,18 @@ int main(void)
     RUN_TEST(test_set_expire_no_mem);
     RUN_TEST(test_memn2cmp);
     RUN_TEST(test_safe_set_no_key_no_mem);
+
+    RUN_TEST(test_list_basics);
+    RUN_TEST(test_list_delete);
+    RUN_TEST(test_list_removed_expired_not_list_value);
+    RUN_TEST(test_list_removed_expired_list_value);
+    RUN_TEST(test_list_get_err);
+    RUN_TEST(test_list_push_bad_type_err);
+    RUN_TEST(test_list_pop_not_list_err);
+    RUN_TEST(test_list_push_not_list_err);
+    RUN_TEST(test_list_llen_not_list_err);
+    RUN_TEST(test_list_push_no_memory_for_new_list);
+    RUN_TEST(test_list_push_no_memory_for_list_entry);
 
     RUN_TEST(test_slab_alloc_one_byte_min_shift_one);
     RUN_TEST(test_slab_calloc_one_byte);

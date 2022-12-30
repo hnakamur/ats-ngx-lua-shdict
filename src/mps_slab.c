@@ -510,8 +510,8 @@ void *mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
                 shift, mps_slab_exact_shift, map);
 
             for (n = 0; n < map; n++) {
-                TSDebug(MPS_LOG_TAG, "bitmap[%ld]=0x%016lx,%sbusy", n, bitmap[n],
-                        bitmap[n] != MPS_SLAB_BUSY ? "!=" : "==");
+                TSDebug(MPS_LOG_TAG, "bitmap[%ld]=0x%016lx,%sbusy", n,
+                        bitmap[n], bitmap[n] != MPS_SLAB_BUSY ? "!=" : "==");
                 if (bitmap[n] != MPS_SLAB_BUSY) {
 
                     for (m = 1, i = 0; m; m <<= 1, i++) {
