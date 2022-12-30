@@ -43,6 +43,8 @@ typedef void (*ngx_connection_handler_pt)(ngx_connection_t *c);
 #include <ngx_string.h>
 #include <ngx_murmurhash.h>
 
+#if MPS_LOG_NGX
+
 #include <ngx_atomic.h>
 #include <ngx_queue.h>
 #include <ngx_errno.h>
@@ -51,6 +53,8 @@ typedef void (*ngx_connection_handler_pt)(ngx_connection_t *c);
 #include <ngx_array.h>
 #include <ngx_list.h>
 #include <ngx_cycle.h>
+
+#endif /* MPS_LOG_NGX */
 
 #define ngx_debug_point()
 extern ngx_uint_t ngx_cacheline_size;

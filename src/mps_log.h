@@ -3,12 +3,12 @@
 
 #include <inttypes.h>
 
-#if MPS_NGX
+#if MPS_LOG_NGX
 
 #include "tslog_ngx.h"
 #define LogLenStr "%*s"
 
-#elif MPS_ATS
+#elif MPS_LOG_ATS
 
 #include "tslog.h"
 #define LogLenStr "%.*s"

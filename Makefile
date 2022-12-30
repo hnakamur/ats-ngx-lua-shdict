@@ -9,9 +9,9 @@ WARNING_FLAGS = -Wall -Wno-unused-value -Wno-unused-function -Wno-nullability-co
 COMMON_CFLAGS = $(INCS) -pipe $(WARNING_FLAGS)
 COV_FLAGS = -fprofile-instr-generate -fcoverage-mapping
 
-ATS_CFLAGS = -DMPS_ATS -O2 -fPIC $(COMMON_CFLAGS)
+ATS_CFLAGS = -DMPS_LOG_ATS -O2 -fPIC $(COMMON_CFLAGS)
 
-NGX_CFLAGS = -DMPS_NGX -O2 -fPIC $(COMMON_CFLAGS)
+NGX_CFLAGS = -DMPS_LOG_NGX -O2 -fPIC -Isrc/ngx_log $(COMMON_CFLAGS)
 
 #TEST_LOG_FLAG = -DMPS_LOG_NOP
 TEST_LOG_FLAG = -DMPS_LOG_STDERR -DDDEBUG
@@ -26,22 +26,25 @@ MPS_DEPS = src/mps_core.h \
            src/mps_rbtree.h \
            src/mps_shdict.h \
            src/mps_slab.h \
-           src/ngx_array.h \
-           src/ngx_atomic.h \
            src/ngx_auto_config.h \
            src/ngx_auto_headers.h \
            src/ngx_config.h \
            src/ngx_core.h \
-           src/ngx_cycle.h \
-           src/ngx_errno.h \
            src/ngx_linux_config.h \
-           src/ngx_log.h \
            src/ngx_murmurhash.h \
-           src/ngx_queue.h \
            src/ngx_string.h \
            src/tslog.h \
            src/tslog_ngx.h \
            src/tslog_stderr.h
+
+NGX_LOG_HEADERS = src/ngx_log/ngx_array.h \
+                  src/ngx_log/ngx_atomic.h \
+                  src/ngx_log/ngx_cycle.h \
+                  src/ngx_log/ngx_errno.h \
+                  src/ngx_log/ngx_list.h \
+                  src/ngx_log/ngx_log.h \
+                  src/ngx_log/ngx_queue.h \
+                  src/ngx_log/ngx_rbtree.h
 
 SRCS = src/mps_rbtree.c \
        src/mps_shdict.c \
@@ -121,7 +124,7 @@ objs/ats/ngx_murmurhash.o:	src/ngx_murmurhash.c $(MPS_DEPS)
 	@mkdir -p objs/ats
 	$(CC) -c $(ATS_CFLAGS) -o $@ $<
 
-objs/ats/mps_rbtree.o:	src/mps_rbtree.c $(MPS_DEPS)	
+objs/ats/mps_rbtree.o:	src/mps_rbtree.c $(MPS_DEPS)
 	@mkdir -p objs/ats
 	$(CC) -c $(ATS_CFLAGS) -o $@ $<
 
@@ -139,15 +142,15 @@ objs/ats/ngx_string.o:	src/ngx_string.c $(MPS_DEPS)
 
 # build MPS_NGX_OBJS
 
-objs/ngx/mps_rbtree.o:	src/mps_rbtree.c $(MPS_DEPS)	
+objs/ngx/mps_rbtree.o:	src/mps_rbtree.c $(MPS_DEPS) $(NGX_LOG_HEADERS)
 	@mkdir -p objs/ngx
 	$(CC) -c $(NGX_CFLAGS) -o $@ $<
 
-objs/ngx/mps_shdict.o:	src/mps_shdict.c $(MPS_DEPS)	
+objs/ngx/mps_shdict.o:	src/mps_shdict.c $(MPS_DEPS) $(NGX_LOG_HEADERS)
 	@mkdir -p objs/ngx
 	$(CC) -c $(NGX_CFLAGS) -o $@ $<
 
-objs/ngx/mps_slab.o:	src/mps_slab.c $(MPS_DEPS)	
+objs/ngx/mps_slab.o:	src/mps_slab.c $(MPS_DEPS) $(NGX_LOG_HEADERS)
 	@mkdir -p objs/ngx
 	$(CC) -c $(NGX_CFLAGS) -o $@ $<
 
@@ -161,7 +164,7 @@ objs/test/ngx_murmurhash.o:	src/ngx_murmurhash.c $(MPS_DEPS)
 	@mkdir -p objs/test
 	$(CC) -c $(TEST_CFLAGS) -o $@ $<
 
-objs/test/mps_rbtree.o:	src/mps_rbtree.c $(MPS_DEPS)	
+objs/test/mps_rbtree.o:	src/mps_rbtree.c $(MPS_DEPS)
 	@mkdir -p objs/test
 	$(CC) -c $(TEST_CFLAGS) -o $@ $<
 
@@ -191,7 +194,7 @@ objs/stderr/ngx_murmurhash.o:	src/ngx_murmurhash.c $(MPS_DEPS)
 	@mkdir -p objs/stderr
 	$(CC) -c $(STDERR_CFLAGS) -o $@ $<
 
-objs/stderr/mps_rbtree.o:	src/mps_rbtree.c $(MPS_DEPS)	
+objs/stderr/mps_rbtree.o:	src/mps_rbtree.c $(MPS_DEPS)
 	@mkdir -p objs/stderr
 	$(CC) -c $(STDERR_CFLAGS) -o $@ $<
 
