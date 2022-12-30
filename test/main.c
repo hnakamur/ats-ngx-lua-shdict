@@ -39,6 +39,25 @@ void delete_shm_file(const char *name)
     }
 }
 
+static void sleep_till_next_ms()
+{
+    struct timespec ts;
+
+    if (clock_gettime(CLOCK_REALTIME, &ts) == -1) {
+        mps_log_error("clock_gettime, %s", strerror(errno));
+        return;
+    }
+
+    ts.tv_sec = 0;
+    ts.tv_nsec = 1000000 - (ts.tv_nsec % 1000000);
+    if (ts.tv_nsec <= 0) {
+        return;
+    }
+    if (nanosleep(&ts, NULL) == -1) {
+        mps_log_error("nanosleep err: %s\n", strerror(errno));
+    }
+}
+
 static void sleep_ms(size_t msec)
 {
     struct timespec ts;
@@ -46,8 +65,7 @@ static void sleep_ms(size_t msec)
     ts.tv_sec = msec / 1000;
     ts.tv_nsec = (msec % 1000) * 1000000;
     if (nanosleep(&ts, NULL) == -1) {
-        mps_log_debug("mps_shdict_test", "nanosleep err: %s\n",
-                      strerror(errno));
+        mps_log_error("nanosleep err: %s\n", strerror(errno));
     }
 }
 
@@ -80,6 +98,8 @@ void test_free_space(void)
 void test_incr_happy(void)
 {
     mps_shdict_t *dict = open_shdict();
+
+    sleep_till_next_ms();
 
     const u_char *key = (const u_char *)"key1";
     size_t key_len = strlen((const char *)key);
@@ -144,6 +164,8 @@ void test_incr_reuse_expired_number(void)
 {
     mps_shdict_t *dict = open_shdict();
 
+    sleep_till_next_ms();
+
     const u_char *key1 = (const u_char *)"key1";
     size_t key1_len = strlen((const char *)key1);
     double value = 1;
@@ -184,6 +206,8 @@ void test_incr_reuse_expired_boolean(void)
 {
     mps_shdict_t *dict = open_shdict();
 
+    sleep_till_next_ms();
+
     const u_char *key2 = (const u_char *)"key2";
     size_t key2_len = strlen((const char *)key2);
     int user_flags = 0, forcible = 0;
@@ -218,6 +242,8 @@ void test_incr_reuse_expired_boolean(void)
 void test_incr_remove_expired_list(void)
 {
     mps_shdict_t *dict = open_shdict();
+
+    sleep_till_next_ms();
 
     const u_char *key2 = (const u_char *)"key2";
     size_t key2_len = strlen((const char *)key2);
@@ -560,6 +586,8 @@ void test_safe_set(void)
 {
     mps_shdict_t *dict = open_shdict();
 
+    sleep_till_next_ms();
+
     const u_char *key = (const u_char *)"key1234";
     size_t key_len = strlen((const char *)key), str_value_len = 4000;
     u_char str_value_buf[4000];
@@ -589,6 +617,8 @@ void test_safe_set(void)
 void test_safe_add(void)
 {
     mps_shdict_t *dict = open_shdict();
+
+    sleep_till_next_ms();
 
     const u_char *key = (const u_char *)"key1234";
     size_t key_len = strlen((const char *)key), str_value_len = 4000;
@@ -695,6 +725,8 @@ void test_add_expired(void)
 {
     mps_shdict_t *dict = open_shdict();
 
+    sleep_till_next_ms();
+
     /* This key is needed for mps_shdict_lookup to return NGX_DONE. */
     const u_char *key1 = (const u_char *)"key1";
     size_t key1_len = strlen((const char *)key1);
@@ -727,6 +759,8 @@ void test_add_expired(void)
 void test_replace_expired(void)
 {
     mps_shdict_t *dict = open_shdict();
+
+    sleep_till_next_ms();
 
     /* This key is needed for mps_shdict_lookup to return NGX_DONE. */
     const u_char *key1 = (const u_char *)"key1";
@@ -923,6 +957,8 @@ void test_get_ttl_set_expire(void)
 {
     mps_shdict_t *dict = open_shdict();
 
+    sleep_till_next_ms();
+
     const u_char *key = (const u_char *)"key1234";
     size_t key_len = strlen((const char *)key);
     int value_type = MPS_SHDICT_TNUMBER, user_flags = 0xcafe, get_stale = 0,
@@ -1099,6 +1135,8 @@ void test_list_removed_expired_not_list_value(void)
 {
     mps_shdict_t *dict = open_shdict();
 
+    sleep_till_next_ms();
+
     const u_char *key2 = (const u_char *)"key2";
     size_t key2_len = strlen((const char *)key2);
     int n, rc;
@@ -1133,6 +1171,8 @@ void test_list_removed_expired_not_list_value(void)
 void test_list_removed_expired_list_value(void)
 {
     mps_shdict_t *dict = open_shdict();
+
+    sleep_till_next_ms();
 
     const u_char *key2 = (const u_char *)"key2";
     size_t key2_len = strlen((const char *)key2);
