@@ -115,6 +115,25 @@ long mps_shdict_get_ttl(mps_shdict_t *dict, const u_char *key, size_t key_len);
 int mps_shdict_set_expire(mps_shdict_t *dict, const u_char *key, size_t key_len,
                           long exptime);
 
+int mps_shdict_lpush(mps_shdict_t *dict, const u_char *key, size_t key_len,
+                     int value_type, const u_char *str_value_buf,
+                     size_t str_value_len, double num_value, char **errmsg);
+
+int mps_shdict_rpush(mps_shdict_t *dict, const u_char *key, size_t key_len,
+                     int value_type, const u_char *str_value_buf,
+                     size_t str_value_len, double num_value, char **errmsg);
+
+int mps_shdict_lpop(mps_shdict_t *dict, const u_char *key, size_t key_len,
+                    int *value_type, u_char **str_value_buf,
+                    size_t *str_value_len, double *num_value, char **errmsg);
+
+int mps_shdict_rpop(mps_shdict_t *dict, const u_char *key, size_t key_len,
+                    int *value_type, u_char **str_value_buf,
+                    size_t *str_value_len, double *num_value, char **errmsg);
+
+int mps_shdict_llen(mps_shdict_t *dict, const u_char *key, size_t key_len,
+                    char **errmsg);
+
 size_t mps_shdict_capacity(mps_shdict_t *dict);
 
 size_t mps_shdict_free_space(mps_shdict_t *dict);

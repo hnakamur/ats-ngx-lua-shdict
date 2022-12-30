@@ -32,12 +32,17 @@ local function get_size_ptr()
     return size_ptr
 end
 
--- local FFI_OK = 0
--- local FFI_ERROR = -1
--- local FFI_AGAIN = -2
--- local FFI_BUSY = -3
--- local FFI_DONE = -4
-local FFI_DECLINED = -5
+local NGX_OK = 0
+local NGX_ERROR = -1
+-- local NGX_AGAIN = -2
+-- local NGX_BUSY = -3
+-- local NGX_DONE = -4
+local NGX_DECLINED = -5
+
+local MPS_SHDICT_TNIL = 0
+local MPS_SHDICT_TBOOLEAN = 1
+local MPS_SHDICT_TNUMBER = 3
+local MPS_SHDICT_TSTRING = 4
 
 ffi.cdef[[
     void free(void *ptr);
@@ -142,6 +147,25 @@ ffi.cdef[[
     int mps_shdict_set_expire(mps_shdict_t *dict, const u_char *key,
         size_t key_len, long exptime);
 
+    int mps_shdict_lpush(mps_shdict_t *dict, const u_char *key, size_t key_len,
+        int value_type, const u_char *str_value_buf,
+        size_t str_value_len, double num_value, char **errmsg);
+
+    int mps_shdict_rpush(mps_shdict_t *dict, const u_char *key, size_t key_len,
+            int value_type, const u_char *str_value_buf,
+            size_t str_value_len, double num_value, char **errmsg);
+
+    int mps_shdict_lpop(mps_shdict_t *dict, const u_char *key, size_t key_len,
+        int *value_type, u_char **str_value_buf,
+        size_t *str_value_len, double *num_value, char **errmsg);
+
+    int mps_shdict_rpop(mps_shdict_t *dict, const u_char *key, size_t key_len,
+        int *value_type, u_char **str_value_buf,
+        size_t *str_value_len, double *num_value, char **errmsg);
+
+    int mps_shdict_llen(mps_shdict_t *dict, const u_char *key, size_t key_len,
+        char **errmsg);
+
     size_t mps_shdict_capacity(mps_shdict_t *dict);
 
     size_t mps_shdict_free_space(mps_shdict_t *dict);
@@ -155,6 +179,26 @@ local forcible = ffi.new("int[1]")
 local str_value_buf = ffi.new("unsigned char *[1]")
 local errmsg = ffi.new("char *[1]")
 
+local function validate_key(key)
+    if key == nil then
+        return "nil key"
+    end
+
+    if type(key) ~= "string" then
+        key = tostring(key)
+    end
+
+    local key_len = #key
+    if key_len == 0 then
+        return "empty key"
+    end
+    if key_len > 65535 then
+        return "key too long"
+    end
+
+    return nil
+end
+
 local function shdict_store(dict, op, key, value, exptime, flags)
     if not exptime then
         exptime = 0
@@ -166,21 +210,11 @@ local function shdict_store(dict, op, key, value, exptime, flags)
         flags = 0
     end
 
-    if key == nil then
-        return nil, "nil key"
+    local err = validate_key(key)
+    if err ~= nil then
+        return nil, err
     end
-
-    if type(key) ~= "string" then
-        key = tostring(key)
-    end
-
     local key_len = #key
-    if key_len == 0 then
-        return nil, "empty key"
-    end
-    if key_len > 65535 then
-        return nil, "key too long"
-    end
 
     local str_val_buf
     local str_val_len = 0
@@ -192,19 +226,19 @@ local function shdict_store(dict, op, key, value, exptime, flags)
     -- print("exptime: ", exptime)
 
     if valtyp_str == "string" then
-        valtyp = 4  -- LUA_TSTRING
+        valtyp = MPS_SHDICT_TSTRING
         str_val_buf = value
         str_val_len = #value
 
     elseif valtyp_str == "number" then
-        valtyp = 3  -- LUA_TNUMBER
+        valtyp = MPS_SHDICT_TNUMBER
         num_val = value
 
     elseif value == nil then
-        valtyp = 0  -- LUA_TNIL
+        valtyp = MPS_SHDICT_TNIL
 
     elseif valtyp_str == "boolean" then
-        valtyp = 1  -- LUA_TBOOLEAN
+        valtyp = MPS_SHDICT_TBOOLEAN
         num_val = value and 1 or 0
 
     else
@@ -219,7 +253,7 @@ local function shdict_store(dict, op, key, value, exptime, flags)
 
     -- print("rc == ", rc)
 
-    if rc == 0 then  -- NGX_OK
+    if rc == NGX_OK then
         return true, nil, forcible[0] == 1
     end
 
@@ -227,25 +261,108 @@ local function shdict_store(dict, op, key, value, exptime, flags)
     return false, ffi.string(errmsg[0]), forcible[0] == 1
 end
 
+local function shdict_push(dict, fn, key, value)
+    local err = validate_key(key)
+    if err ~= nil then
+        return nil, err
+    end
+    local key_len = #key
+
+    local str_val_buf
+    local str_val_len = 0
+    local num_val = 0
+    local valtyp_str = type(value)
+    local valtyp
+
+    -- print("value type: ", valtyp)
+
+    if valtyp_str == "string" then
+        valtyp = MPS_SHDICT_TSTRING
+        str_val_buf = value
+        str_val_len = #value
+
+    elseif valtyp_str == "number" then
+        valtyp = MPS_SHDICT_TNUMBER
+        num_val = value
+
+    else
+        return nil, "bad value type"
+    end
+
+    local rc = fn(dict, key, key_len, valtyp, str_val_buf,
+                  str_val_len, num_val, errmsg)
+
+    -- print("rc == ", rc)
+
+    if rc <= NGX_ERROR then
+        return nil, ffi.string(errmsg[0])
+    end
+
+    return rc
+end
+
+local function shdict_pop(dict, fn, key)
+    local err = validate_key(key)
+    if err ~= nil then
+        return nil, err
+    end
+    local key_len = #key
+
+    local size = get_string_buf_size()
+    local buf = get_string_buf(size)
+    str_value_buf[0] = buf
+    local value_len = get_size_ptr()
+    value_len[0] = size
+
+    local rc = fn(dict, key, key_len, value_type,
+                  str_value_buf, value_len,
+                  num_value, errmsg)
+    if rc ~= NGX_OK then
+        if errmsg[0] ~= nil then
+            return nil, ffi.string(errmsg[0])
+        end
+
+        error("failed to get the key")
+    end
+
+    local typ = value_type[0]
+
+    if typ == MPS_SHDICT_TNIL then
+        return nil
+    end
+
+    local val
+
+    if typ == MPS_SHDICT_TSTRING then
+        if str_value_buf[0] ~= buf then
+            -- ngx.say("len: ", tonumber(value_len[0]))
+            buf = str_value_buf[0]
+            val = ffi.string(buf, value_len[0])
+            C.free(buf)
+        else
+            val = ffi.string(buf, value_len[0])
+        end
+
+    elseif typ == MPS_SHDICT_TNUMBER then
+        val = tonumber(num_value[0])
+
+    else
+        error("unknown value type: " .. typ)
+    end
+
+    return val
+end
+
 local metatable = {}
 metatable.__index = metatable
 
+
 function metatable:get(key)
-    if key == nil then
-        return nil, "nil key"
+    local err = validate_key(key)
+    if err ~= nil then
+        return nil, err
     end
-
-    if type(key) ~= "string" then
-        key = tostring(key)
-    end
-
     local key_len = #key
-    if key_len == 0 then
-        return nil, "empty key"
-    end
-    if key_len > 65535 then
-        return nil, "key too long"
-    end
 
     local size = get_string_buf_size()
     local buf = get_string_buf(size)
@@ -257,7 +374,7 @@ function metatable:get(key)
                                 str_value_buf, value_len,
                                 num_value, user_flags, 0,
                                 is_stale, errmsg)
-    if rc ~= 0 then
+    if rc ~= NGX_OK then
         if errmsg[0] ~= nil then
             return nil, ffi.string(errmsg[0])
         end
@@ -267,7 +384,7 @@ function metatable:get(key)
 
     local typ = value_type[0]
 
-    if typ == 0 then -- LUA_TNIL
+    if typ == MPS_SHDICT_TNIL then
         return nil
     end
 
@@ -275,7 +392,7 @@ function metatable:get(key)
 
     local val
 
-    if typ == 4 then -- LUA_TSTRING
+    if typ == MPS_SHDICT_TSTRING then
         if str_value_buf[0] ~= buf then
             -- ngx.say("len: ", tonumber(value_len[0]))
             buf = str_value_buf[0]
@@ -285,10 +402,10 @@ function metatable:get(key)
             val = ffi.string(buf, value_len[0])
         end
 
-    elseif typ == 3 then -- LUA_TNUMBER
+    elseif typ == MPS_SHDICT_TNUMBER then
         val = tonumber(num_value[0])
 
-    elseif typ == 1 then -- LUA_TBOOLEAN
+    elseif typ == MPS_SHDICT_TBOOLEAN then
         val = (tonumber(buf[0]) ~= 0)
 
     else
@@ -331,21 +448,11 @@ function metatable:delete(key)
 end
 
 function metatable:incr(key, value, init, init_ttl)
-    if key == nil then
-        return nil, "nil key"
+    local err = validate_key(key)
+    if err ~= nil then
+        return nil, err
     end
-
-    if type(key) ~= "string" then
-        key = tostring(key)
-    end
-
     local key_len = #key
-    if key_len == 0 then
-        return nil, "empty key"
-    end
-    if key_len > 65535 then
-        return nil, "key too long"
-    end
 
     if type(value) ~= "number" then
         value = tonumber(value)
@@ -405,26 +512,15 @@ function metatable:flush_all()
 end
 
 function metatable:ttl(key)
-    if key == nil then
-        return nil, "nil key"
+    local err = validate_key(key)
+    if err ~= nil then
+        return nil, err
     end
-
-    if type(key) ~= "string" then
-        key = tostring(key)
-    end
-
     local key_len = #key
-    if key_len == 0 then
-        return nil, "empty key"
-    end
-
-    if key_len > 65535 then
-        return nil, "key too long"
-    end
 
     local rc = S.mps_shdict_get_ttl(self, key, key_len)
 
-    if rc == FFI_DECLINED then
+    if rc == NGX_DECLINED then
         return nil, "not found"
     end
 
@@ -436,32 +532,56 @@ function metatable:expire(key, exptime)
         error('bad "exptime" argument', 2)
     end
 
-    if key == nil then
-        return nil, "nil key"
+    local err = validate_key(key)
+    if err ~= nil then
+        return nil, err
     end
-
-    if type(key) ~= "string" then
-        key = tostring(key)
-    end
-
     local key_len = #key
-    if key_len == 0 then
-        return nil, "empty key"
-    end
-
-    if key_len > 65535 then
-        return nil, "key too long"
-    end
 
     local rc = S.mps_shdict_set_expire(self, key, key_len, exptime * 1000)
 
-    if rc == FFI_DECLINED then
+    if rc == NGX_DECLINED then
         return nil, "not found"
     end
 
-    -- NGINX_OK/FFI_OK
+    -- NGINX_OK
 
     return true
+end
+
+function metatable:lpush(key, value)
+    return shdict_push(self, S.mps_shdict_lpush, key, value)
+end
+
+function metatable:rpush(key, value)
+    return shdict_push(self, S.mps_shdict_rpush, key, value)
+end
+
+function metatable:lpop(key)
+    return shdict_pop(self, S.mps_shdict_lpop, key)
+end
+
+function metatable:rpop(key)
+    return shdict_pop(self, S.mps_shdict_rpop, key)
+end
+
+function metatable:llen(key)
+    local err = validate_key(key)
+    if err ~= nil then
+        return nil, err
+    end
+    local key_len = #key
+
+    local rc = S.mps_shdict_llen(self, key, key_len, errmsg)
+    if rc <= NGX_ERROR then
+        if errmsg[0] ~= nil then
+            return nil, ffi.string(errmsg[0])
+        end
+
+        error("failed to get the key")
+    end
+
+    return rc
 end
 
 function metatable:capacity()
