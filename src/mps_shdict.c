@@ -40,36 +40,41 @@ static void mps_shdict_init_dicts_lock()
 
     rc = pthread_mutexattr_init(&attr);
     if (rc != 0) {
-        TSEmergency(
+        mps_log_error(
             "mps_shdict_init_dicts_lock: pthread_mutexattr_init: err=%s",
             strerror(rc));
+        return;
     }
 
     rc = pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST);
     if (rc != 0) {
-        TSEmergency(
+        mps_log_error(
             "mps_shdict_init_dicts_lock: pthread_mutexattr_setrobust: err=%s",
             strerror(rc));
+        return;
     }
 
     rc = pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
     if (rc != 0) {
-        TSEmergency(
+        mps_log_error(
             "mps_shdict_init_dicts_lock: pthread_mutexattr_setpshared: err=%s",
             strerror(rc));
+        return;
     }
 
     rc = pthread_mutex_init(&dicts_lock, &attr);
     if (rc != 0) {
-        TSEmergency("mps_shdict_init_dicts_lock: pthread_mutex_init: err=%s",
-                    strerror(rc));
+        mps_log_error("mps_shdict_init_dicts_lock: pthread_mutex_init: err=%s",
+                      strerror(rc));
+        return;
     }
 
     rc = pthread_mutexattr_destroy(&attr);
     if (rc != 0) {
-        TSEmergency(
+        mps_log_error(
             "mps_shdict_init_dicts_lock: pthread_mutexattr_destroy: err=%s",
             strerror(rc));
+        return;
     }
 }
 
@@ -121,8 +126,8 @@ static inline uint64_t mps_clock_time_ms()
     struct timespec ts;
 
     if (clock_gettime(CLOCK_REALTIME, &ts) == -1) {
-        perror("clock_gettime");
-        exit(1);
+        mps_log_error("clock_gettime, %s", strerror(errno));
+        return 0;
     }
 
     return msec_from_timespec(&ts);
@@ -173,17 +178,19 @@ void mps_shdict_rbtree_insert_value(mps_slab_pool_t *pool,
     }
 
     *p = mps_offset(pool, node);
-    TSDebug(MPS_LOG_TAG,
-            "shdict_insert_val, updated temp=%lx, *p=%lx, temp->%s=%lx",
-            mps_offset(pool, temp), *p, (p == &temp->left ? "left" : "right"),
-            (p == &temp->left ? temp->left : temp->right));
+    mps_log_debug(MPS_LOG_TAG,
+                  "shdict_insert_val, updated temp=%lx, *p=%lx, temp->%s=%lx",
+                  mps_offset(pool, temp), *p,
+                  (p == &temp->left ? "left" : "right"),
+                  (p == &temp->left ? temp->left : temp->right));
     node->parent = mps_offset(pool, temp);
     node->left = s;
     node->right = s;
-    TSDebug(MPS_LOG_TAG,
-            "shdict_insert_val, inserted node parent=%lx, node=%lx, left=%lx, "
-            "right=%lx",
-            node->parent, mps_offset(pool, node), node->left, node->right);
+    mps_log_debug(
+        MPS_LOG_TAG,
+        "shdict_insert_val, inserted node parent=%lx, node=%lx, left=%lx, "
+        "right=%lx",
+        node->parent, mps_offset(pool, node), node->left, node->right);
     ngx_rbt_red(node);
 }
 
@@ -191,10 +198,10 @@ static void mps_shdict_on_init(mps_slab_pool_t *pool)
 {
     mps_shdict_tree_t *dict;
 
-    TSStatus("mps_shdict_on_init start");
+    mps_log_status("mps_shdict_on_init start");
     dict = mps_slab_alloc(pool, sizeof(mps_shdict_tree_t));
     if (!dict) {
-        TSError("mps_shdict_on_init: mps_slab_alloc failed");
+        mps_log_error("mps_shdict_on_init: mps_slab_alloc failed");
         return;
     }
 
@@ -205,7 +212,7 @@ static void mps_shdict_on_init(mps_slab_pool_t *pool)
 
     pool->log_nomem = 0;
 
-    TSStatus("mps_shdict_on_init exit");
+    mps_log_status("mps_shdict_on_init exit");
 }
 
 mps_shdict_t *mps_shdict_open_or_create(const char *dict_name, size_t shm_size,
@@ -218,13 +225,15 @@ mps_shdict_t *mps_shdict_open_or_create(const char *dict_name, size_t shm_size,
     char shm_name[NAME_MAX], *p;
     mps_slab_pool_t *pool;
 
-    TSDebug(MPS_LOG_TAG, "mps_shdict_open_or_create start, name=%s", dict_name);
+    mps_log_debug(MPS_LOG_TAG, "mps_shdict_open_or_create start, name=%s",
+                  dict_name);
 
     rc = pthread_once(&dicts_lock_initialized, mps_shdict_init_dicts_lock);
     if (rc != 0) {
-        TSEmergency(
+        mps_log_error(
             "mps_shdict_open_or_create: mps_shdict_init_dicts_lock: err=%s",
             strerror(rc));
+        return NULL;
     }
 
     dict_name_len = strlen(dict_name);
@@ -240,8 +249,9 @@ mps_shdict_t *mps_shdict_open_or_create(const char *dict_name, size_t shm_size,
         return dict;
     }
 
-    TSDebug(MPS_LOG_TAG, "mps_shdict_open_or_create dict not found, name=%s",
-            dict_name);
+    mps_log_debug(MPS_LOG_TAG,
+                  "mps_shdict_open_or_create dict not found, name=%s",
+                  dict_name);
 
     shm_name[0] = '/';
     p = (char *)ngx_copy((u_char *)&shm_name[1], (u_char *)dict_name,
@@ -250,7 +260,8 @@ mps_shdict_t *mps_shdict_open_or_create(const char *dict_name, size_t shm_size,
 
     pool = mps_slab_open_or_create(shm_name, shm_size, min_shift, mode,
                                    mps_shdict_on_init);
-    TSStatus("mps_shdict_open_or_create name=%s, pool=%p", dict_name, pool);
+    mps_log_status("mps_shdict_open_or_create name=%s, pool=%p", dict_name,
+                   pool);
     if (pool == NULL) {
         pthread_mutex_unlock(&dicts_lock);
         return NULL;
@@ -262,8 +273,8 @@ mps_shdict_t *mps_shdict_open_or_create(const char *dict_name, size_t shm_size,
         return NULL;
     }
 
-    TSDebug(MPS_LOG_TAG, "mps_shdict_open_or_create strdup ok, name=%s",
-            dict_name);
+    mps_log_debug(MPS_LOG_TAG, "mps_shdict_open_or_create strdup ok, name=%s",
+                  dict_name);
 
     new_dicts = realloc(dicts, sizeof(mps_shdict_t) * (dicts_count + 1));
     if (new_dicts == NULL) {
@@ -271,8 +282,8 @@ mps_shdict_t *mps_shdict_open_or_create(const char *dict_name, size_t shm_size,
         return NULL;
     }
 
-    TSDebug(MPS_LOG_TAG, "mps_shdict_open_or_create realloc ok, name=%s",
-            dict_name);
+    mps_log_debug(MPS_LOG_TAG, "mps_shdict_open_or_create realloc ok, name=%s",
+                  dict_name);
 
     dicts = new_dicts;
     dict = &dicts[dicts_count];
@@ -284,8 +295,8 @@ mps_shdict_t *mps_shdict_open_or_create(const char *dict_name, size_t shm_size,
     dict->size = shm_size;
 
     pthread_mutex_unlock(&dicts_lock);
-    TSDebug(MPS_LOG_TAG, "mps_shdict_open_or_create exit ok, name=%s",
-            dict_name);
+    mps_log_debug(MPS_LOG_TAG, "mps_shdict_open_or_create exit ok, name=%s",
+                  dict_name);
 
     return dict;
 }
@@ -296,20 +307,21 @@ void mps_shdict_close(mps_shdict_t *dict)
     mps_shdict_t *new_dicts;
     u_char *dict_name_data;
 
-    TSDebug(MPS_LOG_TAG, "mps_shdict_close start, dict->name=" LogLenStr,
-            (int)dict->name.len, dict->name.data);
+    mps_log_debug(MPS_LOG_TAG, "mps_shdict_close start, dict->name=" LogLenStr,
+                  (int)dict->name.len, dict->name.data);
 
     rc = pthread_once(&dicts_lock_initialized, mps_shdict_init_dicts_lock);
     if (rc != 0) {
-        TSEmergency("mps_shdict_close: mps_shdict_init_dicts_lock: err=%s",
-                    strerror(rc));
+        mps_log_error("mps_shdict_close: mps_shdict_init_dicts_lock: err=%s",
+                      strerror(rc));
+        return;
     }
 
     pthread_mutex_lock(&dicts_lock);
 
     i = index_of_dict(dict);
 
-    TSDebug(MPS_LOG_TAG, "mps_shdict_close, i=%d", i);
+    mps_log_debug(MPS_LOG_TAG, "mps_shdict_close, i=%d", i);
 
     if (i == -1) {
         pthread_mutex_unlock(&dicts_lock);
@@ -318,25 +330,27 @@ void mps_shdict_close(mps_shdict_t *dict)
 
     mps_slab_close(dict->pool, dict->size);
 
-    TSDebug(MPS_LOG_TAG, "mps_shdict_close, after close, dicts_count=%d",
-            dicts_count);
+    mps_log_debug(MPS_LOG_TAG, "mps_shdict_close, after close, dicts_count=%d",
+                  dicts_count);
 
     dict_name_data = dict->name.data;
 
     dicts[i] = dicts[dicts_count - 1];
-    TSDebug(MPS_LOG_TAG, "mps_shdict_close, after copy dict array elem");
+    mps_log_debug(MPS_LOG_TAG, "mps_shdict_close, after copy dict array elem");
 
     if (dicts_count == 1) {
         free(dicts);
         new_dicts = NULL;
-        TSDebug(MPS_LOG_TAG, "mps_shdict_close, after free");
+        mps_log_debug(MPS_LOG_TAG, "mps_shdict_close, after free");
 
     } else {
         new_dicts = realloc(dicts, sizeof(mps_shdict_t) * (dicts_count - 1));
-        TSDebug(MPS_LOG_TAG, "mps_shdict_close, after realloc, new_dicts=%p",
-                new_dicts);
+        mps_log_debug(MPS_LOG_TAG,
+                      "mps_shdict_close, after realloc, new_dicts=%p",
+                      new_dicts);
         if (new_dicts == NULL) {
-            TSError("mps_shdict_close: realloc failed: err=%s", strerror(rc));
+            mps_log_error("mps_shdict_close: realloc failed: err=%s",
+                          strerror(rc));
             pthread_mutex_unlock(&dicts_lock);
             return;
         }
@@ -348,7 +362,7 @@ void mps_shdict_close(mps_shdict_t *dict)
 
     pthread_mutex_unlock(&dicts_lock);
 
-    TSDebug(MPS_LOG_TAG, "mps_shdict_close, exit ok");
+    mps_log_debug(MPS_LOG_TAG, "mps_shdict_close, exit ok");
 }
 
 static ngx_int_t mps_shdict_lookup(mps_slab_pool_t *pool, ngx_uint_t hash,
@@ -428,7 +442,8 @@ static int mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_tree_t *tree,
     mps_shdict_list_node_t *lnode;
 
     now = mps_clock_time_ms();
-    TSDebug(MPS_LOG_TAG, "expire start, n=%" PRId64 ", now=%" PRId64, n, now);
+    mps_log_debug(MPS_LOG_TAG, "expire start, n=%" PRId64 ", now=%" PRId64, n,
+                  now);
 
     /*
      * n == 1 deletes one or two expired entries
@@ -441,15 +456,16 @@ static int mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_tree_t *tree,
         if (mps_queue_empty(pool, &tree->lru_queue)) {
             return freed;
         }
-        TSDebug(MPS_LOG_TAG, "expire, lru queue not empty");
+        mps_log_debug(MPS_LOG_TAG, "expire, lru queue not empty");
 
         q = mps_queue_last(pool, &tree->lru_queue);
-        TSDebug(MPS_LOG_TAG, "expire, q=%p", q);
+        mps_log_debug(MPS_LOG_TAG, "expire, q=%p", q);
 
         sd = mps_queue_data(q, mps_shdict_node_t, queue);
-        TSDebug(MPS_LOG_TAG,
-                "expire, n=%" PRId64 ", key=" LogLenStr ", expires=%" PRId64, n,
-                (int)sd->key_len, sd->data, sd->expires);
+        mps_log_debug(MPS_LOG_TAG,
+                      "expire, n=%" PRId64 ", key=" LogLenStr
+                      ", expires=%" PRId64,
+                      n, (int)sd->key_len, sd->data, sd->expires);
 
         if (n++ != 0) {
 
@@ -479,15 +495,16 @@ static int mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_tree_t *tree,
 
         node = (mps_rbtree_node_t *)((u_char *)sd -
                                      offsetof(mps_rbtree_node_t, color));
-        TSDebug(MPS_LOG_TAG,
-                "expire, calling rbtree_delete, node=%p, node_off=%lx", node,
-                mps_offset(pool, node));
+        mps_log_debug(MPS_LOG_TAG,
+                      "expire, calling rbtree_delete, node=%p, node_off=%lx",
+                      node, mps_offset(pool, node));
 
         mps_rbtree_delete(pool, &tree->rbtree, node);
 
-        TSDebug(MPS_LOG_TAG, "expire, calling free_locked, node=%p", node);
+        mps_log_debug(MPS_LOG_TAG, "expire, calling free_locked, node=%p",
+                      node);
         mps_slab_free_locked(pool, node);
-        TSDebug(MPS_LOG_TAG, "expire, after free_locked, node=%p", node);
+        mps_log_debug(MPS_LOG_TAG, "expire, after free_locked, node=%p", node);
 
         freed++;
     }
@@ -520,8 +537,8 @@ int mps_shdict_store(mps_shdict_t *dict, int op, const u_char *key,
     *forcible = 0;
 
     hash = ngx_murmur_hash2(key, key_len);
-    TSDebug("shdict", "store start, op=%d, key=" LogLenStr ", hash=%x", op,
-            (int)key_len, key, hash);
+    mps_log_debug("shdict", "store start, op=%d, key=" LogLenStr ", hash=%x",
+                  op, (int)key_len, key, hash);
 
     switch (value_type) {
 
@@ -610,10 +627,10 @@ int mps_shdict_store(mps_shdict_t *dict, int op, const u_char *key,
         if (str_value_buf && str_value_len == (size_t)sd->value_len &&
             sd->value_type != MPS_SHDICT_TLIST) {
 
-            TSDebug(MPS_LOG_TAG,
-                    "lua shared tree set in dict \"" LogLenStr "\": "
-                    "found old entry and value size matched, reusing it",
-                    (int)dict->name.len, dict->name.data);
+            mps_log_debug(MPS_LOG_TAG,
+                          "lua shared tree set in dict \"" LogLenStr "\": "
+                          "found old entry and value size matched, reusing it",
+                          (int)dict->name.len, dict->name.data);
 
             mps_queue_remove(pool, &sd->queue);
             mps_queue_insert_head(pool, &tree->lru_queue, &sd->queue);
@@ -638,10 +655,11 @@ int mps_shdict_store(mps_shdict_t *dict, int op, const u_char *key,
             return NGX_OK;
         }
 
-        TSDebug(MPS_LOG_TAG,
-                "lua shared dict set in dict \"" LogLenStr "\": "
-                "found old entry but value size NOT matched, removing it first",
-                (int)dict->name.len, dict->name.data);
+        mps_log_debug(
+            MPS_LOG_TAG,
+            "lua shared dict set in dict \"" LogLenStr "\": "
+            "found old entry but value size NOT matched, removing it first",
+            (int)dict->name.len, dict->name.data);
 
     remove:
 
@@ -676,18 +694,19 @@ insert:
         return NGX_OK;
     }
 
-    TSDebug(MPS_LOG_TAG,
-            "lua shared dict set in dict \"" LogLenStr
-            "\": creating a new entry",
-            (int)dict->name.len, dict->name.data);
+    mps_log_debug(MPS_LOG_TAG,
+                  "lua shared dict set in dict \"" LogLenStr
+                  "\": creating a new entry",
+                  (int)dict->name.len, dict->name.data);
 
     n = offsetof(mps_rbtree_node_t, color) + offsetof(mps_shdict_node_t, data) +
         key_len + str_value_len;
-    TSDebug(MPS_LOG_TAG,
-            "store allocating node size=%d, off1=%ld, off2=%ld, key_len=%ld, "
-            "value_len=%ld",
-            n, offsetof(mps_rbtree_node_t, color),
-            offsetof(mps_shdict_node_t, data), key_len, str_value_len);
+    mps_log_debug(
+        MPS_LOG_TAG,
+        "store allocating node size=%d, off1=%ld, off2=%ld, key_len=%ld, "
+        "value_len=%ld",
+        n, offsetof(mps_rbtree_node_t, color),
+        offsetof(mps_shdict_node_t, data), key_len, str_value_len);
 
     node = mps_slab_alloc_locked(pool, n);
 
@@ -700,10 +719,10 @@ insert:
             return NGX_ERROR;
         }
 
-        TSDebug(MPS_LOG_TAG,
-                "lua shared dict set: overriding non-expired items "
-                "due to memory shortage for entry \"" LogLenStr "\"",
-                (int)key_len, key);
+        mps_log_debug(MPS_LOG_TAG,
+                      "lua shared dict set: overriding non-expired items "
+                      "due to memory shortage for entry \"" LogLenStr "\"",
+                      (int)key_len, key);
 
         for (i = 0; i < 30; i++) {
             if (mps_shdict_expire(pool, tree, 0) == 0) {
@@ -807,8 +826,8 @@ int mps_shdict_replace(mps_shdict_t *dict, const u_char *key, size_t key_len,
 int mps_shdict_delete(mps_shdict_t *dict, const u_char *key, size_t key_len)
 {
     int forcible = 0;
-    TSDebug(MPS_LOG_TAG, "shdict_delete start, key=" LogLenStr, (int)key_len,
-            key);
+    mps_log_debug(MPS_LOG_TAG, "shdict_delete start, key=" LogLenStr,
+                  (int)key_len, key);
     return mps_shdict_store(dict, 0, key, key_len, MPS_SHDICT_TNIL, NULL, 0, 0,
                             0, 0, NULL, &forcible);
 }
@@ -825,8 +844,8 @@ int mps_shdict_get(mps_shdict_t *dict, const u_char *key, size_t key_len,
     ngx_str_t value;
 
     hash = ngx_murmur_hash2(key, key_len);
-    TSDebug(MPS_LOG_TAG, "get start, key=" LogLenStr ", hash=%x", (int)key_len,
-            key, hash);
+    mps_log_debug(MPS_LOG_TAG, "get start, key=" LogLenStr ", hash=%x",
+                  (int)key_len, key, hash);
 
     pool = dict->pool;
     mps_slab_lock(pool);
@@ -873,10 +892,11 @@ int mps_shdict_get(mps_shdict_t *dict, const u_char *key, size_t key_len,
 
         if (value.len != sizeof(double)) {
             mps_slab_unlock(pool);
-            TSError("bad lua number value size found for key " LogLenStr " "
-                    "in dict \"" LogLenStr "\": %lu",
-                    (int)key_len, key, (int)dict->name.len, dict->name.data,
-                    value.len);
+            mps_log_error("bad lua number value size found for key " LogLenStr
+                          " "
+                          "in dict \"" LogLenStr "\": %lu",
+                          (int)key_len, key, (int)dict->name.len,
+                          dict->name.data, value.len);
             return NGX_ERROR;
         }
 
@@ -888,10 +908,11 @@ int mps_shdict_get(mps_shdict_t *dict, const u_char *key, size_t key_len,
 
         if (value.len != sizeof(u_char)) {
             mps_slab_unlock(pool);
-            TSError("bad lua boolean value size found for key " LogLenStr " "
-                    "in dict \"" LogLenStr "\": %lu",
-                    (int)key_len, key, (int)dict->name.len, dict->name.data,
-                    value.len);
+            mps_log_error("bad lua boolean value size found for key " LogLenStr
+                          " "
+                          "in dict \"" LogLenStr "\": %lu",
+                          (int)key_len, key, (int)dict->name.len,
+                          dict->name.data, value.len);
             return NGX_ERROR;
         }
 
@@ -908,10 +929,10 @@ int mps_shdict_get(mps_shdict_t *dict, const u_char *key, size_t key_len,
     default:
 
         mps_slab_unlock(pool);
-        TSError("bad value type found for key " LogLenStr
-                " in dict \"" LogLenStr "\": %d",
-                (int)key_len, key, (int)dict->name.len, dict->name.data,
-                *value_type);
+        mps_log_error("bad value type found for key " LogLenStr
+                      " in dict \"" LogLenStr "\": %d",
+                      (int)key_len, key, (int)dict->name.len, dict->name.data,
+                      *value_type);
         return NGX_ERROR;
     }
 
@@ -986,10 +1007,11 @@ int mps_shdict_incr(mps_shdict_t *dict, const u_char *key, size_t key_len,
 
             if ((size_t)sd->value_len == sizeof(double) &&
                 sd->value_type != MPS_SHDICT_TLIST) {
-                TSDebug(MPS_LOG_TAG,
-                        "lua shared dict incr in dict \"" LogLenStr "\": "
-                        "found old entry and value size matched, reusing it",
-                        (int)dict->name.len, dict->name.data);
+                mps_log_debug(
+                    MPS_LOG_TAG,
+                    "lua shared dict incr in dict \"" LogLenStr "\": "
+                    "found old entry and value size matched, reusing it",
+                    (int)dict->name.len, dict->name.data);
 
                 mps_queue_remove(pool, &sd->queue);
                 mps_queue_insert_head(pool, &tree->lru_queue, &sd->queue);
@@ -1033,19 +1055,21 @@ int mps_shdict_incr(mps_shdict_t *dict, const u_char *key, size_t key_len,
     {
         node = (mps_rbtree_node_t *)((u_char *)sd -
                                      offsetof(mps_rbtree_node_t, color));
-        TSStatus("incr updated value#1=%g, node=%lx, left=%lx, right=%lx, "
-                 "parent=%lx",
-                 *value, mps_offset(pool, node), node->left, node->right,
-                 node->parent);
+        mps_log_status(
+            "incr updated value#1=%g, node=%lx, left=%lx, right=%lx, "
+            "parent=%lx",
+            *value, mps_offset(pool, node), node->left, node->right,
+            node->parent);
     }
     return NGX_OK;
 
 remove:
 
-    TSDebug(MPS_LOG_TAG,
-            "lua shared dict incr in dict \"" LogLenStr "\": "
-            "found old entry but value size NOT matched, removing it first",
-            (int)dict->name.len, dict->name.data);
+    mps_log_debug(
+        MPS_LOG_TAG,
+        "lua shared dict incr in dict \"" LogLenStr "\": "
+        "found old entry but value size NOT matched, removing it first",
+        (int)dict->name.len, dict->name.data);
 
     if (sd->value_type == MPS_SHDICT_TLIST) {
         queue = mps_shdict_get_list_head(sd, key_len);
@@ -1064,33 +1088,33 @@ remove:
     node = (mps_rbtree_node_t *)((u_char *)sd -
                                  offsetof(mps_rbtree_node_t, color));
 
-    TSDebug(MPS_LOG_TAG, "incr, before rbtree_delete at label remove");
+    mps_log_debug(MPS_LOG_TAG, "incr, before rbtree_delete at label remove");
     mps_rbtree_delete(pool, &tree->rbtree, node);
     mps_slab_free_locked(pool, node);
 
 insert:
 
-    TSDebug(MPS_LOG_TAG,
-            "lua shared dict incr in dict \"" LogLenStr
-            "\": creating a new entry",
-            (int)dict->name.len, dict->name.data);
+    mps_log_debug(MPS_LOG_TAG,
+                  "lua shared dict incr in dict \"" LogLenStr
+                  "\": creating a new entry",
+                  (int)dict->name.len, dict->name.data);
 
     n = offsetof(mps_rbtree_node_t, color) + offsetof(mps_shdict_node_t, data) +
         key_len + sizeof(double);
 
     node = mps_slab_alloc_locked(pool, n);
-    TSStatus("incr allocated node=%lx", mps_offset(pool, node));
+    mps_log_status("incr allocated node=%lx", mps_offset(pool, node));
 
     if (node == NULL) {
 
-        TSDebug(MPS_LOG_TAG,
-                "lua shared dict incr in dict \"" LogLenStr
-                "\": overriding non-expired items "
-                "due to memory shortage for entry \"" LogLenStr "\"",
-                (int)dict->name.len, dict->name.data, (int)key_len, key);
+        mps_log_debug(MPS_LOG_TAG,
+                      "lua shared dict incr in dict \"" LogLenStr
+                      "\": overriding non-expired items "
+                      "due to memory shortage for entry \"" LogLenStr "\"",
+                      (int)dict->name.len, dict->name.data, (int)key_len, key);
 
         for (i = 0; i < 30; i++) {
-            TSDebug(MPS_LOG_TAG, "incr calling expire with n=0, i=%d", i);
+            mps_log_debug(MPS_LOG_TAG, "incr calling expire with n=0, i=%d", i);
             if (mps_shdict_expire(pool, tree, 0) == 0) {
                 break;
             }
@@ -1147,10 +1171,11 @@ setvalue:
     {
         node = (mps_rbtree_node_t *)((u_char *)sd -
                                      offsetof(mps_rbtree_node_t, color));
-        TSStatus("incr updated value#2=%g, node=%lx, left=%lx, right=%lx, "
-                 "parent=%lx",
-                 *value, mps_offset(pool, node), node->left, node->right,
-                 node->parent);
+        mps_log_status(
+            "incr updated value#2=%g, node=%lx, left=%lx, right=%lx, "
+            "parent=%lx",
+            *value, mps_offset(pool, node), node->left, node->right,
+            node->parent);
     }
     return NGX_OK;
 }
@@ -1340,9 +1365,9 @@ static int mps_shdict_push_helper(mps_shdict_t *dict, int direction,
     tree = mps_shdict_tree(pool);
 
     hash = ngx_murmur_hash2(key, key_len);
-    TSDebug(MPS_LOG_TAG,
-            "push_helper start, direction=%d, key=" LogLenStr ", hash=%x",
-            direction, (int)key_len, key, hash);
+    mps_log_debug(MPS_LOG_TAG,
+                  "push_helper start, direction=%d, key=" LogLenStr ", hash=%x",
+                  direction, (int)key_len, key, hash);
 
     switch (value_type) {
 
@@ -1378,9 +1403,9 @@ static int mps_shdict_push_helper(mps_shdict_t *dict, int direction,
         if (sd->value_type != MPS_SHDICT_TLIST) {
             /* TODO: reuse when length matched */
 
-            TSDebug(MPS_LOG_TAG,
-                    "lua shared dict push: found old entry and value "
-                    "type not matched, remove it first");
+            mps_log_debug(MPS_LOG_TAG,
+                          "lua shared dict push: found old entry and value "
+                          "type not matched, remove it first");
 
             mps_queue_remove(pool, &sd->queue);
 
@@ -1395,8 +1420,9 @@ static int mps_shdict_push_helper(mps_shdict_t *dict, int direction,
             goto init_list;
         }
 
-        TSDebug(MPS_LOG_TAG, "lua shared dict push: found old entry and value "
-                             "type matched, reusing it");
+        mps_log_debug(MPS_LOG_TAG,
+                      "lua shared dict push: found old entry and value "
+                      "type matched, reusing it");
 
         sd->expires = 0;
         sd->value_len = 0;
@@ -1445,7 +1471,7 @@ static int mps_shdict_push_helper(mps_shdict_t *dict, int direction,
 
 init_list:
 
-    TSDebug(MPS_LOG_TAG, "lua shared dict list: creating a new entry");
+    mps_log_debug(MPS_LOG_TAG, "lua shared dict list: creating a new entry");
 
     /* NOTICE: we assume the begin point aligned in slab, be careful */
     n = offsetof(mps_rbtree_node_t, color) + offsetof(mps_shdict_node_t, data) +
@@ -1491,7 +1517,8 @@ init_list:
 
 push_node:
 
-    TSDebug(MPS_LOG_TAG, "lua shared dict list: creating a new list node");
+    mps_log_debug(MPS_LOG_TAG,
+                  "lua shared dict list: creating a new list node");
 
     n = offsetof(mps_shdict_list_node_t, data) + str_value_len;
 
@@ -1503,8 +1530,9 @@ push_node:
 
         if (sd->value_len == 0) {
 
-            TSDebug(MPS_LOG_TAG, "lua shared dict list: no memory for create"
-                                 " list node and list empty, remove it");
+            mps_log_debug(MPS_LOG_TAG,
+                          "lua shared dict list: no memory for create"
+                          " list node and list empty, remove it");
 
             mps_queue_remove(pool, &sd->queue);
 
@@ -1586,9 +1614,9 @@ static int mps_shdict_pop_helper(mps_shdict_t *dict, int direction,
     tree = mps_shdict_tree(pool);
 
     hash = ngx_murmur_hash2(key, key_len);
-    TSDebug(MPS_LOG_TAG,
-            "pop_helper start, direction=%d, key=" LogLenStr ", hash=%x",
-            direction, (int)key_len, key, hash);
+    mps_log_debug(MPS_LOG_TAG,
+                  "pop_helper start, direction=%d, key=" LogLenStr ", hash=%x",
+                  direction, (int)key_len, key, hash);
 
     mps_slab_lock(pool);
 
@@ -1682,8 +1710,9 @@ static int mps_shdict_pop_helper(mps_shdict_t *dict, int direction,
     mps_slab_free_locked(pool, lnode);
 
     if (sd->value_len == 1) {
-        TSDebug(MPS_LOG_TAG, "lua shared dict list: empty node after pop, "
-                             "remove it");
+        mps_log_debug(MPS_LOG_TAG,
+                      "lua shared dict list: empty node after pop, "
+                      "remove it");
 
         mps_queue_remove(pool, &sd->queue);
 
@@ -1716,8 +1745,8 @@ int mps_shdict_llen(mps_shdict_t *dict, const u_char *key, size_t key_len,
     mps_shdict_node_t *sd;
 
     hash = ngx_murmur_hash2(key, key_len);
-    TSDebug(MPS_LOG_TAG, "llen start, key=" LogLenStr ", hash=%x", (int)key_len,
-            key, hash);
+    mps_log_debug(MPS_LOG_TAG, "llen start, key=" LogLenStr ", hash=%x",
+                  (int)key_len, key, hash);
 
     pool = dict->pool;
     tree = mps_shdict_tree(pool);

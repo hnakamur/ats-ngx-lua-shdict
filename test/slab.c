@@ -1,5 +1,6 @@
 #include "unity.h"
 #include "mps_slab.h"
+#include "mps_log.h"
 
 #define SHM_SIZE (4096 * 3)
 #define SHM_NAME "/test_shm1"
@@ -118,8 +119,6 @@ void test_slab_alloc_big(void)
 
     void *p2 = NULL;
     for (int i = 1; i <= 4096 / alloc_size; i++) {
-        fprintf(stderr, "alloc loop i=%d\n", i);
-
         p2 = mps_slab_calloc(pool, alloc_size);
         TEST_ASSERT_NOT_NULL(p2);
     }
@@ -130,7 +129,6 @@ void test_slab_alloc_big(void)
     TEST_ASSERT_NOT_NULL(p);
 
     for (int i = 0; i <= 4096 / alloc_size; i++) {
-        fprintf(stderr, "free loop i=%d\n", i);
         mps_slab_free(pool, (u_char *)p + i * alloc_size);
     }
 
@@ -189,12 +187,14 @@ static void *thread_start(void *arg)
 {
     thread_info *tinfo = (thread_info *)arg;
 
-    fprintf(stderr, "thread_start, thread_num=%d\n", tinfo->thread_num);
+    mps_log_debug("mps_slab_test", "thread_start, thread_num=%d\n",
+                  tinfo->thread_num);
 
     mps_slab_pool_t *pool1 =
         mps_slab_open_or_create(SHM_NAME, SHM_SIZE, MPS_SLAB_DEFAULT_MIN_SHIFT,
                                 S_IRUSR | S_IWUSR, slab_on_init);
-    fprintf(stderr, "thread_num=%d, pool1=%p\n", tinfo->thread_num, pool1);
+    mps_log_debug("mps_slab_test", "thread_num=%d, pool1=%p\n",
+                  tinfo->thread_num, pool1);
     TEST_ASSERT_NOT_NULL(pool1);
 
     mps_slab_close(pool1, SHM_SIZE);

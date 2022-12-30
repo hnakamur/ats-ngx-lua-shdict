@@ -1,13 +1,17 @@
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE /* basename() */
+#endif
+
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "tslog_stderr.h"
+#include "mps_log_stderr.h"
 
 #define TSLOG_STDERR_BUFSIZE 2048
 
-void mps_log_stderr(const char *level, int exits, const char *fmt, ...)
+void mps_log_stderr(const char *level, const char *fmt, ...)
 {
     va_list ap;
     char buf[TSLOG_STDERR_BUFSIZE];
@@ -19,13 +23,14 @@ void mps_log_stderr(const char *level, int exits, const char *fmt, ...)
     n = vsnprintf(NULL, 0, fmt, ap);
     va_end(ap);
     if (n < 0) {
-        fprintf(stderr, "TS%s cannot determine required size: %s\n", level,
-                strerror(errno));
+        fprintf(stderr,
+                "mps_log_stderr[%s] cannot determine required size: %s\n",
+                level, strerror(errno));
         exit(1);
     }
     size = (size_t)n + 1; /* +1 for '\0' */
     if (size > TSLOG_STDERR_BUFSIZE) {
-        fprintf(stderr, "TS%s message is too long\n", level);
+        fprintf(stderr, "mps_log_stderr[%s] message is too long\n", level);
         exit(1);
     }
 
@@ -34,17 +39,14 @@ void mps_log_stderr(const char *level, int exits, const char *fmt, ...)
     n = vsnprintf(buf, size, fmt, ap);
     va_end(ap);
     if (n < 0) {
-        fprintf(stderr, "TS%s cannot print message to buffer: %s\n", level,
-                strerror(errno));
+        fprintf(stderr,
+                "mps_log_stderr[%s] cannot print message to buffer: %s\n",
+                level, strerror(errno));
         exit(1);
     }
 
     /* Print the message with level and newline to stderr. */
     fprintf(stderr, "[%s] %s\n", level, buf);
-
-    if (exits) {
-        exit(1);
-    }
 }
 
 void mps_log_stderr_debug(const char *func, const char *file, int line,
@@ -81,5 +83,6 @@ void mps_log_stderr_debug(const char *func, const char *file, int line,
     }
 
     /* Print the message with level and newline to stderr. */
-    fprintf(stderr, "[Debug](%s)%s:%s:%d: %s\n", tag, func, file, line, buf);
+    fprintf(stderr, "[DEBUG] <%s:%d (%s)> (%s) %s\n", basename(file), line,
+            func, tag, buf);
 }

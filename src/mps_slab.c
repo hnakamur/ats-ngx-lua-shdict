@@ -102,11 +102,11 @@ static void mps_slab_sizes_init(ngx_uint_t pagesize)
         /* void */
     }
 
-    TSDebug(MPS_LOG_TAG,
-            "mps_slab_sizes_init pagesize=%lu, shift=%lu, max_sz=%lu, "
-            "exact_sz=%lu, exact_shift=%lu",
-            pagesize, mps_pagesize_shift, mps_slab_max_size,
-            mps_slab_exact_size, mps_slab_exact_shift);
+    mps_log_debug(MPS_LOG_TAG,
+                  "mps_slab_sizes_init pagesize=%lu, shift=%lu, max_sz=%lu, "
+                  "exact_sz=%lu, exact_shift=%lu",
+                  pagesize, mps_pagesize_shift, mps_slab_max_size,
+                  mps_slab_exact_size, mps_slab_exact_shift);
 }
 
 static pthread_once_t mps_slab_initialized = PTHREAD_ONCE_INIT;
@@ -161,18 +161,19 @@ static void mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size,
 
     err = mps_slab_init_mutex(pool);
     if (err != 0) {
-        TSEmergency("mps_slab_init_mutex failed, err=%d", err);
+        mps_log_error("mps_slab_init_mutex failed, err=%d", err);
+        return;
     }
 
     pool->end = pool_size;
     pool->min_shift = min_shift;
-    TSDebug(MPS_LOG_TAG,
-            "mps_slab_init pool->end=%lx, min_shift=%ld, pool_t_size=%lx, "
-            "stat_t_size=%lx, "
-            "page_t_size=%lx, pool_ptr=%p, end_ptr=%p",
-            pool->end, min_shift, sizeof(mps_slab_pool_t),
-            sizeof(mps_slab_stat_t), sizeof(mps_slab_page_t), pool,
-            mps_ptr(pool, pool->end));
+    mps_log_debug(
+        MPS_LOG_TAG,
+        "mps_slab_init pool->end=%lx, min_shift=%ld, pool_t_size=%lx, "
+        "stat_t_size=%lx, "
+        "page_t_size=%lx, pool_ptr=%p, end_ptr=%p",
+        pool->end, min_shift, sizeof(mps_slab_pool_t), sizeof(mps_slab_stat_t),
+        sizeof(mps_slab_page_t), pool, mps_ptr(pool, pool->end));
 
     pool->min_size = (size_t)1 << pool->min_shift;
 
@@ -180,22 +181,22 @@ static void mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size,
 
     p = (u_char *)slots;
     size = pool->end - mps_offset(pool, p);
-    TSDebug(MPS_LOG_TAG, "mps_slab_init slots_off=%lx, size=%lx",
-            mps_offset(pool, p), size);
+    mps_log_debug(MPS_LOG_TAG, "mps_slab_init slots_off=%lx, size=%lx",
+                  mps_offset(pool, p), size);
 
     mps_slab_junk(p, size);
 
     n = mps_pagesize_shift - pool->min_shift;
-    TSDebug(MPS_LOG_TAG,
-            "mps_slab_init min_shift=%ld, mps_pagesize_shift=%ld, n=%ld",
-            pool->min_shift, mps_pagesize_shift, n);
+    mps_log_debug(MPS_LOG_TAG,
+                  "mps_slab_init min_shift=%ld, mps_pagesize_shift=%ld, n=%ld",
+                  pool->min_shift, mps_pagesize_shift, n);
 
     for (i = 0; i < n; i++) {
         /* only "next" is used in list head */
         slots[i].slab = 0;
         slots[i].next = mps_offset(pool, &slots[i]);
-        TSDebug(MPS_LOG_TAG, "mps_slab_init slots[%ld].next=%lx (%lx)", i,
-                slots[i].next, mps_slab_slots(pool)[i].next);
+        mps_log_debug(MPS_LOG_TAG, "mps_slab_init slots[%ld].next=%lx (%lx)", i,
+                      slots[i].next, mps_slab_slots(pool)[i].next);
         slots[i].prev = mps_nulloff;
     }
 
@@ -203,23 +204,23 @@ static void mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size,
 
     pool->stats = mps_offset(pool, p);
     ngx_memzero(mps_pool_stats(pool), n * sizeof(mps_slab_stat_t));
-    TSDebug(MPS_LOG_TAG, "mps_slab_init stas_off=%lx", pool->stats);
+    mps_log_debug(MPS_LOG_TAG, "mps_slab_init stas_off=%lx", pool->stats);
 
     p += n * sizeof(mps_slab_stat_t);
 
     size -= n * (sizeof(mps_slab_page_t) + sizeof(mps_slab_stat_t));
-    TSDebug(MPS_LOG_TAG, "mps_slab_init pages_off=%lx, size=%lx",
-            mps_offset(pool, p), size);
+    mps_log_debug(MPS_LOG_TAG, "mps_slab_init pages_off=%lx, size=%lx",
+                  mps_offset(pool, p), size);
 
     pages = (ngx_uint_t)(size / (mps_pagesize + sizeof(mps_slab_page_t)));
-    TSDebug(MPS_LOG_TAG, "mps_slab_init pages=%ld", pages);
+    mps_log_debug(MPS_LOG_TAG, "mps_slab_init pages=%ld", pages);
 
     pool->pages = mps_offset(pool, p);
     ngx_memzero(p, pages * sizeof(mps_slab_page_t));
 
     page = (mps_slab_page_t *)p;
-    TSDebug(MPS_LOG_TAG, "mps_slab_init pool->pages=%lx, p=%p, page=%p",
-            pool->pages, p, page);
+    mps_log_debug(MPS_LOG_TAG, "mps_slab_init pool->pages=%lx, p=%p, page=%p",
+                  pool->pages, p, page);
 
     /* only "next" is used in list head */
     pool->free.slab = 0;
@@ -232,28 +233,29 @@ static void mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size,
 
     start = ngx_align_ptr(p + pages * sizeof(mps_slab_page_t), mps_pagesize);
     pool->start = mps_offset(pool, start);
-    TSDebug(MPS_LOG_TAG, "mps_slab_init start=%p, pool->start=%lx", start,
-            pool->start);
+    mps_log_debug(MPS_LOG_TAG, "mps_slab_init start=%p, pool->start=%lx", start,
+                  pool->start);
 
     m = pages - (pool->end - pool->start) / mps_pagesize;
-    TSDebug(MPS_LOG_TAG, "mps_slab_init m#1=%ld, pages=%ld", m, pages);
+    mps_log_debug(MPS_LOG_TAG, "mps_slab_init m#1=%ld, pages=%ld", m, pages);
     if (m > 0) {
         pages -= m;
         page->slab = pages;
     }
-    TSDebug(MPS_LOG_TAG, "mps_slab_init m#2=%ld, pages=%ld", m, pages);
+    mps_log_debug(MPS_LOG_TAG, "mps_slab_init m#2=%ld, pages=%ld", m, pages);
 
     last = mps_slab_page(pool, pool->pages) + pages;
-    TSDebug(MPS_LOG_TAG,
-            "mps_slab_init pool->pages=%p, pages=%lx, last=%p, "
-            "slab_page_t_size=%ld",
-            mps_slab_page(pool, pool->pages), pages, last,
-            sizeof(mps_slab_page_t));
+    mps_log_debug(MPS_LOG_TAG,
+                  "mps_slab_init pool->pages=%p, pages=%lx, last=%p, "
+                  "slab_page_t_size=%ld",
+                  mps_slab_page(pool, pool->pages), pages, last,
+                  sizeof(mps_slab_page_t));
     pool->last = mps_offset(pool, last);
     pool->pfree = pages;
-    TSDebug(MPS_LOG_TAG,
-            "mps_slab_init start=%lx, end=%lx, last=%lx, pfree=%ld, slab=%ld",
-            pool->start, pool->end, pool->last, pool->pfree, page->slab);
+    mps_log_debug(
+        MPS_LOG_TAG,
+        "mps_slab_init start=%lx, end=%lx, last=%lx, pfree=%ld, slab=%ld",
+        pool->start, pool->end, pool->last, pool->pfree, page->slab);
 
     pool->log_nomem = 1;
 }
@@ -293,7 +295,7 @@ static mps_err_t mps_slab_create(mps_slab_pool_t **pool, const char *shm_name,
     }
 
     if (err && munmap(addr, shm_size) == -1) {
-        TSError("mps_slab_create: munmap: err=%s\n", strerror(errno));
+        mps_log_error("mps_slab_create: munmap: err=%s\n", strerror(errno));
     }
 
 close:
@@ -326,7 +328,7 @@ static mps_err_t mps_slab_open(mps_slab_pool_t **pool, const char *shm_name,
     if (close(fd) == -1) {
         err = errno;
         if (munmap(addr, shm_size) == -1) {
-            TSError("mps_slab_open: munmap: err=%s", strerror(errno));
+            mps_log_error("mps_slab_open: munmap: err=%s", strerror(errno));
         }
         return err;
     }
@@ -345,15 +347,16 @@ mps_slab_pool_t *mps_slab_open_or_create(const char *shm_name, size_t shm_size,
 
     rc = pthread_once(&mps_slab_initialized, mps_slab_init_once);
     if (rc != 0) {
-        TSError("mps_slab_open_or_create init sizes err=%s", strerror(rc));
+        mps_log_error("mps_slab_open_or_create init sizes err=%s",
+                      strerror(rc));
         return NULL;
     }
 
     err = mps_slab_open(&pool, shm_name, shm_size, mode);
     if (err) {
         if (err != ENOENT && err != EACCES) {
-            TSError("mps_slab_open_or_create: mps_slab_open#1: err=%s",
-                    strerror(err));
+            mps_log_error("mps_slab_open_or_create: mps_slab_open#1: err=%s",
+                          strerror(err));
             return NULL;
         }
 
@@ -361,36 +364,40 @@ mps_slab_pool_t *mps_slab_open_or_create(const char *shm_name, size_t shm_size,
                               on_init);
         if (err) {
             if (err != EEXIST) {
-                TSError("mps_slab_open_or_create: mps_slab_create: err=%s",
-                        strerror(err));
+                mps_log_error(
+                    "mps_slab_open_or_create: mps_slab_create: err=%s",
+                    strerror(err));
                 return NULL;
             }
 
             sleep_time.tv_sec = 0;
             sleep_time.tv_nsec = 10 * 1000 * 1000; // 10ms
             if (nanosleep(&sleep_time, NULL) == -1) {
-                TSWarning("mps_slab_open_or_create: nanosleep: err=%s",
-                          strerror(errno));
+                mps_log_warning("mps_slab_open_or_create: nanosleep: err=%s",
+                                strerror(errno));
                 return NULL;
             }
 
             err = mps_slab_open(&pool, shm_name, shm_size, mode);
             if (err) {
-                TSError("mps_slab_open_or_create: mps_slab_open#2: err=%s",
-                        strerror(err));
+                mps_log_error(
+                    "mps_slab_open_or_create: mps_slab_open#2: err=%s",
+                    strerror(err));
                 return NULL;
 
             } else {
-                TSStatus("mps_slab_open_or_create second open ok name=%s",
-                         shm_name);
+                mps_log_status("mps_slab_open_or_create second open ok name=%s",
+                               shm_name);
             }
 
         } else {
-            TSStatus("mps_slab_open_or_create create ok name=%s", shm_name);
+            mps_log_status("mps_slab_open_or_create create ok name=%s",
+                           shm_name);
         }
 
     } else {
-        TSStatus("mps_slab_open_or_create first open ok name=%s", shm_name);
+        mps_log_status("mps_slab_open_or_create first open ok name=%s",
+                       shm_name);
     }
     return pool;
 }
@@ -398,7 +405,7 @@ mps_slab_pool_t *mps_slab_open_or_create(const char *shm_name, size_t shm_size,
 void mps_slab_close(mps_slab_pool_t *pool, size_t shm_size)
 {
     if (munmap(pool, shm_size) == -1) {
-        TSError("mps_slab_close: munmap: err=%s", strerror(errno));
+        mps_log_error("mps_slab_close: munmap: err=%s", strerror(errno));
     }
 }
 
@@ -434,8 +441,9 @@ void *mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
 
     if (size > mps_slab_max_size) {
 
-        TSDebug(MPS_LOG_TAG, "mps_slab_alloc_locked: pool=%p, alloc: size=%lu",
-                pool, size);
+        mps_log_debug(MPS_LOG_TAG,
+                      "mps_slab_alloc_locked: pool=%p, alloc: size=%lu", pool,
+                      size);
 
         page = mps_slab_alloc_pages(pool, (size >> mps_pagesize_shift) +
                                               ((size % mps_pagesize) ? 1 : 0));
@@ -456,62 +464,67 @@ void *mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
         }
         slot = shift - pool->min_shift;
 
-        TSDebug(MPS_LOG_TAG,
-                "mps_slab_alloc_locked: pool=%p, size=%lu > min_size=%lu", pool,
-                size, pool->min_size);
+        mps_log_debug(MPS_LOG_TAG,
+                      "mps_slab_alloc_locked: pool=%p, size=%lu > min_size=%lu",
+                      pool, size, pool->min_size);
 
     } else {
         shift = pool->min_shift;
         slot = 0;
 
-        TSDebug(MPS_LOG_TAG,
-                "mps_slab_alloc_locked: pool=%p, size=%lu <= min_size=%lu",
-                pool, size, pool->min_size);
+        mps_log_debug(
+            MPS_LOG_TAG,
+            "mps_slab_alloc_locked: pool=%p, size=%lu <= min_size=%lu", pool,
+            size, pool->min_size);
     }
 
-    TSDebug(MPS_LOG_TAG,
-            "mps_slab_alloc_locked: pool=%p, alloc: size=%lu, slot=%lu, "
-            "shift=%ld, alloc_size=%d",
-            pool, size, slot, shift, 1 << shift);
+    mps_log_debug(MPS_LOG_TAG,
+                  "mps_slab_alloc_locked: pool=%p, alloc: size=%lu, slot=%lu, "
+                  "shift=%ld, alloc_size=%d",
+                  pool, size, slot, shift, 1 << shift);
 
-    TSDebug(MPS_LOG_TAG, "mps_slab_alloc_locked: stats=%lx, stats[slot]=%lx",
-            mps_offset(pool, mps_pool_stats(pool)),
-            mps_offset(pool, &mps_pool_stats(pool)[slot]));
+    mps_log_debug(MPS_LOG_TAG,
+                  "mps_slab_alloc_locked: stats=%lx, stats[slot]=%lx",
+                  mps_offset(pool, mps_pool_stats(pool)),
+                  mps_offset(pool, &mps_pool_stats(pool)[slot]));
 
-    TSDebug(MPS_LOG_TAG,
-            "mps_slab_alloc_locked: pool=%p, pool->stats=%lx, "
-            "mps_pool_stats(pool)=%p (off=%lx)",
-            pool, pool->stats, mps_pool_stats(pool),
-            mps_offset(pool, mps_pool_stats(pool)));
+    mps_log_debug(MPS_LOG_TAG,
+                  "mps_slab_alloc_locked: pool=%p, pool->stats=%lx, "
+                  "mps_pool_stats(pool)=%p (off=%lx)",
+                  pool, pool->stats, mps_pool_stats(pool),
+                  mps_offset(pool, mps_pool_stats(pool)));
 
     mps_pool_stats(pool)[slot].reqs++;
 
-    TSDebug(MPS_LOG_TAG,
-            "mps_slab_alloc_locked: &mps_pool_stats(pool)[slot]=%p (off=%lx)",
-            &mps_pool_stats(pool)[slot],
-            mps_offset(pool, &mps_pool_stats(pool)[slot]));
+    mps_log_debug(
+        MPS_LOG_TAG,
+        "mps_slab_alloc_locked: &mps_pool_stats(pool)[slot]=%p (off=%lx)",
+        &mps_pool_stats(pool)[slot],
+        mps_offset(pool, &mps_pool_stats(pool)[slot]));
 
     slots = mps_slab_slots(pool);
     page = mps_slab_page_next(pool, &slots[slot]);
 
     if (mps_slab_page_next(pool, page) != page) {
-        TSDebug(MPS_LOG_TAG,
-                "mps_slab_alloc_locked: shift=%ld, mps_slab_exact_shift=%ld",
-                shift, mps_slab_exact_shift);
+        mps_log_debug(
+            MPS_LOG_TAG,
+            "mps_slab_alloc_locked: shift=%ld, mps_slab_exact_shift=%ld", shift,
+            mps_slab_exact_shift);
 
         if (shift < mps_slab_exact_shift) {
 
             bitmap = (uintptr_t *)mps_slab_page_addr(pool, page);
 
             map = (mps_pagesize >> shift) / (8 * sizeof(uintptr_t));
-            TSDebug(
+            mps_log_debug(
                 MPS_LOG_TAG,
                 "mps_slab_alloc_locked: shift=%ld < exact_shift=%ld, map=%ld",
                 shift, mps_slab_exact_shift, map);
 
             for (n = 0; n < map; n++) {
-                TSDebug(MPS_LOG_TAG, "bitmap[%ld]=0x%016lx,%sbusy", n,
-                        bitmap[n], bitmap[n] != MPS_SLAB_BUSY ? "!=" : "==");
+                mps_log_debug(MPS_LOG_TAG, "bitmap[%ld]=0x%016lx,%sbusy", n,
+                              bitmap[n],
+                              bitmap[n] != MPS_SLAB_BUSY ? "!=" : "==");
                 if (bitmap[n] != MPS_SLAB_BUSY) {
 
                     for (m = 1, i = 0; m; m <<= 1, i++) {
@@ -522,20 +535,21 @@ void *mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
                         bitmap[n] |= m;
 
                         i = (n * 8 * sizeof(uintptr_t) + i) << shift;
-                        TSDebug(MPS_LOG_TAG,
-                                "bitmap[%ld]=0x%016lx, m=%lx, "
-                                "i=%ld",
-                                n, bitmap[n], m, i);
+                        mps_log_debug(MPS_LOG_TAG,
+                                      "bitmap[%ld]=0x%016lx, m=%lx, "
+                                      "i=%ld",
+                                      n, bitmap[n], m, i);
 
                         p = (uintptr_t)bitmap + i;
 
                         mps_pool_stats(pool)[slot].used++;
 
                         if (bitmap[n] == MPS_SLAB_BUSY) {
-                            TSDebug(MPS_LOG_TAG, "n=%ld, map=%ld", n, map);
+                            mps_log_debug(MPS_LOG_TAG, "n=%ld, map=%ld", n,
+                                          map);
 
                             for (n = n + 1; n < map; n++) {
-                                TSDebug(
+                                mps_log_debug(
                                     MPS_LOG_TAG, "bitmap[%ld]=0x%016lx,%sbusy",
                                     n, bitmap[n],
                                     bitmap[n] != MPS_SLAB_BUSY ? "!=" : "==");
@@ -609,13 +623,14 @@ void *mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
             }
         }
 
-        TSAlert("mps_slab_alloc_locked: page is busy: pool=%p", pool);
+        mps_log_error("mps_slab_alloc_locked: page is busy: pool=%p", pool);
         ngx_debug_point();
+        goto fail;
     }
 
     page = mps_slab_alloc_pages(pool, 1);
-    TSDebug(MPS_LOG_TAG, "alloced 1 page=%p, shift=%ld, exact_shift=%ld", page,
-            shift, mps_slab_exact_shift);
+    mps_log_debug(MPS_LOG_TAG, "alloced 1 page=%p, shift=%ld, exact_shift=%ld",
+                  page, shift, mps_slab_exact_shift);
 
     if (page != NULL) {
         if (shift < mps_slab_exact_shift) {
@@ -627,22 +642,24 @@ void *mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
                 n = 1;
             }
 
-            TSDebug(MPS_LOG_TAG, "small, n=%ld", n);
+            mps_log_debug(MPS_LOG_TAG, "small, n=%ld", n);
 
             /* "n" elements for bitmap, plus one requested */
 
             for (i = 0; i < (n + 1) / (8 * sizeof(uintptr_t)); i++) {
                 bitmap[i] = MPS_SLAB_BUSY;
-                TSDebug(MPS_LOG_TAG, "small, bitmap[%ld] set to busy", i);
+                mps_log_debug(MPS_LOG_TAG, "small, bitmap[%ld] set to busy", i);
             }
 
             m = ((uintptr_t)1 << ((n + 1) % (8 * sizeof(uintptr_t)))) - 1;
             bitmap[i] = m;
-            TSDebug(MPS_LOG_TAG, "small, bitmap[%ld] set to m=0x%lx", i, m);
+            mps_log_debug(MPS_LOG_TAG, "small, bitmap[%ld] set to m=0x%lx", i,
+                          m);
 
             map = (mps_pagesize >> shift) / (8 * sizeof(uintptr_t));
 
-            TSDebug(MPS_LOG_TAG, "small, n=%ld, m=0x%lx, map=%ld", n, m, map);
+            mps_log_debug(MPS_LOG_TAG, "small, n=%ld, m=0x%lx, map=%ld", n, m,
+                          map);
 
             for (i = i + 1; i < map; i++) {
                 bitmap[i] = 0;
@@ -673,7 +690,8 @@ void *mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
             mps_pool_stats(pool)[slot].total += 8 * sizeof(uintptr_t);
 
             p = mps_slab_page_addr(pool, page);
-            TSDebug(MPS_LOG_TAG, "alloced 1 page=%p, exact, p=%lx", page, p);
+            mps_log_debug(MPS_LOG_TAG, "alloced 1 page=%p, exact, p=%lx", page,
+                          p);
 
             mps_pool_stats(pool)[slot].used++;
 
@@ -689,7 +707,7 @@ void *mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
 
             mps_pool_stats(pool)[slot].total += mps_pagesize >> shift;
 
-            TSDebug(
+            mps_log_debug(
                 MPS_LOG_TAG,
                 "alloced 1 page=%p, big, page_off=0x%lx, pool->pages=0x%lx, "
                 "start=0x%lx, start_ptr=%p",
@@ -697,8 +715,9 @@ void *mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
                 mps_ptr(pool, pool->start));
 
             p = mps_slab_page_addr(pool, page);
-            TSDebug(MPS_LOG_TAG, "alloced 1 page=%p, big, p=%lx, p<end=%d",
-                    page, p, p < (uintptr_t)mps_ptr(pool, pool->end));
+            mps_log_debug(MPS_LOG_TAG,
+                          "alloced 1 page=%p, big, p=%lx, p<end=%d", page, p,
+                          p < (uintptr_t)mps_ptr(pool, pool->end));
 
             mps_pool_stats(pool)[slot].used++;
 
@@ -706,13 +725,14 @@ void *mps_slab_alloc_locked(mps_slab_pool_t *pool, size_t size)
         }
     }
 
+fail:
     p = 0;
 
     mps_pool_stats(pool)[slot].fails++;
 
 done:
-    TSDebug(MPS_LOG_TAG, "mps_slab_alloc_locked, return %p, p_off=%lx",
-            (void *)p, mps_offset(pool, p));
+    mps_log_debug(MPS_LOG_TAG, "mps_slab_alloc_locked, return %p, p_off=%lx",
+                  (void *)p, mps_offset(pool, p));
 
     return (void *)p;
 }
@@ -759,11 +779,11 @@ void mps_slab_free_locked(mps_slab_pool_t *pool, void *p)
     mps_slab_page_t *slots, *page, *next;
     mps_ptroff_t p_off;
 
-    TSDebug(MPS_LOG_TAG, "mps_slab_free_locked: pool=%p, p=%p", pool, p);
+    mps_log_debug(MPS_LOG_TAG, "mps_slab_free_locked: pool=%p, p=%p", pool, p);
 
     p_off = mps_offset(pool, p);
     if (p_off < pool->start || p_off > pool->end) {
-        TSAlert("mps_slab_free_locked: pool=%p: outside of pool", pool);
+        mps_log_error("mps_slab_free_locked: pool=%p: outside of pool", pool);
         goto fail;
     }
 
@@ -788,8 +808,8 @@ void mps_slab_free_locked(mps_slab_pool_t *pool, void *p)
         n /= 8 * sizeof(uintptr_t);
         bitmap = (uintptr_t *)((uintptr_t)p & ~((uintptr_t)mps_pagesize - 1));
 
-        TSDebug(MPS_LOG_TAG, "bitmap[%ld]=%lx, m=%lx, bitmap[%ld]&m=%lx", n,
-                bitmap[n], m, n, bitmap[n] & m);
+        mps_log_debug(MPS_LOG_TAG, "bitmap[%ld]=%lx, m=%lx, bitmap[%ld]&m=%lx",
+                      n, bitmap[n], m, n, bitmap[n] & m);
 
         if (bitmap[n] & m) {
             slot = shift - pool->min_shift;
@@ -807,7 +827,8 @@ void mps_slab_free_locked(mps_slab_pool_t *pool, void *p)
 
             bitmap[n] &= ~m;
 
-            TSDebug(MPS_LOG_TAG, "~m=%lx, bitmap[%ld]=%lx", ~m, n, bitmap[n]);
+            mps_log_debug(MPS_LOG_TAG, "~m=%lx, bitmap[%ld]=%lx", ~m, n,
+                          bitmap[n]);
 
             n = (mps_pagesize >> shift) / ((1 << shift) * 8);
 
@@ -818,9 +839,9 @@ void mps_slab_free_locked(mps_slab_pool_t *pool, void *p)
             i = n / (8 * sizeof(uintptr_t));
             m = ((uintptr_t)1 << (n % (8 * sizeof(uintptr_t)))) - 1;
 
-            TSDebug(MPS_LOG_TAG,
-                    "n=%ld, bitmap[%ld]=%lx, ~m=%lx, bitmap[%ld]&~m=%lx", n, i,
-                    bitmap[i], ~m, i, bitmap[i] & ~m);
+            mps_log_debug(MPS_LOG_TAG,
+                          "n=%ld, bitmap[%ld]=%lx, ~m=%lx, bitmap[%ld]&~m=%lx",
+                          n, i, bitmap[i], ~m, i, bitmap[i] & ~m);
 
             if (bitmap[i] & ~m) {
                 goto done;
@@ -828,10 +849,10 @@ void mps_slab_free_locked(mps_slab_pool_t *pool, void *p)
 
             map = (mps_pagesize >> shift) / (8 * sizeof(uintptr_t));
 
-            TSDebug(MPS_LOG_TAG, "shift=%ld, map=%ld", shift, map);
+            mps_log_debug(MPS_LOG_TAG, "shift=%ld, map=%ld", shift, map);
 
             for (i = i + 1; i < map; i++) {
-                TSDebug(MPS_LOG_TAG, "bitmap[%ld]=%lx", i, bitmap[i]);
+                mps_log_debug(MPS_LOG_TAG, "bitmap[%ld]=%lx", i, bitmap[i]);
                 if (bitmap[i]) {
                     goto done;
                 }
@@ -933,14 +954,14 @@ void mps_slab_free_locked(mps_slab_pool_t *pool, void *p)
         }
 
         if (!(slab & MPS_SLAB_PAGE_START)) {
-            TSAlert("mps_slab_free_locked: pool=%p: page is already free",
-                    pool);
+            mps_log_error("mps_slab_free_locked: pool=%p: page is already free",
+                          pool);
             goto fail;
         }
 
         if (slab == MPS_SLAB_PAGE_BUSY) {
-            TSAlert("mps_slab_free_locked: pool=%p: pointer to wrong page",
-                    pool);
+            mps_log_error(
+                "mps_slab_free_locked: pool=%p: pointer to wrong page", pool);
             goto fail;
         }
 
@@ -967,13 +988,14 @@ done:
 
 wrong_chunk:
 
-    TSAlert("mps_slab_free_locked: pool=%p: pointer to wrong chunk", pool);
+    mps_log_error("mps_slab_free_locked: pool=%p: pointer to wrong chunk",
+                  pool);
 
     goto fail;
 
 chunk_already_free:
 
-    TSAlert("mps_slab_free_locked: pool=%p: chunk is already free", pool);
+    mps_log_error("mps_slab_free_locked: pool=%p: chunk is already free", pool);
 
 fail:
 
@@ -985,15 +1007,15 @@ static mps_slab_page_t *mps_slab_alloc_pages(mps_slab_pool_t *pool,
 {
     mps_slab_page_t *page, *p, *next;
 
-    TSDebug(MPS_LOG_TAG,
-            "mps_slab_alloc_pages start pages=%ld, pfree=%ld, free=%p", pages,
-            pool->pfree, &pool->free);
+    mps_log_debug(MPS_LOG_TAG,
+                  "mps_slab_alloc_pages start pages=%ld, pfree=%ld, free=%p",
+                  pages, pool->pfree, &pool->free);
 
     for (page = mps_slab_page_next(pool, &pool->free); page != &pool->free;
          page = mps_slab_page_next(pool, page)) {
 
-        TSDebug(MPS_LOG_TAG, "mps_slab_alloc_pages page=%p, slab=%ld", page,
-                page->slab);
+        mps_log_debug(MPS_LOG_TAG, "mps_slab_alloc_pages page=%p, slab=%ld",
+                      page, page->slab);
 
         if (page->slab >= pages) {
 
@@ -1023,8 +1045,8 @@ static mps_slab_page_t *mps_slab_alloc_pages(mps_slab_pool_t *pool,
             pool->pfree -= pages;
 
             if (--pages == 0) {
-                TSDebug(MPS_LOG_TAG, "mps_slab_alloc_pages return#1 page=%p",
-                        page);
+                mps_log_debug(MPS_LOG_TAG,
+                              "mps_slab_alloc_pages return#1 page=%p", page);
                 return page;
             }
 
@@ -1035,13 +1057,14 @@ static mps_slab_page_t *mps_slab_alloc_pages(mps_slab_pool_t *pool,
                 p++;
             }
 
-            TSDebug(MPS_LOG_TAG, "mps_slab_alloc_pages return#2 page=%p", page);
+            mps_log_debug(MPS_LOG_TAG, "mps_slab_alloc_pages return#2 page=%p",
+                          page);
             return page;
         }
     }
 
     if (pool->log_nomem) {
-        TSFatal("mps_slab_alloc_pages: pool=%p: no memory", pool);
+        mps_log_error("mps_slab_alloc_pages: pool=%p: no memory", pool);
     }
 
     return NULL;

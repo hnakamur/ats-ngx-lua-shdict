@@ -1,5 +1,6 @@
 #include "unity.h"
 #include "mps_shdict.h"
+#include "mps_log.h"
 
 #define DICT_SIZE (4096 * 3)
 #define DICT_NAME "test_dict1"
@@ -14,12 +15,13 @@ static void verify_shm_not_exist(const char *pathname)
             return;
         }
 
-        fprintf(stderr, "stat failed: %s\n", strerror(errno));
+        mps_log_debug("mps_shdict_test", "stat failed: %s\n", strerror(errno));
         exit(1);
     }
 
-    fprintf(stderr, "Please delete shm file \"%s\" before running tests.\n",
-            SHM_PATH);
+    mps_log_debug("mps_shdict_test",
+                  "Please delete shm file \"%s\" before running tests.\n",
+                  SHM_PATH);
     exit(1);
 }
 
@@ -32,7 +34,8 @@ static mps_shdict_t *open_shdict()
 void delete_shm_file(const char *name)
 {
     if (unlink(name) == -1 && errno != ENOENT) {
-        fprintf(stderr, "unlink shm file: %s\n", strerror(errno));
+        mps_log_debug("mps_shdict_test", "unlink shm file: %s\n",
+                      strerror(errno));
     }
 }
 
@@ -43,7 +46,8 @@ static void sleep_ms(size_t msec)
     ts.tv_sec = msec / 1000;
     ts.tv_nsec = (msec % 1000) * 1000000;
     if (nanosleep(&ts, NULL) == -1) {
-        fprintf(stderr, "nanosleep err: %s\n", strerror(errno));
+        mps_log_debug("mps_shdict_test", "nanosleep err: %s\n",
+                      strerror(errno));
     }
 }
 
@@ -1332,7 +1336,7 @@ void test_list_push_no_memory_for_list_entry(void)
     char *err = NULL;
 
     for (i = 0; i < 63; i++) {
-        fprintf(stderr, "i=%d ----------------\n", i);
+        mps_log_debug("mps_shdict_test", "i=%d ----------------\n", i);
         ngx_memset(value_buf, '\xa8', value_buf_size);
         size_t key_len = snprintf((char *)key_buf, key_buf_size, "key%d", i);
         int rc = mps_shdict_safe_set(dict, key_buf, key_len, MPS_SHDICT_TSTRING,
@@ -1341,7 +1345,7 @@ void test_list_push_no_memory_for_list_entry(void)
         TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
     }
 
-    fprintf(stderr, "put key a----------------\n");
+    mps_log_debug("mps_shdict_test", "put key a----------------\n");
     const u_char *key = (const u_char *)"a";
     size_t key_len = strlen((const char *)key);
     int n = mps_shdict_lpush(dict, key, key_len, MPS_SHDICT_TNUMBER, NULL, 0,
@@ -1433,10 +1437,10 @@ void test_open_multi(void)
 {
     mps_shdict_t *dict1 = mps_shdict_open_or_create(
         DICT_NAME, DICT_SIZE, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR);
-    fprintf(stderr, "dict1=%p\n", dict1);
+    mps_log_debug("mps_shdict_test", "dict1=%p\n", dict1);
     mps_shdict_t *dict2 = mps_shdict_open_or_create(
         "test_dict2", DICT_SIZE, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR);
-    fprintf(stderr, "dict2=%p\n", dict2);
+    mps_log_debug("mps_shdict_test", "dict2=%p\n", dict2);
     mps_shdict_close(dict2);
     mps_shdict_close(dict1);
 
@@ -1444,7 +1448,8 @@ void test_open_multi(void)
     mps_shdict_close(dict1);
 
     if (unlink("/dev/shm/test_dict2") == -1) {
-        fprintf(stderr, "unlink shm file: %s\n", strerror(errno));
+        mps_log_debug("mps_shdict_test", "unlink shm file: %s\n",
+                      strerror(errno));
     }
 }
 

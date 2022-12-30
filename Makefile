@@ -22,6 +22,7 @@ STDERR_CFLAGS = -DMPS_LOG_STDERR -DDDEBUG -O0 -g3 -fPIC $(COMMON_CFLAGS)
 
 MPS_DEPS = src/mps_core.h \
            src/mps_log.h \
+           src/mps_log_stderr.h \
            src/mps_queue.h \
            src/mps_rbtree.h \
            src/mps_shdict.h \
@@ -33,9 +34,7 @@ MPS_DEPS = src/mps_core.h \
            src/ngx_linux_config.h \
            src/ngx_murmurhash.h \
            src/ngx_string.h \
-           src/tslog.h \
-           src/tslog_ngx.h \
-           src/tslog_stderr.h
+           src/tslog.h
 
 NGX_LOG_HEADERS = src/ngx_log/ngx_array.h \
                   src/ngx_log/ngx_atomic.h \
@@ -65,21 +64,21 @@ MPS_NGX_OBJS = objs/ngx/mps_rbtree.o \
                objs/ngx/mps_shdict.o \
                objs/ngx/mps_slab.o
 
-MPS_TEST_OBJS = objs/test/ngx_murmurhash.o \
+MPS_TEST_OBJS = objs/test/mps_log_stderr.o \
                 objs/test/mps_rbtree.o \
                 objs/test/mps_shdict.o \
                 objs/test/mps_slab.o \
+                objs/test/ngx_murmurhash.o \
                 objs/test/ngx_string.o \
-                objs/test/tslog_stderr.o \
 				objs/test/unity.o \
 				objs/test/slab.o
 
-MPS_STDERR_OBJS = objs/stderr/ngx_murmurhash.o \
+MPS_STDERR_OBJS = objs/stderr/mps_log_stderr.o \
                   objs/stderr/mps_rbtree.o \
                   objs/stderr/mps_shdict.o \
                   objs/stderr/mps_slab.o \
+				  objs/stderr/ngx_murmurhash.o \
                   objs/stderr/ngx_string.o \
-                  objs/stderr/tslog_stderr.o \
 
 SHLIBS = objs/libmps_ats_shdict.so \
          objs/libmps_ngx_shdict.so
@@ -180,7 +179,7 @@ objs/test/ngx_string.o:	src/ngx_string.c $(MPS_DEPS)
 	@mkdir -p objs/test
 	$(CC) -c $(TEST_CFLAGS) -o $@ $<
 
-objs/test/tslog_stderr.o:	src/tslog_stderr.c $(MPS_DEPS)
+objs/test/mps_log_stderr.o:	src/mps_log_stderr.c $(MPS_DEPS)
 	@mkdir -p objs/test
 	$(CC) -c $(TEST_CFLAGS) -o $@ $<
 
@@ -210,7 +209,7 @@ objs/stderr/ngx_string.o:	src/ngx_string.c $(MPS_DEPS)
 	@mkdir -p objs/stderr
 	$(CC) -c $(STDERR_CFLAGS) -o $@ $<
 
-objs/stderr/tslog_stderr.o:	src/tslog_stderr.c $(MPS_DEPS)
+objs/stderr/mps_log_stderr.o:	src/mps_log_stderr.c $(MPS_DEPS)
 	@mkdir -p objs/stderr
 	$(CC) -c $(STDERR_CFLAGS) -o $@ $<
 

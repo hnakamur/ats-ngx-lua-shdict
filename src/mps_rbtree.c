@@ -34,17 +34,18 @@ void mps_rbtree_init(mps_slab_pool_t *pool, mps_rbtree_t *tree,
                      mps_rbtree_insert_type_id_t insert_type_id)
 {
     if (insert_type_id >= MPS_RBTREE_INSERT_TYPE_ID_COUNT) {
-        TSEmergency("mps_rbtree_insert invalid tree insert type: %ld\n",
-                    insert_type_id);
+        mps_log_error("mps_rbtree_insert invalid tree insert type: %ld\n",
+                      insert_type_id);
         return;
     }
     mps_rbtree_sentinel_init(sentinel);
     tree->root = mps_offset(pool, sentinel);
     tree->sentinel = mps_offset(pool, sentinel);
     tree->insert = insert_type_id;
-    TSDebug(MPS_LOG_TAG,
-            "mps_rbtree_init, tree=%p, root_off=0x%lx, sentinel=%p, insert=%ld",
-            tree, tree->root, sentinel, tree->insert);
+    mps_log_debug(
+        MPS_LOG_TAG,
+        "mps_rbtree_init, tree=%p, root_off=0x%lx, sentinel=%p, insert=%ld",
+        tree, tree->root, sentinel, tree->insert);
 }
 
 void mps_rbtree_insert(mps_slab_pool_t *pool, mps_rbtree_t *tree,
@@ -70,8 +71,8 @@ void mps_rbtree_insert(mps_slab_pool_t *pool, mps_rbtree_t *tree,
     }
 
     if (tree->insert >= MPS_RBTREE_INSERT_TYPE_ID_COUNT) {
-        TSError("mps_rbtree_insert invalid tree insert type: %ld\n",
-                tree->insert);
+        mps_log_error("mps_rbtree_insert invalid tree insert type: %ld\n",
+                      tree->insert);
         return;
     }
     insert_value = insert_values[tree->insert];
@@ -132,7 +133,7 @@ void mps_rbtree_insert(mps_slab_pool_t *pool, mps_rbtree_t *tree,
     }
 
     ngx_rbt_black(mps_rbtree_node(pool, *root));
-    TSDebug(
+    mps_log_debug(
         MPS_LOG_TAG,
         "mps_rbtree_insert exiting, node2=%lx, left=%lx, right=%lx, parent=%lx",
         mps_offset(pool, node2), node2->left, node2->right, node2->parent);
