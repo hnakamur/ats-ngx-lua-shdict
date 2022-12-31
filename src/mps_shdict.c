@@ -194,25 +194,30 @@ void mps_shdict_rbtree_insert_value(mps_slab_pool_t *pool,
     ngx_rbt_red(node);
 }
 
-static void mps_shdict_on_init(mps_slab_pool_t *pool)
+static mps_err_t mps_shdict_on_init(mps_slab_pool_t *pool)
 {
     mps_shdict_tree_t *dict;
+    mps_err_t err;
 
     mps_log_status("mps_shdict_on_init start");
     dict = mps_slab_alloc(pool, sizeof(mps_shdict_tree_t));
     if (!dict) {
         mps_log_error("mps_shdict_on_init: mps_slab_alloc failed");
-        return;
+        return ENOMEM;
     }
 
     pool->data = mps_offset(pool, dict);
-    mps_rbtree_init(pool, &dict->rbtree, &dict->sentinel,
-                    MPS_RBTREE_INSERT_TYPE_ID_LUADICT);
+    err = mps_rbtree_init(pool, &dict->rbtree, &dict->sentinel,
+                          MPS_RBTREE_INSERT_TYPE_ID_LUADICT);
+    if (err != 0) {
+        return err;
+    }
     mps_queue_init(pool, &dict->lru_queue);
 
     pool->log_nomem = 0;
 
     mps_log_status("mps_shdict_on_init exit");
+    return 0;
 }
 
 mps_shdict_t *mps_shdict_open_or_create(const char *dict_name, size_t shm_size,

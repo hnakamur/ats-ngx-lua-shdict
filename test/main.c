@@ -1,4 +1,5 @@
 #include "unity.h"
+#include <ngx_murmurhash.h>
 #include "mps_shdict.h"
 #include "mps_log.h"
 
@@ -1503,6 +1504,26 @@ void test_memn2cmp(void)
         1, ngx_memn2cmp((const u_char *)"foobar", (const u_char *)"foo", 6, 3));
 }
 
+#define murmur_hash2(s) ngx_murmur_hash2((const u_char *)(s), strlen(s))
+
+void test_murmur2_hash_collision(void)
+{
+    uint32_t h1 = murmur_hash2("xVS");
+    uint32_t h2 = murmur_hash2("01Ji");
+    mps_log_debug("mps_shdict_test", "h1=%x, h2=%x, h1%sh2\n", h1, h2,
+                  h1 == h2 ? "==" : "!=");
+
+    h1 = murmur_hash2("o3j");
+    h2 = murmur_hash2("04B1");
+    mps_log_debug("mps_shdict_test", "h1=%x, h2=%x, h1%sh2\n", h1, h2,
+                  h1 == h2 ? "==" : "!=");
+
+    h1 = murmur_hash2("WWn");
+    h2 = murmur_hash2("07eh");
+    mps_log_debug("mps_shdict_test", "h1=%x, h2=%x, h1%sh2\n", h1, h2,
+                  h1 == h2 ? "==" : "!=");
+}
+
 extern void test_slab_alloc_one_byte_min_shift_one(void);
 extern void test_slab_calloc_one_byte(void);
 extern void test_slab_alloc_32_bytes(void);
@@ -1512,9 +1533,15 @@ extern void test_slab_alloc_two_pages(void);
 extern void test_slab_open_existing(void);
 extern void test_slab_open_or_create_multithread(void);
 
+extern void test_rbtree_standard(void);
+extern void test_rbtree_standard_random(void);
+extern void test_rbtree_timer_random(void);
+extern void test_rbtree_bad_insert_type(void);
+
 int main(void)
 {
     UNITY_BEGIN();
+    RUN_TEST(test_murmur2_hash_collision);
     RUN_TEST(test_open_multi);
     RUN_TEST(test_add_exists);
     RUN_TEST(test_add_expired);
@@ -1567,6 +1594,11 @@ int main(void)
     RUN_TEST(test_slab_alloc_two_pages);
     RUN_TEST(test_slab_open_existing);
     RUN_TEST(test_slab_open_or_create_multithread);
+
+    RUN_TEST(test_rbtree_standard);
+    RUN_TEST(test_rbtree_standard_random);
+    RUN_TEST(test_rbtree_timer_random);
+    RUN_TEST(test_rbtree_bad_insert_type);
 
     return UNITY_END();
 }

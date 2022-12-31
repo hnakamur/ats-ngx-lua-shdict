@@ -149,8 +149,8 @@ static mps_err_t mps_slab_init_mutex(mps_slab_pool_t *pool)
     return 0;
 }
 
-static void mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size,
-                          size_t min_shift)
+static mps_err_t mps_slab_init(mps_slab_pool_t *pool, u_char *addr,
+                               size_t pool_size, size_t min_shift)
 {
     u_char *p, *start;
     size_t size;
@@ -162,9 +162,10 @@ static void mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size,
     err = mps_slab_init_mutex(pool);
     if (err != 0) {
         mps_log_error("mps_slab_init_mutex failed, err=%d", err);
-        return;
+        return err;
     }
 
+    pool->data = 0;
     pool->end = pool_size;
     pool->min_shift = min_shift;
     mps_log_debug(
@@ -258,6 +259,7 @@ static void mps_slab_init(mps_slab_pool_t *pool, u_char *addr, size_t pool_size,
         pool->start, pool->end, pool->last, pool->pfree, page->slab);
 
     pool->log_nomem = 1;
+    return 0;
 }
 
 static mps_err_t mps_slab_create(mps_slab_pool_t **pool, const char *shm_name,
@@ -285,9 +287,16 @@ static mps_err_t mps_slab_create(mps_slab_pool_t **pool, const char *shm_name,
     }
     *pool = (mps_slab_pool_t *)addr;
 
-    mps_slab_init(*pool, (u_char *)addr, shm_size, min_shift);
+    err = mps_slab_init(*pool, (u_char *)addr, shm_size, min_shift);
+    if (err != 0) {
+        goto close;
+    }
+
     if (on_init) {
-        on_init(*pool);
+        err = on_init(*pool);
+        if (err != 0) {
+            goto close;
+        }
     }
 
     if (fchmod(fd, mode) == -1) {

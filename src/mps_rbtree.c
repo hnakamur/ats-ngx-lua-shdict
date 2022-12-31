@@ -29,14 +29,14 @@ static mps_rbtree_insert_pt insert_values[MPS_RBTREE_INSERT_TYPE_ID_COUNT] = {
     mps_shdict_rbtree_insert_value,
 };
 
-void mps_rbtree_init(mps_slab_pool_t *pool, mps_rbtree_t *tree,
-                     mps_rbtree_node_t *sentinel,
-                     mps_rbtree_insert_type_id_t insert_type_id)
+mps_err_t mps_rbtree_init(mps_slab_pool_t *pool, mps_rbtree_t *tree,
+                          mps_rbtree_node_t *sentinel,
+                          mps_rbtree_insert_type_id_t insert_type_id)
 {
     if (insert_type_id >= MPS_RBTREE_INSERT_TYPE_ID_COUNT) {
         mps_log_error("mps_rbtree_insert invalid tree insert type: %ld\n",
                       insert_type_id);
-        return;
+        return EINVAL;
     }
     mps_rbtree_sentinel_init(sentinel);
     tree->root = mps_offset(pool, sentinel);
@@ -46,6 +46,7 @@ void mps_rbtree_init(mps_slab_pool_t *pool, mps_rbtree_t *tree,
         MPS_LOG_TAG,
         "mps_rbtree_init, tree=%p, root_off=0x%lx, sentinel=%p, insert=%ld",
         tree, tree->root, sentinel, tree->insert);
+    return 0;
 }
 
 void mps_rbtree_insert(mps_slab_pool_t *pool, mps_rbtree_t *tree,
@@ -61,6 +62,7 @@ void mps_rbtree_insert(mps_slab_pool_t *pool, mps_rbtree_t *tree,
     sentinel = tree->sentinel;
 
     if (*root == sentinel) {
+        mps_log_debug("mps_rbtree", "*root=sentinel");
         node->parent = mps_nulloff;
         node->left = sentinel;
         node->right = sentinel;
@@ -70,11 +72,6 @@ void mps_rbtree_insert(mps_slab_pool_t *pool, mps_rbtree_t *tree,
         return;
     }
 
-    if (tree->insert >= MPS_RBTREE_INSERT_TYPE_ID_COUNT) {
-        mps_log_error("mps_rbtree_insert invalid tree insert type: %ld\n",
-                      tree->insert);
-        return;
-    }
     insert_value = insert_values[tree->insert];
     insert_value(pool, mps_rbtree_node(pool, *root), node,
                  mps_rbtree_node(pool, sentinel));
@@ -158,6 +155,9 @@ void mps_rbtree_insert_value(mps_slab_pool_t *pool, mps_rbtree_node_t *temp,
         temp = mps_rbtree_node(pool, *p);
     }
 
+    mps_log_debug("mps_rbtree", "node=0x%lx, temp=0x%lx",
+                  mps_offset(pool, node), mps_offset(pool, temp));
+
     *p = mps_offset(pool, node);
     node->parent = mps_offset(pool, temp);
     node->left = s;
@@ -212,6 +212,12 @@ void mps_rbtree_delete(mps_slab_pool_t *pool, mps_rbtree_t *tree,
 
     /* a binary tree delete */
 
+    mps_log_debug(
+        "mps_rbtree",
+        "start, node=%lx (left=%lx, right=%lx), root=%lx, sentinel=%lx",
+        mps_offset(pool, node), node->left, node->right, tree->root,
+        tree->sentinel);
+
     root = &tree->root;
     sentinel = tree->sentinel;
 
@@ -228,6 +234,9 @@ void mps_rbtree_delete(mps_slab_pool_t *pool, mps_rbtree_t *tree,
             mps_rbtree_min(pool, mps_rbtree_node(pool, node->right), sentinel);
         temp = mps_rbtree_node(pool, subst->right);
     }
+    mps_log_debug("mps_rbtree", "subst=%lx (red=%d), temp=%lx",
+                  mps_offset(pool, subst), ngx_rbt_is_red(subst),
+                  mps_offset(pool, temp));
 
     if (subst == mps_rbtree_node(pool, *root)) {
         *root = mps_offset(pool, temp);
@@ -245,6 +254,9 @@ void mps_rbtree_delete(mps_slab_pool_t *pool, mps_rbtree_t *tree,
     red = ngx_rbt_is_red(subst);
 
     subst_parent = mps_rbtree_node(pool, subst->parent);
+    mps_log_debug("mps_rbtree", "subst->parent=%lx (left=%lx, right=%lx)",
+                  subst->parent, subst_parent->left, subst_parent->right);
+
     if (subst == mps_rbtree_node(pool, subst_parent->left)) {
         subst_parent->left = mps_offset(pool, temp);
 
@@ -310,6 +322,8 @@ void mps_rbtree_delete(mps_slab_pool_t *pool, mps_rbtree_t *tree,
         temp_parent = mps_rbtree_node(pool, temp->parent);
         if (temp == mps_rbtree_node(pool, temp_parent->left)) {
             w = mps_rbtree_node(pool, temp_parent->right);
+            mps_log_debug("mps_rbtree", "w=%lx (red=%d)", mps_offset(pool, w),
+                          ngx_rbt_is_red(w));
 
             if (ngx_rbt_is_red(w)) {
                 ngx_rbt_black(w);
@@ -321,6 +335,10 @@ void mps_rbtree_delete(mps_slab_pool_t *pool, mps_rbtree_t *tree,
 
             w_left = mps_rbtree_node(pool, w->left);
             w_right = mps_rbtree_node(pool, w->right);
+            mps_log_debug("mps_rbtree",
+                          "w->left=%lx (black=%d), w->right=%lx (balck=%d)",
+                          w->left, ngx_rbt_is_black(w_left), w->right,
+                          ngx_rbt_is_black(w_right));
 
             if (ngx_rbt_is_black(w_left) && ngx_rbt_is_black(w_right)) {
                 ngx_rbt_red(w);
@@ -345,6 +363,8 @@ void mps_rbtree_delete(mps_slab_pool_t *pool, mps_rbtree_t *tree,
 
         } else {
             w = mps_rbtree_node(pool, temp_parent->left);
+            mps_log_debug("mps_rbtree", "w=%lx (red=%d)", mps_offset(pool, w),
+                          ngx_rbt_is_red(w));
 
             if (ngx_rbt_is_red(w)) {
                 ngx_rbt_black(w);

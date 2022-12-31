@@ -7,9 +7,10 @@
 
 extern void delete_shm_file(const char *name);
 
-static void slab_on_init(mps_slab_pool_t *pool)
+static mps_err_t slab_on_init(mps_slab_pool_t *pool)
 {
     pool->log_nomem = 0;
+    return 0;
 }
 
 void test_slab_alloc_one_byte_min_shift_one(void)

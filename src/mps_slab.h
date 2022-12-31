@@ -58,7 +58,7 @@ typedef struct {
 
 #define mps_slab_page(pool, off) ((mps_slab_page_t *)mps_ptr(pool, off))
 
-typedef void (*mps_slab_on_init_pt)(mps_slab_pool_t *pool);
+typedef mps_err_t (*mps_slab_on_init_pt)(mps_slab_pool_t *pool);
 
 #define MPS_SLAB_DEFAULT_MIN_SHIFT 3
 
