@@ -804,6 +804,7 @@ void mps_slab_free_locked(mps_slab_pool_t *pool, void *p)
     switch (type) {
 
     case MPS_SLAB_SMALL:
+        mps_log_debug("mps_slab", "type: small");
 
         shift = slab & MPS_SLAB_SHIFT_MASK;
         size = (size_t)1 << shift;
@@ -877,6 +878,7 @@ void mps_slab_free_locked(mps_slab_pool_t *pool, void *p)
         goto chunk_already_free;
 
     case MPS_SLAB_EXACT:
+        mps_log_debug("mps_slab", "type: exact");
 
         m = (uintptr_t)1 << (((uintptr_t)p & (mps_pagesize - 1)) >>
                              mps_slab_exact_shift);
@@ -885,6 +887,9 @@ void mps_slab_free_locked(mps_slab_pool_t *pool, void *p)
         if ((uintptr_t)p & (size - 1)) {
             goto wrong_chunk;
         }
+
+        mps_log_debug(MPS_LOG_TAG, "slab=%lx, m=%lx, slab&m=%lx", slab, m,
+                      slab & m);
 
         if (slab & m) {
             slot = mps_slab_exact_shift - pool->min_shift;
@@ -916,6 +921,7 @@ void mps_slab_free_locked(mps_slab_pool_t *pool, void *p)
         goto chunk_already_free;
 
     case MPS_SLAB_BIG:
+        mps_log_debug("mps_slab", "type: big");
 
         shift = slab & MPS_SLAB_SHIFT_MASK;
         size = (size_t)1 << shift;
@@ -926,6 +932,9 @@ void mps_slab_free_locked(mps_slab_pool_t *pool, void *p)
 
         m = (uintptr_t)1 << ((((uintptr_t)p & (mps_pagesize - 1)) >> shift) +
                              MPS_SLAB_MAP_SHIFT);
+
+        mps_log_debug(MPS_LOG_TAG, "slab=%lx, m=%lx, slab&m=%lx", slab, m,
+                      slab & m);
 
         if (slab & m) {
             slot = shift - pool->min_shift;

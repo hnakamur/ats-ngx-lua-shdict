@@ -1586,7 +1586,7 @@ void test_murmur2_hash_collision(void)
 
 // slab ---------------------------------
 
-static mps_err_t slab_on_init(mps_slab_pool_t *pool)
+static mps_err_t slab_on_init_disable_log_nomem(mps_slab_pool_t *pool)
 {
     pool->log_nomem = 0;
     return 0;
@@ -1594,8 +1594,9 @@ static mps_err_t slab_on_init(mps_slab_pool_t *pool)
 
 void test_slab_alloc_one_byte_min_shift_one(void)
 {
-    mps_slab_pool_t *pool = mps_slab_open_or_create(
-        "/test_shm1", 4096 * 3, 1, S_IRUSR | S_IWUSR, slab_on_init);
+    mps_slab_pool_t *pool =
+        mps_slab_open_or_create("/test_shm1", 4096 * 3, 1, S_IRUSR | S_IWUSR,
+                                slab_on_init_disable_log_nomem);
     TEST_ASSERT_NOT_NULL(pool);
 
     void *p = mps_slab_calloc(pool, 1);
@@ -1626,7 +1627,7 @@ void test_slab_calloc_one_byte(void)
 {
     mps_slab_pool_t *pool = mps_slab_open_or_create(
         "/test_shm1", 4096 * 3, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR,
-        slab_on_init);
+        slab_on_init_disable_log_nomem);
     TEST_ASSERT_NOT_NULL(pool);
 
     void *p = mps_slab_calloc(pool, 1);
@@ -1643,7 +1644,7 @@ void test_slab_alloc_32_bytes(void)
 {
     mps_slab_pool_t *pool = mps_slab_open_or_create(
         "/test_shm1", 4096 * 3, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR,
-        slab_on_init);
+        slab_on_init_disable_log_nomem);
     TEST_ASSERT_NOT_NULL(pool);
 
     void *p1 = mps_slab_alloc(pool, 32);
@@ -1663,7 +1664,7 @@ void test_slab_alloc_exact(void)
 {
     mps_slab_pool_t *pool = mps_slab_open_or_create(
         "/test_shm1", 4096 * 3, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR,
-        slab_on_init);
+        slab_on_init_disable_log_nomem);
     TEST_ASSERT_NOT_NULL(pool);
 
     int alloc_size = 64;
@@ -1694,7 +1695,7 @@ void test_slab_alloc_big(void)
 {
     mps_slab_pool_t *pool = mps_slab_open_or_create(
         "/test_shm1", 4096 * 3, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR,
-        slab_on_init);
+        slab_on_init_disable_log_nomem);
     TEST_ASSERT_NOT_NULL(pool);
 
     int alloc_size = 128;
@@ -1725,7 +1726,7 @@ void test_slab_alloc_two_pages(void)
 {
     mps_slab_pool_t *pool = mps_slab_open_or_create(
         "/test_shm1", 4096 * 20, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR,
-        slab_on_init);
+        slab_on_init_disable_log_nomem);
     TEST_ASSERT_NOT_NULL(pool);
 
     int alloc_size = 4096 * 2;
@@ -1750,12 +1751,12 @@ void test_slab_open_existing(void)
 {
     mps_slab_pool_t *pool1 = mps_slab_open_or_create(
         "/test_shm1", 4096 * 3, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR,
-        slab_on_init);
+        slab_on_init_disable_log_nomem);
     TEST_ASSERT_NOT_NULL(pool1);
 
     mps_slab_pool_t *pool2 = mps_slab_open_or_create(
         "/test_shm1", 4096 * 3, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR,
-        slab_on_init);
+        slab_on_init_disable_log_nomem);
     TEST_ASSERT_NOT_NULL(pool2);
 
     mps_slab_close(pool2, 4096 * 3);
@@ -1779,7 +1780,7 @@ static void *thread_start(void *arg)
 
     mps_slab_pool_t *pool1 = mps_slab_open_or_create(
         "/test_shm1", 4096 * 3, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR,
-        slab_on_init);
+        slab_on_init_disable_log_nomem);
     mps_log_debug("mps_slab_test", "thread_num=%d, pool1=%p\n",
                   tinfo->thread_num, pool1);
     TEST_ASSERT_NOT_NULL(pool1);
@@ -1813,6 +1814,175 @@ void test_slab_open_or_create_multithread(void)
         TEST_ASSERT_EQUAL_INT(0, err);
     }
 
+    delete_shm_file("/dev/shm"
+                    "/test_shm1");
+}
+
+static mps_err_t slab_on_init_nop(mps_slab_pool_t *pool)
+{
+    return 0;
+}
+
+void test_slab_pages_log_nomem(void)
+{
+    mps_slab_pool_t *pool = mps_slab_open_or_create(
+        "/test_shm1", 4096 * 3, 1, S_IRUSR | S_IWUSR, slab_on_init_nop);
+    TEST_ASSERT_NOT_NULL(pool);
+
+    void *p = mps_slab_calloc(pool, 4096 * 3);
+    TEST_ASSERT_NULL(p);
+
+    mps_slab_close(pool, 4096 * 3);
+    delete_shm_file("/dev/shm"
+                    "/test_shm1");
+}
+
+void test_slab_free_outside_of_pool(void)
+{
+    mps_slab_pool_t *pool =
+        mps_slab_open_or_create("/test_shm1", 4096 * 3, 1, S_IRUSR | S_IWUSR,
+                                slab_on_init_disable_log_nomem);
+    TEST_ASSERT_NOT_NULL(pool);
+
+    void *p = mps_slab_calloc(pool, 1);
+    TEST_ASSERT_NOT_NULL(p);
+
+    mps_slab_free(pool, pool - 1);
+
+    mps_slab_close(pool, 4096 * 3);
+    delete_shm_file("/dev/shm"
+                    "/test_shm1");
+}
+
+void test_slab_chunk_already_free(void)
+{
+    mps_slab_pool_t *pool =
+        mps_slab_open_or_create("/test_shm1", 4096 * 3, 1, S_IRUSR | S_IWUSR,
+                                slab_on_init_disable_log_nomem);
+    TEST_ASSERT_NOT_NULL(pool);
+
+    void *p, *p2;
+
+    p = mps_slab_calloc(pool, 1);
+    TEST_ASSERT_NOT_NULL(p);
+    p2 = mps_slab_calloc(pool, 1);
+    TEST_ASSERT_NOT_NULL(p2);
+    mps_slab_free(pool, p2);
+    mps_slab_free(pool, p2);
+    mps_slab_free(pool, p);
+
+    mps_log_debug("slab_test", "64 start -----------------");
+    p = mps_slab_calloc(pool, 64);
+    TEST_ASSERT_NOT_NULL(p);
+    p2 = mps_slab_calloc(pool, 64);
+    TEST_ASSERT_NOT_NULL(p2);
+    mps_slab_free(pool, p2);
+    mps_slab_free(pool, p2);
+    mps_slab_free(pool, p);
+
+    mps_log_debug("slab_test", "96 start -----------------");
+    p = mps_slab_calloc(pool, 96);
+    mps_log_debug("slab_test", "p=%p", p);
+    TEST_ASSERT_NOT_NULL(p);
+    p2 = mps_slab_calloc(pool, 96);
+    TEST_ASSERT_NOT_NULL(p2);
+    mps_slab_free(pool, p2);
+    mps_slab_free(pool, p2);
+    mps_slab_free(pool, p);
+
+    mps_slab_close(pool, 4096 * 3);
+    delete_shm_file("/dev/shm"
+                    "/test_shm1");
+}
+
+void test_slab_page_already_free(void)
+{
+    mps_slab_pool_t *pool =
+        mps_slab_open_or_create("/test_shm1", 4096 * 3, 1, S_IRUSR | S_IWUSR,
+                                slab_on_init_disable_log_nomem);
+    TEST_ASSERT_NOT_NULL(pool);
+
+    void *p, *p2;
+
+    p = mps_slab_calloc(pool, 4096);
+    TEST_ASSERT_NOT_NULL(p);
+    p2 = mps_slab_calloc(pool, 4096);
+    TEST_ASSERT_NOT_NULL(p2);
+    mps_slab_free(pool, p2);
+    mps_slab_free(pool, p2);
+    mps_slab_free(pool, p);
+
+    mps_slab_close(pool, 4096 * 3);
+    delete_shm_file("/dev/shm"
+                    "/test_shm1");
+}
+
+void test_slab_free_wrong_chunk(void)
+{
+    mps_slab_pool_t *pool =
+        mps_slab_open_or_create("/test_shm1", 4096 * 3, 1, S_IRUSR | S_IWUSR,
+                                slab_on_init_disable_log_nomem);
+    TEST_ASSERT_NOT_NULL(pool);
+
+    void *p, *p2;
+
+    p = mps_slab_calloc(pool, 4);
+    TEST_ASSERT_NOT_NULL(p);
+    p2 = mps_slab_calloc(pool, 4);
+    TEST_ASSERT_NOT_NULL(p2);
+    mps_slab_free(pool, p2 + 1);
+    mps_slab_free(pool, p2);
+    mps_slab_free(pool, p);
+
+    mps_log_debug("slab_test", "64 start -----------------");
+    p = mps_slab_calloc(pool, 64);
+    TEST_ASSERT_NOT_NULL(p);
+    p2 = mps_slab_calloc(pool, 64);
+    TEST_ASSERT_NOT_NULL(p2);
+    mps_slab_free(pool, p2 + 1);
+    mps_slab_free(pool, p2);
+    mps_slab_free(pool, p);
+
+    mps_log_debug("slab_test", "96 start -----------------");
+    p = mps_slab_calloc(pool, 96);
+    mps_log_debug("slab_test", "p=%p", p);
+    TEST_ASSERT_NOT_NULL(p);
+    p2 = mps_slab_calloc(pool, 96);
+    TEST_ASSERT_NOT_NULL(p2);
+    mps_slab_free(pool, p2 + 1);
+    mps_slab_free(pool, p2);
+    mps_slab_free(pool, p);
+
+    mps_log_debug("slab_test", "4096 start -----------------");
+    p = mps_slab_calloc(pool, 4096);
+    mps_log_debug("slab_test", "p=%p", p);
+    TEST_ASSERT_NOT_NULL(p);
+    p2 = mps_slab_calloc(pool, 4096);
+    TEST_ASSERT_NOT_NULL(p2);
+    mps_slab_free(pool, p2 + 1);
+    mps_slab_free(pool, p2);
+    mps_slab_free(pool, p);
+
+    mps_slab_close(pool, 4096 * 3);
+    delete_shm_file("/dev/shm"
+                    "/test_shm1");
+}
+
+void test_slab_free_wrong_page(void)
+{
+    mps_slab_pool_t *pool =
+        mps_slab_open_or_create("/test_shm1", 4096 * 3, 1, S_IRUSR | S_IWUSR,
+                                slab_on_init_disable_log_nomem);
+    TEST_ASSERT_NOT_NULL(pool);
+
+    void *p, *p2;
+
+    p = mps_slab_calloc(pool, 4096 * 2);
+    TEST_ASSERT_NOT_NULL(p);
+    mps_slab_free(pool, p + 4096);
+    mps_slab_free(pool, p);
+
+    mps_slab_close(pool, 4096 * 3);
     delete_shm_file("/dev/shm"
                     "/test_shm1");
 }
@@ -2237,6 +2407,7 @@ int main(void)
     RUN_TEST(test_list_push_no_memory_for_new_list);
     RUN_TEST(test_list_push_no_memory_for_list_entry);
 
+    RUN_TEST(test_slab_pages_log_nomem);
     RUN_TEST(test_slab_alloc_one_byte_min_shift_one);
     RUN_TEST(test_slab_calloc_one_byte);
     RUN_TEST(test_slab_alloc_32_bytes);
@@ -2245,6 +2416,11 @@ int main(void)
     RUN_TEST(test_slab_alloc_two_pages);
     RUN_TEST(test_slab_open_existing);
     RUN_TEST(test_slab_open_or_create_multithread);
+    RUN_TEST(test_slab_free_outside_of_pool);
+    RUN_TEST(test_slab_chunk_already_free);
+    RUN_TEST(test_slab_page_already_free);
+    RUN_TEST(test_slab_free_wrong_chunk);
+    RUN_TEST(test_slab_free_wrong_page);
 
     RUN_TEST(test_rbtree_standard);
     RUN_TEST(test_rbtree_standard_random);
