@@ -527,6 +527,48 @@ void test_number_happy(void)
     mps_shdict_close(dict);
 }
 
+void test_key_hash_collision(void)
+{
+    mps_shdict_t *dict = open_shdict();
+
+    const u_char *key1 = (const u_char *)"xVS";
+    size_t key1_len = strlen((const char *)key1);
+    int user_flags = 0xcafe, forcible = 0;
+    double num_value = 23.5;
+    char *err = NULL;
+    long exptime = 0;
+
+    int rc = mps_shdict_set(dict, key1, key1_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                            num_value, exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    const u_char *key2 = (const u_char *)"01Ji";
+    size_t key2_len = strlen((const char *)key2);
+    rc = mps_shdict_set(dict, key2, key2_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                        num_value, exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    const u_char *key3 = (const u_char *)"01LV";
+    size_t key3_len = strlen((const char *)key3);
+    rc = mps_shdict_set(dict, key3, key3_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                        num_value, exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    const u_char *key4 = (const u_char *)"4DG";
+    size_t key4_len = strlen((const char *)key4);
+    rc = mps_shdict_set(dict, key4, key4_len, MPS_SHDICT_TNUMBER, NULL, 0,
+                        num_value, exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    long got_ttl_ms = mps_shdict_get_ttl(dict, key1, key1_len);
+    TEST_ASSERT_EQUAL_INT64(0, got_ttl_ms);
+
+    got_ttl_ms = mps_shdict_get_ttl(dict, key2, key2_len);
+    TEST_ASSERT_EQUAL_INT64(0, got_ttl_ms);
+
+    mps_shdict_close(dict);
+}
+
 void test_string_happy(void)
 {
     mps_shdict_t *dict = open_shdict();
@@ -979,7 +1021,25 @@ void test_get_ttl_set_expire(void)
                         exptime, user_flags, &err, &forcible);
     TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
 
+    const u_char *key2 = (const u_char *)"key12";
+    size_t key2_len = strlen((const char *)key2);
+    rc = mps_shdict_set(dict, key2, key2_len, value_type, NULL, 0, num_value,
+                        exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
     got_ttl_ms = mps_shdict_get_ttl(dict, key, key_len);
+    TEST_ASSERT_EQUAL_INT64(exptime, got_ttl_ms);
+
+    got_ttl_ms = mps_shdict_get_ttl(dict, key2, key2_len);
+    TEST_ASSERT_EQUAL_INT64(exptime, got_ttl_ms);
+
+    const u_char *key3 = (const u_char *)"key1";
+    size_t key3_len = strlen((const char *)key3);
+    rc = mps_shdict_set(dict, key3, key3_len, value_type, NULL, 0, num_value,
+                        exptime, user_flags, &err, &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    got_ttl_ms = mps_shdict_get_ttl(dict, key3, key3_len);
     TEST_ASSERT_EQUAL_INT64(exptime, got_ttl_ms);
 
     exptime = 1;
@@ -1525,6 +1585,7 @@ void test_murmur2_hash_collision(void)
 }
 
 // slab ---------------------------------
+
 static mps_err_t slab_on_init(mps_slab_pool_t *pool)
 {
     pool->log_nomem = 0;
@@ -2162,6 +2223,7 @@ int main(void)
     RUN_TEST(test_set_expire_no_mem);
     RUN_TEST(test_memn2cmp);
     RUN_TEST(test_safe_set_no_key_no_mem);
+    RUN_TEST(test_key_hash_collision);
 
     RUN_TEST(test_list_basics);
     RUN_TEST(test_list_delete);
