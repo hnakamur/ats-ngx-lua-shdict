@@ -69,9 +69,7 @@ MPS_TEST_OBJS = objs/test/mps_log_stderr.o \
                 objs/test/mps_slab.o \
                 objs/test/ngx_murmurhash.o \
                 objs/test/ngx_string.o \
-				objs/test/unity.o \
-				objs/test/slab.o \
-				objs/test/rbtree.o
+				objs/test/unity.o
 
 MPS_STDERR_OBJS = objs/stderr/mps_log_stderr.o \
                   objs/stderr/mps_rbtree.o \
@@ -154,14 +152,6 @@ objs/ngx/mps_slab.o:	src/mps_slab.c $(MPS_DEPS) $(NGX_LOG_HEADERS)
 	$(CC) -c $(NGX_CFLAGS) -o $@ $<
 
 # build MPS_TEST_OBJS
-
-objs/test/rbtree.o:	test/rbtree.c $(MPS_DEPS)
-	@mkdir -p objs/test
-	$(CC) -c $(TEST_CFLAGS) -o $@ $<
-
-objs/test/slab.o:	test/slab.c $(MPS_DEPS)
-	@mkdir -p objs/test
-	$(CC) -c $(TEST_CFLAGS) -o $@ $<
 
 objs/test/ngx_murmurhash.o:	src/ngx_murmurhash.c $(MPS_DEPS)
 	@mkdir -p objs/test
