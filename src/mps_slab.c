@@ -223,7 +223,26 @@ static mps_err_t mps_slab_init(mps_slab_pool_t *pool, u_char *addr,
     return 0;
 }
 
-static mps_err_t mps_slab_create(mps_slab_pool_t **pool, const char *shm_name,
+#define SHM_PATH_PREFIX "/dev/shm/"
+#define SHM_PATH_PREFIX_LEN 9
+
+static int open_shm_or_file(const char *pathname, int flags, mode_t mode)
+{
+    size_t pathname_len = strlen(pathname);
+    size_t cmp_len =
+        pathname_len < SHM_PATH_PREFIX_LEN ? pathname_len : SHM_PATH_PREFIX_LEN;
+    if (!ngx_memn2cmp((const u_char *)pathname, (const u_char *)SHM_PATH_PREFIX,
+                      cmp_len, SHM_PATH_PREFIX_LEN)) {
+        // skip "/dev/shm" to make shm_name.
+        // for example, pathname="/dev/shm/example", shm_name="/example"
+        const char *shm_name = pathname + (SHM_PATH_PREFIX_LEN - 1);
+        return shm_open(shm_name, flags, mode);
+    }
+
+    return open(pathname, flags, mode);
+}
+
+static mps_err_t mps_slab_create(mps_slab_pool_t **pool, const char *pathname,
                                  size_t shm_size, size_t min_shift, mode_t mode,
                                  mps_slab_on_init_pt on_init)
 {
@@ -231,7 +250,7 @@ static mps_err_t mps_slab_create(mps_slab_pool_t **pool, const char *shm_name,
     void *addr;
     mps_err_t err = 0;
 
-    fd = shm_open(shm_name, O_RDWR | O_CREAT | O_EXCL, S_IRUSR);
+    fd = open_shm_or_file(pathname, O_RDWR | O_CREAT | O_EXCL, S_IRUSR);
     if (fd == -1) {
         return errno;
     }
@@ -277,14 +296,14 @@ close:
     return err;
 }
 
-static mps_err_t mps_slab_open(mps_slab_pool_t **pool, const char *shm_name,
+static mps_err_t mps_slab_open(mps_slab_pool_t **pool, const char *pathname,
                                size_t shm_size, mode_t mode)
 {
     mps_err_t err;
     int fd;
     void *addr;
 
-    fd = shm_open(shm_name, O_RDWR, mode);
+    fd = open_shm_or_file(pathname, O_RDWR, mode);
     if (fd == -1) {
         return errno;
     }
@@ -306,7 +325,7 @@ static mps_err_t mps_slab_open(mps_slab_pool_t **pool, const char *shm_name,
     return 0;
 }
 
-mps_slab_pool_t *mps_slab_open_or_create(const char *shm_name, size_t shm_size,
+mps_slab_pool_t *mps_slab_open_or_create(const char *pathname, size_t shm_size,
                                          size_t min_shift, mode_t mode,
                                          mps_slab_on_init_pt on_init)
 {
@@ -322,7 +341,7 @@ mps_slab_pool_t *mps_slab_open_or_create(const char *shm_name, size_t shm_size,
         return NULL;
     }
 
-    err = mps_slab_open(&pool, shm_name, shm_size, mode);
+    err = mps_slab_open(&pool, pathname, shm_size, mode);
     if (err) {
         if (err != ENOENT && err != EACCES) {
             mps_log_error("mps_slab_open_or_create: mps_slab_open#1: err=%s",
@@ -330,7 +349,7 @@ mps_slab_pool_t *mps_slab_open_or_create(const char *shm_name, size_t shm_size,
             return NULL;
         }
 
-        err = mps_slab_create(&pool, shm_name, shm_size, min_shift, mode,
+        err = mps_slab_create(&pool, pathname, shm_size, min_shift, mode,
                               on_init);
         if (err) {
             if (err != EEXIST) {
@@ -348,7 +367,7 @@ mps_slab_pool_t *mps_slab_open_or_create(const char *shm_name, size_t shm_size,
                 return NULL;
             }
 
-            err = mps_slab_open(&pool, shm_name, shm_size, mode);
+            err = mps_slab_open(&pool, pathname, shm_size, mode);
             if (err) {
                 mps_log_error(
                     "mps_slab_open_or_create: mps_slab_open#2: err=%s",
@@ -357,17 +376,17 @@ mps_slab_pool_t *mps_slab_open_or_create(const char *shm_name, size_t shm_size,
 
             } else {
                 mps_log_status("mps_slab_open_or_create second open ok name=%s",
-                               shm_name);
+                               pathname);
             }
 
         } else {
             mps_log_status("mps_slab_open_or_create create ok name=%s",
-                           shm_name);
+                           pathname);
         }
 
     } else {
         mps_log_status("mps_slab_open_or_create first open ok name=%s",
-                       shm_name);
+                       pathname);
     }
     return pool;
 }

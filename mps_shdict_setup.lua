@@ -119,7 +119,7 @@ local function setup(shlib_name)
             ngx_str_t         name;
         } mps_shdict_t;
 
-        mps_shdict_t *mps_shdict_open_or_create(const char *dict_name,
+        mps_shdict_t *mps_shdict_open_or_create(const char *pathname,
             size_t shm_size, size_t min_shift, mode_t mode);
 
         void mps_shdict_close(mps_shdict_t *dict);
@@ -595,8 +595,8 @@ local function setup(shlib_name)
 
     local MPS_SLAB_DEFAULT_MIN_SHIFT = 3
 
-    local function open_or_create(dict_name, shm_size, mode)
-        return S.mps_shdict_open_or_create(dict_name, shm_size,
+    local function open_or_create(pathname, shm_size, mode)
+        return S.mps_shdict_open_or_create(pathname, shm_size,
             MPS_SLAB_DEFAULT_MIN_SHIFT, mode)
     end
 

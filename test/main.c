@@ -3,11 +3,9 @@
 #include "mps_shdict.h"
 #include "mps_log.h"
 
-#define DICT_SIZE (4096 * 3)
-#define DICT_NAME "test_dict1"
-#define SHM_PATH "/dev/shm/" DICT_NAME
+#define SHM_PATHNAME "/dev/shm/test_dict1"
 
-static void verify_shm_not_exist(const char *pathname)
+static void verify_shdict_file_not_exist(const char *pathname)
 {
     struct stat st;
 
@@ -22,22 +20,22 @@ static void verify_shm_not_exist(const char *pathname)
 
     mps_log_debug("mps_shdict_test",
                   "Please delete shm file \"%s\" before running tests.\n",
-                  SHM_PATH);
+                  SHM_PATHNAME);
     exit(1);
 }
 
-static mps_shdict_t *open_shdict()
-{
-    return mps_shdict_open_or_create(
-        DICT_NAME, DICT_SIZE, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR);
-}
-
-void delete_shm_file(const char *name)
+void delete_shdict_file(const char *name)
 {
     if (unlink(name) == -1 && errno != ENOENT) {
         mps_log_debug("mps_shdict_test", "unlink shm file: %s\n",
                       strerror(errno));
     }
+}
+
+static mps_shdict_t *open_shdict()
+{
+    return mps_shdict_open_or_create(
+        SHM_PATHNAME, 4096 * 3, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR);
 }
 
 static void sleep_till_next_ms()
@@ -72,19 +70,19 @@ static void sleep_ms(size_t msec)
 
 void setUp(void)
 {
-    verify_shm_not_exist(SHM_PATH);
+    verify_shdict_file_not_exist(SHM_PATHNAME);
 }
 
 void tearDown(void)
 {
-    delete_shm_file(SHM_PATH);
+    delete_shdict_file(SHM_PATHNAME);
 }
 
 void test_capacity(void)
 {
     mps_shdict_t *dict = open_shdict();
     size_t capacity = mps_shdict_capacity(dict);
-    TEST_ASSERT_EQUAL_UINT64(DICT_SIZE, capacity);
+    TEST_ASSERT_EQUAL_UINT64(4096 * 3, capacity);
     mps_shdict_close(dict);
 }
 
@@ -1536,11 +1534,14 @@ void test_flush_all(void)
 
 void test_open_multi(void)
 {
+    verify_shdict_file_not_exist("/dev/shm/test_dict2");
+
     mps_shdict_t *dict1 = mps_shdict_open_or_create(
-        DICT_NAME, DICT_SIZE, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR);
+        SHM_PATHNAME, 4096 * 3, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR);
     mps_log_debug("mps_shdict_test", "dict1=%p\n", dict1);
     mps_shdict_t *dict2 = mps_shdict_open_or_create(
-        "test_dict2", DICT_SIZE, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR);
+        "/dev/shm/test_dict2", 4096 * 3, MPS_SLAB_DEFAULT_MIN_SHIFT,
+        S_IRUSR | S_IWUSR);
     mps_log_debug("mps_shdict_test", "dict2=%p\n", dict2);
     mps_shdict_close(dict2);
     mps_shdict_close(dict1);
@@ -1548,10 +1549,67 @@ void test_open_multi(void)
     // It is OK to close twice.
     mps_shdict_close(dict1);
 
-    if (unlink("/dev/shm/test_dict2") == -1) {
-        mps_log_debug("mps_shdict_test", "unlink shm file: %s\n",
-                      strerror(errno));
-    }
+    delete_shdict_file("/dev/shm/test_dict2");
+}
+
+void test_memory_mapped_file(void)
+{
+    verify_shdict_file_not_exist("/tmp/dic");
+    mps_shdict_t *dict = mps_shdict_open_or_create(
+        "/tmp/dic", 4096 * 3, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR);
+
+    const u_char *key = (const u_char *)"key1234";
+    const u_char *str_value_ptr = (const u_char *)"Hello, world!";
+    size_t key_len = strlen((const char *)key),
+           str_value_len = strlen((const char *)str_value_ptr);
+    int value_type = MPS_SHDICT_TSTRING, user_flags = 0xcafe, get_stale = 0,
+        is_stale = 0, forcible = 0;
+    double num_value = 0;
+    char *err = NULL;
+    long exptime = 0;
+
+    /* set a string value */
+    int rc = mps_shdict_set(dict, key, key_len, value_type, str_value_ptr,
+                            str_value_len, num_value, exptime, user_flags, &err,
+                            &forcible);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    /* get the value */
+    value_type = -1;
+    user_flags = 0;
+    u_char *str_value_ptr2 = NULL;
+    size_t str_value_len2 = 0;
+    rc = mps_shdict_get(dict, key, key_len, &value_type, &str_value_ptr2,
+                        &str_value_len2, &num_value, &user_flags, get_stale,
+                        &is_stale, &err);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+    TEST_ASSERT_EQUAL_INT(MPS_SHDICT_TSTRING, value_type);
+    TEST_ASSERT_EQUAL_UINT64(str_value_len, str_value_len2);
+    TEST_ASSERT_EQUAL_MEMORY(str_value_ptr, str_value_ptr2, str_value_len2);
+    TEST_ASSERT_EQUAL_INT(0xcafe, user_flags);
+    free(str_value_ptr2);
+
+    /* delete the value */
+    rc = mps_shdict_delete(dict, key, key_len);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    /* verify the value is deleted */
+    value_type = -1;
+    str_value_ptr2 = NULL;
+    str_value_len2 = 0;
+    rc = mps_shdict_get(dict, key, key_len, &value_type, &str_value_ptr2,
+                        &str_value_len2, &num_value, &user_flags, get_stale,
+                        &is_stale, &err);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+    TEST_ASSERT_EQUAL_INT(MPS_SHDICT_TNIL, value_type);
+
+    /* It is OK to call delete for non existing key. */
+    rc = mps_shdict_delete(dict, key, key_len);
+    TEST_ASSERT_EQUAL_INT(NGX_OK, rc);
+
+    mps_shdict_close(dict);
+
+    delete_shdict_file("/tmp/dic");
 }
 
 void test_memn2cmp(void)
@@ -1595,7 +1653,7 @@ static mps_err_t slab_on_init_disable_log_nomem(mps_slab_pool_t *pool)
 void test_slab_alloc_one_byte_min_shift_one(void)
 {
     mps_slab_pool_t *pool =
-        mps_slab_open_or_create("/test_shm1", 4096 * 3, 1, S_IRUSR | S_IWUSR,
+        mps_slab_open_or_create(SHM_PATHNAME, 4096 * 3, 1, S_IRUSR | S_IWUSR,
                                 slab_on_init_disable_log_nomem);
     TEST_ASSERT_NOT_NULL(pool);
 
@@ -1619,14 +1677,12 @@ void test_slab_alloc_one_byte_min_shift_one(void)
     }
 
     mps_slab_close(pool, 4096 * 3);
-    delete_shm_file("/dev/shm"
-                    "/test_shm1");
 }
 
 void test_slab_calloc_one_byte(void)
 {
     mps_slab_pool_t *pool = mps_slab_open_or_create(
-        "/test_shm1", 4096 * 3, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR,
+        SHM_PATHNAME, 4096 * 3, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR,
         slab_on_init_disable_log_nomem);
     TEST_ASSERT_NOT_NULL(pool);
 
@@ -1636,14 +1692,12 @@ void test_slab_calloc_one_byte(void)
     mps_slab_free(pool, p);
 
     mps_slab_close(pool, 4096 * 3);
-    delete_shm_file("/dev/shm"
-                    "/test_shm1");
 }
 
 void test_slab_alloc_32_bytes(void)
 {
     mps_slab_pool_t *pool = mps_slab_open_or_create(
-        "/test_shm1", 4096 * 3, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR,
+        SHM_PATHNAME, 4096 * 3, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR,
         slab_on_init_disable_log_nomem);
     TEST_ASSERT_NOT_NULL(pool);
 
@@ -1656,14 +1710,12 @@ void test_slab_alloc_32_bytes(void)
     mps_slab_free(pool, p1);
 
     mps_slab_close(pool, 4096 * 3);
-    delete_shm_file("/dev/shm"
-                    "/test_shm1");
 }
 
 void test_slab_alloc_exact(void)
 {
     mps_slab_pool_t *pool = mps_slab_open_or_create(
-        "/test_shm1", 4096 * 3, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR,
+        SHM_PATHNAME, 4096 * 3, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR,
         slab_on_init_disable_log_nomem);
     TEST_ASSERT_NOT_NULL(pool);
 
@@ -1687,14 +1739,12 @@ void test_slab_alloc_exact(void)
     }
 
     mps_slab_close(pool, 4096 * 3);
-    delete_shm_file("/dev/shm"
-                    "/test_shm1");
 }
 
 void test_slab_alloc_big(void)
 {
     mps_slab_pool_t *pool = mps_slab_open_or_create(
-        "/test_shm1", 4096 * 3, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR,
+        SHM_PATHNAME, 4096 * 3, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR,
         slab_on_init_disable_log_nomem);
     TEST_ASSERT_NOT_NULL(pool);
 
@@ -1718,14 +1768,12 @@ void test_slab_alloc_big(void)
     }
 
     mps_slab_close(pool, 4096 * 3);
-    delete_shm_file("/dev/shm"
-                    "/test_shm1");
 }
 
 void test_slab_alloc_two_pages(void)
 {
     mps_slab_pool_t *pool = mps_slab_open_or_create(
-        "/test_shm1", 4096 * 20, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR,
+        SHM_PATHNAME, 4096 * 20, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR,
         slab_on_init_disable_log_nomem);
     TEST_ASSERT_NOT_NULL(pool);
 
@@ -1743,27 +1791,22 @@ void test_slab_alloc_two_pages(void)
     }
 
     mps_slab_close(pool, 4096 * 3);
-    delete_shm_file("/dev/shm"
-                    "/test_shm1");
 }
 
 void test_slab_open_existing(void)
 {
     mps_slab_pool_t *pool1 = mps_slab_open_or_create(
-        "/test_shm1", 4096 * 3, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR,
+        SHM_PATHNAME, 4096 * 3, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR,
         slab_on_init_disable_log_nomem);
     TEST_ASSERT_NOT_NULL(pool1);
 
     mps_slab_pool_t *pool2 = mps_slab_open_or_create(
-        "/test_shm1", 4096 * 3, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR,
+        SHM_PATHNAME, 4096 * 3, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR,
         slab_on_init_disable_log_nomem);
     TEST_ASSERT_NOT_NULL(pool2);
 
     mps_slab_close(pool2, 4096 * 3);
     mps_slab_close(pool1, 4096 * 3);
-
-    delete_shm_file("/dev/shm"
-                    "/test_shm1");
 }
 
 typedef struct thread_info {
@@ -1779,7 +1822,7 @@ static void *thread_start(void *arg)
                   tinfo->thread_num);
 
     mps_slab_pool_t *pool1 = mps_slab_open_or_create(
-        "/test_shm1", 4096 * 3, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR,
+        SHM_PATHNAME, 4096 * 3, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR,
         slab_on_init_disable_log_nomem);
     mps_log_debug("mps_slab_test", "thread_num=%d, pool1=%p\n",
                   tinfo->thread_num, pool1);
@@ -1814,8 +1857,7 @@ void test_slab_open_or_create_multithread(void)
         TEST_ASSERT_EQUAL_INT(0, err);
     }
 
-    delete_shm_file("/dev/shm"
-                    "/test_shm1");
+    delete_shdict_file("/dev/shm" SHM_PATHNAME);
 }
 
 static mps_err_t slab_on_init_nop(mps_slab_pool_t *pool)
@@ -1826,21 +1868,19 @@ static mps_err_t slab_on_init_nop(mps_slab_pool_t *pool)
 void test_slab_pages_log_nomem(void)
 {
     mps_slab_pool_t *pool = mps_slab_open_or_create(
-        "/test_shm1", 4096 * 3, 1, S_IRUSR | S_IWUSR, slab_on_init_nop);
+        SHM_PATHNAME, 4096 * 3, 1, S_IRUSR | S_IWUSR, slab_on_init_nop);
     TEST_ASSERT_NOT_NULL(pool);
 
     void *p = mps_slab_calloc(pool, 4096 * 3);
     TEST_ASSERT_NULL(p);
 
     mps_slab_close(pool, 4096 * 3);
-    delete_shm_file("/dev/shm"
-                    "/test_shm1");
 }
 
 void test_slab_free_outside_of_pool(void)
 {
     mps_slab_pool_t *pool =
-        mps_slab_open_or_create("/test_shm1", 4096 * 3, 1, S_IRUSR | S_IWUSR,
+        mps_slab_open_or_create(SHM_PATHNAME, 4096 * 3, 1, S_IRUSR | S_IWUSR,
                                 slab_on_init_disable_log_nomem);
     TEST_ASSERT_NOT_NULL(pool);
 
@@ -1850,14 +1890,12 @@ void test_slab_free_outside_of_pool(void)
     mps_slab_free(pool, pool - 1);
 
     mps_slab_close(pool, 4096 * 3);
-    delete_shm_file("/dev/shm"
-                    "/test_shm1");
 }
 
 void test_slab_chunk_already_free(void)
 {
     mps_slab_pool_t *pool =
-        mps_slab_open_or_create("/test_shm1", 4096 * 3, 1, S_IRUSR | S_IWUSR,
+        mps_slab_open_or_create(SHM_PATHNAME, 4096 * 3, 1, S_IRUSR | S_IWUSR,
                                 slab_on_init_disable_log_nomem);
     TEST_ASSERT_NOT_NULL(pool);
 
@@ -1891,14 +1929,12 @@ void test_slab_chunk_already_free(void)
     mps_slab_free(pool, p);
 
     mps_slab_close(pool, 4096 * 3);
-    delete_shm_file("/dev/shm"
-                    "/test_shm1");
 }
 
 void test_slab_page_already_free(void)
 {
     mps_slab_pool_t *pool =
-        mps_slab_open_or_create("/test_shm1", 4096 * 3, 1, S_IRUSR | S_IWUSR,
+        mps_slab_open_or_create(SHM_PATHNAME, 4096 * 3, 1, S_IRUSR | S_IWUSR,
                                 slab_on_init_disable_log_nomem);
     TEST_ASSERT_NOT_NULL(pool);
 
@@ -1913,14 +1949,12 @@ void test_slab_page_already_free(void)
     mps_slab_free(pool, p);
 
     mps_slab_close(pool, 4096 * 3);
-    delete_shm_file("/dev/shm"
-                    "/test_shm1");
 }
 
 void test_slab_free_wrong_chunk(void)
 {
     mps_slab_pool_t *pool =
-        mps_slab_open_or_create("/test_shm1", 4096 * 3, 1, S_IRUSR | S_IWUSR,
+        mps_slab_open_or_create(SHM_PATHNAME, 4096 * 3, 1, S_IRUSR | S_IWUSR,
                                 slab_on_init_disable_log_nomem);
     TEST_ASSERT_NOT_NULL(pool);
 
@@ -1964,14 +1998,12 @@ void test_slab_free_wrong_chunk(void)
     mps_slab_free(pool, p);
 
     mps_slab_close(pool, 4096 * 3);
-    delete_shm_file("/dev/shm"
-                    "/test_shm1");
 }
 
 void test_slab_free_wrong_page(void)
 {
     mps_slab_pool_t *pool =
-        mps_slab_open_or_create("/test_shm1", 4096 * 3, 1, S_IRUSR | S_IWUSR,
+        mps_slab_open_or_create(SHM_PATHNAME, 4096 * 3, 1, S_IRUSR | S_IWUSR,
                                 slab_on_init_disable_log_nomem);
     TEST_ASSERT_NOT_NULL(pool);
 
@@ -1983,8 +2015,6 @@ void test_slab_free_wrong_page(void)
     mps_slab_free(pool, p);
 
     mps_slab_close(pool, 4096 * 3);
-    delete_shm_file("/dev/shm"
-                    "/test_shm1");
 }
 
 // rbtree ---------------------------------------------
@@ -2168,7 +2198,7 @@ void test_rbtree_standard(void)
 {
     mps_slab_pool_t *pool;
 
-    pool = mps_slab_open_or_create("/test_tree1", 4096 * 5,
+    pool = mps_slab_open_or_create(SHM_PATHNAME, 4096 * 5,
                                    MPS_SLAB_DEFAULT_MIN_SHIFT,
                                    S_IRUSR | S_IWUSR, rbtree_standard_on_init);
     TEST_ASSERT_NOT_NULL(pool);
@@ -2211,15 +2241,13 @@ void test_rbtree_standard(void)
     }
 
     mps_slab_close(pool, 4096 * 5);
-    delete_shm_file("/dev/shm"
-                    "/test_tree1");
 }
 
 void test_rbtree_standard_random(void)
 {
     mps_slab_pool_t *pool;
 
-    pool = mps_slab_open_or_create("/test_tree1", 4096 * 5,
+    pool = mps_slab_open_or_create(SHM_PATHNAME, 4096 * 5,
                                    MPS_SLAB_DEFAULT_MIN_SHIFT,
                                    S_IRUSR | S_IWUSR, rbtree_standard_on_init);
     TEST_ASSERT_NOT_NULL(pool);
@@ -2276,15 +2304,13 @@ void test_rbtree_standard_random(void)
     }
 
     mps_slab_close(pool, 4096 * 5);
-    delete_shm_file("/dev/shm"
-                    "/test_tree1");
 }
 
 void test_rbtree_timer_random(void)
 {
     mps_slab_pool_t *pool;
 
-    pool = mps_slab_open_or_create("/test_tree1", 4096 * 5,
+    pool = mps_slab_open_or_create(SHM_PATHNAME, 4096 * 5,
                                    MPS_SLAB_DEFAULT_MIN_SHIFT,
                                    S_IRUSR | S_IWUSR, rbtree_timer_on_init);
     TEST_ASSERT_NOT_NULL(pool);
@@ -2341,8 +2367,6 @@ void test_rbtree_timer_random(void)
     }
 
     mps_slab_close(pool, 4096 * 5);
-    delete_shm_file("/dev/shm"
-                    "/test_tree1");
 }
 
 void test_rbtree_bad_insert_type(void)
@@ -2350,12 +2374,9 @@ void test_rbtree_bad_insert_type(void)
     mps_slab_pool_t *pool;
 
     pool = mps_slab_open_or_create(
-        "/test_tree1", 4096 * 5, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR,
+        SHM_PATHNAME, 4096 * 5, MPS_SLAB_DEFAULT_MIN_SHIFT, S_IRUSR | S_IWUSR,
         rbtree_bad_insert_type_on_init);
     TEST_ASSERT_NULL(pool);
-
-    delete_shm_file("/dev/shm"
-                    "/test_tree1");
 }
 
 int main(void)
@@ -2394,6 +2415,7 @@ int main(void)
     RUN_TEST(test_memn2cmp);
     RUN_TEST(test_safe_set_no_key_no_mem);
     RUN_TEST(test_key_hash_collision);
+    RUN_TEST(test_memory_mapped_file);
 
     RUN_TEST(test_list_basics);
     RUN_TEST(test_list_delete);

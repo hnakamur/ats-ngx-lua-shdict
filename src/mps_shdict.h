@@ -59,7 +59,7 @@ enum {
     MPS_SHDICT_TLIST = 5,
 };
 
-mps_shdict_t *mps_shdict_open_or_create(const char *dict_name, size_t shm_size,
+mps_shdict_t *mps_shdict_open_or_create(const char *pathname, size_t shm_size,
                                         size_t min_shift, mode_t mode);
 void mps_shdict_close(mps_shdict_t *dict);
 

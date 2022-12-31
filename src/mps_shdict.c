@@ -78,15 +78,15 @@ static void mps_shdict_init_dicts_lock()
     }
 }
 
-static mps_shdict_t *find_dict_by_name(const char *dict_name)
+static mps_shdict_t *find_dict_by_pathname(const char *pathname)
 {
-    size_t dict_name_len;
+    size_t pathname_len;
     int i;
 
-    dict_name_len = strlen(dict_name);
+    pathname_len = strlen(pathname);
     for (i = 0; i < dicts_count; i++) {
-        if (!ngx_memn2cmp(dicts[i].name.data, (const u_char *)dict_name,
-                          dicts[i].name.len, dict_name_len)) {
+        if (!ngx_memn2cmp(dicts[i].name.data, (const u_char *)pathname,
+                          dicts[i].name.len, pathname_len)) {
             return &dicts[i];
         }
     }
@@ -207,14 +207,12 @@ static mps_err_t mps_shdict_on_init(mps_slab_pool_t *pool)
     return 0;
 }
 
-mps_shdict_t *mps_shdict_open_or_create(const char *dict_name, size_t shm_size,
+mps_shdict_t *mps_shdict_open_or_create(const char *pathname, size_t shm_size,
                                         size_t min_shift, mode_t mode)
 {
     int rc;
     mps_shdict_t *dict, *new_dicts;
-    char *dict_name_copy;
-    size_t dict_name_len;
-    char shm_name[NAME_MAX], *p;
+    char *pathname_copy;
     mps_slab_pool_t *pool;
 
     rc = pthread_once(&dicts_lock_initialized, mps_shdict_init_dicts_lock);
@@ -225,39 +223,30 @@ mps_shdict_t *mps_shdict_open_or_create(const char *dict_name, size_t shm_size,
         return NULL;
     }
 
-    dict_name_len = strlen(dict_name);
-    if (dict_name_len + 2 > NAME_MAX) {
-        return NULL;
-    }
-
     pthread_mutex_lock(&dicts_lock);
 
-    dict = find_dict_by_name(dict_name);
+    dict = find_dict_by_pathname(pathname);
     if (dict) {
         pthread_mutex_unlock(&dicts_lock);
         return dict;
     }
 
-    shm_name[0] = '/';
-    p = (char *)ngx_copy((u_char *)&shm_name[1], (u_char *)dict_name,
-                         dict_name_len);
-    *p = '\0';
-
-    pool = mps_slab_open_or_create(shm_name, shm_size, min_shift, mode,
+    pool = mps_slab_open_or_create(pathname, shm_size, min_shift, mode,
                                    mps_shdict_on_init);
     if (pool == NULL) {
         pthread_mutex_unlock(&dicts_lock);
         return NULL;
     }
 
-    dict_name_copy = strdup(dict_name);
-    if (dict_name_copy == NULL) {
+    pathname_copy = strdup(pathname);
+    if (pathname_copy == NULL) {
         pthread_mutex_unlock(&dicts_lock);
         return NULL;
     }
 
     new_dicts = realloc(dicts, sizeof(mps_shdict_t) * (dicts_count + 1));
     if (new_dicts == NULL) {
+        free(pathname_copy);
         pthread_mutex_unlock(&dicts_lock);
         return NULL;
     }
@@ -267,8 +256,8 @@ mps_shdict_t *mps_shdict_open_or_create(const char *dict_name, size_t shm_size,
     dicts_count++;
 
     dict->pool = pool;
-    dict->name.len = dict_name_len;
-    dict->name.data = (u_char *)dict_name_copy;
+    dict->name.len = strlen(pathname);
+    dict->name.data = (u_char *)pathname_copy;
     dict->size = shm_size;
 
     pthread_mutex_unlock(&dicts_lock);
