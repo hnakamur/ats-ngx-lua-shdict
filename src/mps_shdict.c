@@ -178,19 +178,9 @@ void mps_shdict_rbtree_insert_value(mps_slab_pool_t *pool,
     }
 
     *p = mps_offset(pool, node);
-    mps_log_debug(MPS_LOG_TAG,
-                  "shdict_insert_val, updated temp=%lx, *p=%lx, temp->%s=%lx",
-                  mps_offset(pool, temp), *p,
-                  (p == &temp->left ? "left" : "right"),
-                  (p == &temp->left ? temp->left : temp->right));
     node->parent = mps_offset(pool, temp);
     node->left = s;
     node->right = s;
-    mps_log_debug(
-        MPS_LOG_TAG,
-        "shdict_insert_val, inserted node parent=%lx, node=%lx, left=%lx, "
-        "right=%lx",
-        node->parent, mps_offset(pool, node), node->left, node->right);
     ngx_rbt_red(node);
 }
 
@@ -227,9 +217,6 @@ mps_shdict_t *mps_shdict_open_or_create(const char *dict_name, size_t shm_size,
     char shm_name[NAME_MAX], *p;
     mps_slab_pool_t *pool;
 
-    mps_log_debug(MPS_LOG_TAG, "mps_shdict_open_or_create start, name=%s",
-                  dict_name);
-
     rc = pthread_once(&dicts_lock_initialized, mps_shdict_init_dicts_lock);
     if (rc != 0) {
         mps_log_error(
@@ -251,10 +238,6 @@ mps_shdict_t *mps_shdict_open_or_create(const char *dict_name, size_t shm_size,
         return dict;
     }
 
-    mps_log_debug(MPS_LOG_TAG,
-                  "mps_shdict_open_or_create dict not found, name=%s",
-                  dict_name);
-
     shm_name[0] = '/';
     p = (char *)ngx_copy((u_char *)&shm_name[1], (u_char *)dict_name,
                          dict_name_len);
@@ -273,17 +256,11 @@ mps_shdict_t *mps_shdict_open_or_create(const char *dict_name, size_t shm_size,
         return NULL;
     }
 
-    mps_log_debug(MPS_LOG_TAG, "mps_shdict_open_or_create strdup ok, name=%s",
-                  dict_name);
-
     new_dicts = realloc(dicts, sizeof(mps_shdict_t) * (dicts_count + 1));
     if (new_dicts == NULL) {
         pthread_mutex_unlock(&dicts_lock);
         return NULL;
     }
-
-    mps_log_debug(MPS_LOG_TAG, "mps_shdict_open_or_create realloc ok, name=%s",
-                  dict_name);
 
     dicts = new_dicts;
     dict = &dicts[dicts_count];
@@ -295,8 +272,6 @@ mps_shdict_t *mps_shdict_open_or_create(const char *dict_name, size_t shm_size,
     dict->size = shm_size;
 
     pthread_mutex_unlock(&dicts_lock);
-    mps_log_debug(MPS_LOG_TAG, "mps_shdict_open_or_create exit ok, name=%s",
-                  dict_name);
 
     return dict;
 }
@@ -306,9 +281,6 @@ void mps_shdict_close(mps_shdict_t *dict)
     int rc, i;
     mps_shdict_t *new_dicts;
     u_char *dict_name_data;
-
-    mps_log_debug(MPS_LOG_TAG, "mps_shdict_close start, dict->name=" LogLenStr,
-                  (int)dict->name.len, dict->name.data);
 
     rc = pthread_once(&dicts_lock_initialized, mps_shdict_init_dicts_lock);
     if (rc != 0) {
@@ -321,8 +293,6 @@ void mps_shdict_close(mps_shdict_t *dict)
 
     i = index_of_dict(dict);
 
-    mps_log_debug(MPS_LOG_TAG, "mps_shdict_close, i=%d", i);
-
     if (i == -1) {
         pthread_mutex_unlock(&dicts_lock);
         return;
@@ -330,24 +300,16 @@ void mps_shdict_close(mps_shdict_t *dict)
 
     mps_slab_close(dict->pool, dict->size);
 
-    mps_log_debug(MPS_LOG_TAG, "mps_shdict_close, after close, dicts_count=%d",
-                  dicts_count);
-
     dict_name_data = dict->name.data;
 
     dicts[i] = dicts[dicts_count - 1];
-    mps_log_debug(MPS_LOG_TAG, "mps_shdict_close, after copy dict array elem");
 
     if (dicts_count == 1) {
         free(dicts);
         new_dicts = NULL;
-        mps_log_debug(MPS_LOG_TAG, "mps_shdict_close, after free");
 
     } else {
         new_dicts = realloc(dicts, sizeof(mps_shdict_t) * (dicts_count - 1));
-        mps_log_debug(MPS_LOG_TAG,
-                      "mps_shdict_close, after realloc, new_dicts=%p",
-                      new_dicts);
         if (new_dicts == NULL) {
             mps_log_error("mps_shdict_close: realloc failed: err=%s",
                           strerror(rc));
@@ -361,8 +323,6 @@ void mps_shdict_close(mps_shdict_t *dict)
     free(dict_name_data);
 
     pthread_mutex_unlock(&dicts_lock);
-
-    mps_log_debug(MPS_LOG_TAG, "mps_shdict_close, exit ok");
 }
 
 static ngx_int_t mps_shdict_lookup(mps_slab_pool_t *pool, ngx_uint_t hash,
@@ -442,8 +402,6 @@ static int mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_tree_t *tree,
     mps_shdict_list_node_t *lnode;
 
     now = mps_clock_time_ms();
-    mps_log_debug(MPS_LOG_TAG, "expire start, n=%" PRId64 ", now=%" PRId64, n,
-                  now);
 
     /*
      * n == 1 deletes one or two expired entries
@@ -456,16 +414,10 @@ static int mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_tree_t *tree,
         if (mps_queue_empty(pool, &tree->lru_queue)) {
             return freed;
         }
-        mps_log_debug(MPS_LOG_TAG, "expire, lru queue not empty");
 
         q = mps_queue_last(pool, &tree->lru_queue);
-        mps_log_debug(MPS_LOG_TAG, "expire, q=%p", q);
 
         sd = mps_queue_data(q, mps_shdict_node_t, queue);
-        mps_log_debug(MPS_LOG_TAG,
-                      "expire, n=%" PRId64 ", key=" LogLenStr
-                      ", expires=%" PRId64,
-                      n, (int)sd->key_len, sd->data, sd->expires);
 
         if (n++ != 0) {
 
@@ -495,16 +447,10 @@ static int mps_shdict_expire(mps_slab_pool_t *pool, mps_shdict_tree_t *tree,
 
         node = (mps_rbtree_node_t *)((u_char *)sd -
                                      offsetof(mps_rbtree_node_t, color));
-        mps_log_debug(MPS_LOG_TAG,
-                      "expire, calling rbtree_delete, node=%p, node_off=%lx",
-                      node, mps_offset(pool, node));
 
         mps_rbtree_delete(pool, &tree->rbtree, node);
 
-        mps_log_debug(MPS_LOG_TAG, "expire, calling free_locked, node=%p",
-                      node);
         mps_slab_free_locked(pool, node);
-        mps_log_debug(MPS_LOG_TAG, "expire, after free_locked, node=%p", node);
 
         freed++;
     }
@@ -537,8 +483,6 @@ int mps_shdict_store(mps_shdict_t *dict, int op, const u_char *key,
     *forcible = 0;
 
     hash = ngx_murmur_hash2(key, key_len);
-    mps_log_debug("shdict", "store start, op=%d, key=" LogLenStr ", hash=%x",
-                  op, (int)key_len, key, hash);
 
     switch (value_type) {
 
@@ -701,12 +645,6 @@ insert:
 
     n = offsetof(mps_rbtree_node_t, color) + offsetof(mps_shdict_node_t, data) +
         key_len + str_value_len;
-    mps_log_debug(
-        MPS_LOG_TAG,
-        "store allocating node size=%d, off1=%ld, off2=%ld, key_len=%ld, "
-        "value_len=%ld",
-        n, offsetof(mps_rbtree_node_t, color),
-        offsetof(mps_shdict_node_t, data), key_len, str_value_len);
 
     node = mps_slab_alloc_locked(pool, n);
 
@@ -826,8 +764,6 @@ int mps_shdict_replace(mps_shdict_t *dict, const u_char *key, size_t key_len,
 int mps_shdict_delete(mps_shdict_t *dict, const u_char *key, size_t key_len)
 {
     int forcible = 0;
-    mps_log_debug(MPS_LOG_TAG, "shdict_delete start, key=" LogLenStr,
-                  (int)key_len, key);
     return mps_shdict_store(dict, 0, key, key_len, MPS_SHDICT_TNIL, NULL, 0, 0,
                             0, 0, NULL, &forcible);
 }
@@ -844,8 +780,6 @@ int mps_shdict_get(mps_shdict_t *dict, const u_char *key, size_t key_len,
     ngx_str_t value;
 
     hash = ngx_murmur_hash2(key, key_len);
-    mps_log_debug(MPS_LOG_TAG, "get start, key=" LogLenStr ", hash=%x",
-                  (int)key_len, key, hash);
 
     pool = dict->pool;
     mps_slab_lock(pool);
@@ -1079,7 +1013,6 @@ remove:
     node = (mps_rbtree_node_t *)((u_char *)sd -
                                  offsetof(mps_rbtree_node_t, color));
 
-    mps_log_debug(MPS_LOG_TAG, "incr, before rbtree_delete at label remove");
     mps_rbtree_delete(pool, &tree->rbtree, node);
     mps_slab_free_locked(pool, node);
 
@@ -1104,7 +1037,6 @@ insert:
                       (int)dict->name.len, dict->name.data, (int)key_len, key);
 
         for (i = 0; i < 30; i++) {
-            mps_log_debug(MPS_LOG_TAG, "incr calling expire with n=0, i=%d", i);
             if (mps_shdict_expire(pool, tree, 0) == 0) {
                 break;
             }
@@ -1346,9 +1278,6 @@ static int mps_shdict_push_helper(mps_shdict_t *dict, int direction,
     tree = mps_shdict_tree(pool);
 
     hash = ngx_murmur_hash2(key, key_len);
-    mps_log_debug(MPS_LOG_TAG,
-                  "push_helper start, direction=%d, key=" LogLenStr ", hash=%x",
-                  direction, (int)key_len, key, hash);
 
     switch (value_type) {
 
@@ -1595,9 +1524,6 @@ static int mps_shdict_pop_helper(mps_shdict_t *dict, int direction,
     tree = mps_shdict_tree(pool);
 
     hash = ngx_murmur_hash2(key, key_len);
-    mps_log_debug(MPS_LOG_TAG,
-                  "pop_helper start, direction=%d, key=" LogLenStr ", hash=%x",
-                  direction, (int)key_len, key, hash);
 
     mps_slab_lock(pool);
 
@@ -1726,8 +1652,6 @@ int mps_shdict_llen(mps_shdict_t *dict, const u_char *key, size_t key_len,
     mps_shdict_node_t *sd;
 
     hash = ngx_murmur_hash2(key, key_len);
-    mps_log_debug(MPS_LOG_TAG, "llen start, key=" LogLenStr ", hash=%x",
-                  (int)key_len, key, hash);
 
     pool = dict->pool;
     tree = mps_shdict_tree(pool);

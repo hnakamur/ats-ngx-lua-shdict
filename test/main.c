@@ -1975,7 +1975,7 @@ void test_slab_free_wrong_page(void)
                                 slab_on_init_disable_log_nomem);
     TEST_ASSERT_NOT_NULL(pool);
 
-    void *p, *p2;
+    void *p;
 
     p = mps_slab_calloc(pool, 4096 * 2);
     TEST_ASSERT_NOT_NULL(p);
