@@ -81,11 +81,15 @@ MPS_STDERR_OBJS = objs/stderr/mps_log_stderr.o \
 SHLIBS = objs/libmps_ats_shdict.so \
          objs/libmps_ngx_shdict.so
 
+INSTALL_LUA_FILES = mps_ats_shdict.lua \
+                    mps_ngx_shdict.lua \
+                    mps_shdict_setup.lua
+
 build: $(SHLIBS)
 
 install: $(SHLIBS)
 	sudo install $(SHLIBS) /usr/lib/x86_64-linux-gnu/
-	sudo install mps_ats_shdict.lua mps_ngx_shdict.lua /usr/local/share/lua/5.1/
+	sudo install $(INSTALL_LUA_FILES) /usr/local/share/lua/5.1/
 
 example: objs/libmps_stderr_shdict.so
 	LD_LIBRARY_PATH=objs luajit mps_stderr_shdict_ex.lua
