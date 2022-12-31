@@ -199,7 +199,6 @@ static mps_err_t mps_shdict_on_init(mps_slab_pool_t *pool)
     mps_shdict_tree_t *dict;
     mps_err_t err;
 
-    mps_log_status("mps_shdict_on_init start");
     dict = mps_slab_alloc(pool, sizeof(mps_shdict_tree_t));
     if (!dict) {
         mps_log_error("mps_shdict_on_init: mps_slab_alloc failed");
@@ -215,8 +214,6 @@ static mps_err_t mps_shdict_on_init(mps_slab_pool_t *pool)
     mps_queue_init(pool, &dict->lru_queue);
 
     pool->log_nomem = 0;
-
-    mps_log_status("mps_shdict_on_init exit");
     return 0;
 }
 
@@ -265,8 +262,6 @@ mps_shdict_t *mps_shdict_open_or_create(const char *dict_name, size_t shm_size,
 
     pool = mps_slab_open_or_create(shm_name, shm_size, min_shift, mode,
                                    mps_shdict_on_init);
-    mps_log_status("mps_shdict_open_or_create name=%s, pool=%p", dict_name,
-                   pool);
     if (pool == NULL) {
         pthread_mutex_unlock(&dicts_lock);
         return NULL;
@@ -1057,15 +1052,6 @@ int mps_shdict_incr(mps_shdict_t *dict, const u_char *key, size_t key_len,
     mps_slab_unlock(pool);
 
     *value = num;
-    {
-        node = (mps_rbtree_node_t *)((u_char *)sd -
-                                     offsetof(mps_rbtree_node_t, color));
-        mps_log_status(
-            "incr updated value#1=%g, node=%lx, left=%lx, right=%lx, "
-            "parent=%lx",
-            *value, mps_offset(pool, node), node->left, node->right,
-            node->parent);
-    }
     return NGX_OK;
 
 remove:
@@ -1108,7 +1094,6 @@ insert:
         key_len + sizeof(double);
 
     node = mps_slab_alloc_locked(pool, n);
-    mps_log_status("incr allocated node=%lx", mps_offset(pool, node));
 
     if (node == NULL) {
 
@@ -1173,15 +1158,6 @@ setvalue:
     mps_slab_unlock(pool);
 
     *value = num;
-    {
-        node = (mps_rbtree_node_t *)((u_char *)sd -
-                                     offsetof(mps_rbtree_node_t, color));
-        mps_log_status(
-            "incr updated value#2=%g, node=%lx, left=%lx, right=%lx, "
-            "parent=%lx",
-            *value, mps_offset(pool, node), node->left, node->right,
-            node->parent);
-    }
     return NGX_OK;
 }
 
