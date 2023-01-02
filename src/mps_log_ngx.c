@@ -1,4 +1,7 @@
-#include "mps_log_ngx.h"
+#include <ngx_config.h>
+#include <ngx_core.h>
+
+#include "mps_log.h"
 
 void mps_log_ngx_core(ngx_uint_t level, ngx_log_t *log, const char *fmt, ...)
 {

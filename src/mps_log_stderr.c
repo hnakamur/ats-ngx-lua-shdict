@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "mps_log_stderr.h"
+#include "mps_log.h"
 
 #define TSLOG_STDERR_BUFSIZE 2048
 

@@ -2162,11 +2162,11 @@ static void show_tree_node(mps_slab_pool_t *pool, mps_rbtree_t *tree,
                            mps_rbtree_node_t *node)
 {
     if (node->left == mps_nulloff) {
-        mps_log_error("show_tree_node, node->left is null, node=%x",
+        mps_log_error("show_tree_node, node->left is null, node=%lx",
                       mps_offset(pool, node));
     }
     if (node->right == mps_nulloff) {
-        mps_log_error("show_tree_node, node->right is null, node=%x",
+        mps_log_error("show_tree_node, node->right is null, node=%lx",
                       mps_offset(pool, node));
     }
     if (node->left == mps_nulloff || node->right == mps_nulloff) {
@@ -2278,7 +2278,7 @@ void test_rbtree_standard_random(void)
                 if (node != NULL) {
                     nodes[node_count++] = node;
                     mps_log_debug("rbtree_test",
-                                  "inserted node=%x, key=%x, node_count=%d",
+                                  "inserted node=%lx, key=%x, node_count=%d",
                                   mps_offset(pool, node), key, node_count);
                     i++;
                     continue;
@@ -2296,7 +2296,7 @@ void test_rbtree_standard_random(void)
         j = rnd % node_count;
 
         mps_rbtree_delete(pool, tree, nodes[j]);
-        mps_log_debug("rbtree_test", "deleted node=%x, key=%x, node_count=%d",
+        mps_log_debug("rbtree_test", "deleted node=%lx, key=%lx, node_count=%d",
                       mps_offset(pool, nodes[j]), nodes[j]->key,
                       node_count - 1);
         nodes[j] = nodes[--node_count];
@@ -2341,7 +2341,7 @@ void test_rbtree_timer_random(void)
                 if (node != NULL) {
                     nodes[node_count++] = node;
                     mps_log_debug("rbtree_test",
-                                  "inserted node=%x, key=%x, node_count=%d",
+                                  "inserted node=%lx, key=%x, node_count=%d",
                                   mps_offset(pool, node), key, node_count);
                     i++;
                     continue;
@@ -2359,7 +2359,7 @@ void test_rbtree_timer_random(void)
         j = rnd % node_count;
 
         mps_rbtree_delete(pool, tree, nodes[j]);
-        mps_log_debug("rbtree_test", "deleted node=%x, key=%x, node_count=%d",
+        mps_log_debug("rbtree_test", "deleted node=%lx, key=%lx, node_count=%d",
                       mps_offset(pool, nodes[j]), nodes[j]->key,
                       node_count - 1);
         nodes[j] = nodes[--node_count];

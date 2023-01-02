@@ -21,8 +21,6 @@ TEST_CFLAGS = $(TEST_LOG_FLAG) -DUNITY_INCLUDE_DOUBLE -O0 -g3 -Itest/unity $(COV
 STDERR_CFLAGS = -DMPS_LOG_STDERR -DDDEBUG -O0 -g3 -fPIC $(COMMON_CFLAGS)
 
 MPS_DEPS = src/mps_log.h \
-           src/mps_log_ngx.h \
-           src/mps_log_stderr.h \
            src/mps_queue.h \
            src/mps_rbtree.h \
            src/mps_shdict.h \

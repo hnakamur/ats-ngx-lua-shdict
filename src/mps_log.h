@@ -5,6 +5,15 @@
 
 #define MPS_LOG_TAG "mps_shdict"
 
+#if !defined(mps_printflike)
+#if defined(__GNUC__) || defined(__clang__)
+#define mps_printflike(fmt_index, arg_index)                                   \
+    __attribute__((format(printf, fmt_index, arg_index)))
+#else
+#define mps_printflike(fmt_index, arg_index)
+#endif
+#endif
+
 #if MPS_LOG_ATS
 
 #include "tslog.h"
@@ -16,7 +25,13 @@
 
 #elif MPS_LOG_NGX
 
-#include "mps_log_ngx.h"
+#include <ngx_config.h>
+#include <ngx_core.h>
+void mps_log_ngx_core(ngx_uint_t level, ngx_log_t *log, const char *fmt, ...)
+    mps_printflike(3, 4);
+void mps_log_ngx_debug(ngx_log_t *log, const char *func, const char *file,
+                       int line, const char *tag, const char *fmt, ...)
+    mps_printflike(6, 7);
 extern volatile ngx_cycle_t *ngx_cycle;
 #define mps_log_debug(tag, ...)                                                \
     if (ngx_cycle->log->log_level & NGX_LOG_DEBUG)                             \
@@ -45,7 +60,11 @@ extern volatile ngx_cycle_t *ngx_cycle;
 
 #else
 
-#include "mps_log_stderr.h"
+void mps_log_stderr(const char *level, const char *fmt, ...)
+    mps_printflike(2, 3);
+void mps_log_stderr_debug(const char *func, const char *file, int line,
+                          const char *tag, const char *fmt, ...)
+    mps_printflike(5, 6);
 #define mps_log_debug(tag, ...)                                                \
     mps_log_stderr_debug(__func__, __FILE__, __LINE__, tag, __VA_ARGS__)
 #define mps_log_status(...) mps_log_stderr("STATUS", __VA_ARGS__)
