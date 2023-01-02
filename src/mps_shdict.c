@@ -561,7 +561,7 @@ int mps_shdict_store(mps_shdict_t *dict, int op, const u_char *key,
             sd->value_type != MPS_SHDICT_TLIST) {
 
             mps_log_debug(MPS_LOG_TAG,
-                          "lua shared tree set in dict \"" LogLenStr "\": "
+                          "lua shared tree set in dict \"%.*s\": "
                           "found old entry and value size matched, reusing it",
                           (int)dict->name.len, dict->name.data);
 
@@ -590,7 +590,7 @@ int mps_shdict_store(mps_shdict_t *dict, int op, const u_char *key,
 
         mps_log_debug(
             MPS_LOG_TAG,
-            "lua shared dict set in dict \"" LogLenStr "\": "
+            "lua shared dict set in dict \"%.*s\": "
             "found old entry but value size NOT matched, removing it first",
             (int)dict->name.len, dict->name.data);
 
@@ -628,8 +628,7 @@ insert:
     }
 
     mps_log_debug(MPS_LOG_TAG,
-                  "lua shared dict set in dict \"" LogLenStr
-                  "\": creating a new entry",
+                  "lua shared dict set in dict \"%.*s\": creating a new entry",
                   (int)dict->name.len, dict->name.data);
 
     n = offsetof(mps_rbtree_node_t, color) + offsetof(mps_shdict_node_t, data) +
@@ -648,7 +647,7 @@ insert:
 
         mps_log_debug(MPS_LOG_TAG,
                       "lua shared dict set: overriding non-expired items "
-                      "due to memory shortage for entry \"" LogLenStr "\"",
+                      "due to memory shortage for entry \"%.*s\"",
                       (int)key_len, key);
 
         for (i = 0; i < 30; i++) {
@@ -815,9 +814,8 @@ int mps_shdict_get(mps_shdict_t *dict, const u_char *key, size_t key_len,
 
         if (value.len != sizeof(double)) {
             mps_slab_unlock(pool);
-            mps_log_error("bad lua number value size found for key " LogLenStr
-                          " "
-                          "in dict \"" LogLenStr "\": %lu",
+            mps_log_error("bad lua number value size found for key %.*s"
+                          "in dict \"%.*s\": %lu",
                           (int)key_len, key, (int)dict->name.len,
                           dict->name.data, value.len);
             return NGX_ERROR;
@@ -831,9 +829,8 @@ int mps_shdict_get(mps_shdict_t *dict, const u_char *key, size_t key_len,
 
         if (value.len != sizeof(u_char)) {
             mps_slab_unlock(pool);
-            mps_log_error("bad lua boolean value size found for key " LogLenStr
-                          " "
-                          "in dict \"" LogLenStr "\": %lu",
+            mps_log_error("bad lua boolean value size found for key %.*s"
+                          "in dict \"%.*s\": %lu",
                           (int)key_len, key, (int)dict->name.len,
                           dict->name.data, value.len);
             return NGX_ERROR;
@@ -852,8 +849,8 @@ int mps_shdict_get(mps_shdict_t *dict, const u_char *key, size_t key_len,
     default:
 
         mps_slab_unlock(pool);
-        mps_log_error("bad value type found for key " LogLenStr
-                      " in dict \"" LogLenStr "\": %d",
+        mps_log_error("bad value type found for key %.*s"
+                      " in dict \"%.*s\": %d",
                       (int)key_len, key, (int)dict->name.len, dict->name.data,
                       *value_type);
         return NGX_ERROR;
@@ -932,7 +929,7 @@ int mps_shdict_incr(mps_shdict_t *dict, const u_char *key, size_t key_len,
                 sd->value_type != MPS_SHDICT_TLIST) {
                 mps_log_debug(
                     MPS_LOG_TAG,
-                    "lua shared dict incr in dict \"" LogLenStr "\": "
+                    "lua shared dict incr in dict \"%.*s\": "
                     "found old entry and value size matched, reusing it",
                     (int)dict->name.len, dict->name.data);
 
@@ -981,7 +978,7 @@ remove:
 
     mps_log_debug(
         MPS_LOG_TAG,
-        "lua shared dict incr in dict \"" LogLenStr "\": "
+        "lua shared dict incr in dict \"%.*s\": "
         "found old entry but value size NOT matched, removing it first",
         (int)dict->name.len, dict->name.data);
 
@@ -1008,8 +1005,7 @@ remove:
 insert:
 
     mps_log_debug(MPS_LOG_TAG,
-                  "lua shared dict incr in dict \"" LogLenStr
-                  "\": creating a new entry",
+                  "lua shared dict incr in dict \"%.*s\": creating a new entry",
                   (int)dict->name.len, dict->name.data);
 
     n = offsetof(mps_rbtree_node_t, color) + offsetof(mps_shdict_node_t, data) +
@@ -1020,9 +1016,9 @@ insert:
     if (node == NULL) {
 
         mps_log_debug(MPS_LOG_TAG,
-                      "lua shared dict incr in dict \"" LogLenStr
-                      "\": overriding non-expired items "
-                      "due to memory shortage for entry \"" LogLenStr "\"",
+                      "lua shared dict incr in dict \"%.*s\": overriding "
+                      "non-expired items "
+                      "due to memory shortage for entry \"%.*s\"",
                       (int)dict->name.len, dict->name.data, (int)key_len, key);
 
         for (i = 0; i < 30; i++) {

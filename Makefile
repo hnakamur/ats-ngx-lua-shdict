@@ -21,6 +21,7 @@ TEST_CFLAGS = $(TEST_LOG_FLAG) -DUNITY_INCLUDE_DOUBLE -O0 -g3 -Itest/unity $(COV
 STDERR_CFLAGS = -DMPS_LOG_STDERR -DDDEBUG -O0 -g3 -fPIC $(COMMON_CFLAGS)
 
 MPS_DEPS = src/mps_log.h \
+           src/mps_log_ngx.h \
            src/mps_log_stderr.h \
            src/mps_queue.h \
            src/mps_rbtree.h \
@@ -59,7 +60,8 @@ MPS_ATS_OBJS = objs/ats/ngx_murmurhash.o \
                objs/ats/mps_slab.o \
                objs/ats/ngx_string.o
 
-MPS_NGX_OBJS = objs/ngx/mps_rbtree.o \
+MPS_NGX_OBJS = objs/ngx/mps_log_ngx.o \
+               objs/ngx/mps_rbtree.o \
                objs/ngx/mps_shdict.o \
                objs/ngx/mps_slab.o
 
@@ -142,6 +144,10 @@ objs/ats/ngx_string.o:	src/ngx_string.c $(MPS_DEPS)
 	$(CC) -c $(ATS_CFLAGS) -o $@ $<
 
 # build MPS_NGX_OBJS
+
+objs/ngx/mps_log_ngx.o:	src/mps_log_ngx.c $(MPS_DEPS) $(NGX_LOG_HEADERS)
+	@mkdir -p objs/ngx
+	$(CC) -c $(NGX_CFLAGS) -o $@ $<
 
 objs/ngx/mps_rbtree.o:	src/mps_rbtree.c $(MPS_DEPS) $(NGX_LOG_HEADERS)
 	@mkdir -p objs/ngx
